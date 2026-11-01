@@ -1,0 +1,184 @@
+name: Isolated TimeSeries build probes
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-build-probes.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tslab-independent-probes-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  graph:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [current, disable-extra-modes]
+    env:
+      PROFILE: ${{ matrix.profile }}
+      SOURCE_SHA: 52529f0c711566d696917678bf15e7068772fdde
+      LLVM_VERSION: 22.1.8
+      LLVM_SHA256: 8d5d1e52a06e1c10e457fd36489047053ac451ddad9c88017b0d0fc6b8e5d4c0
+      CCACHE_DIR: /tmp/tslab-probe-ccache
+      CCACHE_MAXSIZE: 500M
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Prepare isolated patch
+        run: |
+          mkdir -p /tmp/tslab-evidence
+          cp .github/ts-lab-patches/0001-fast-sum-rate-no-duplicate-grid.patch "$RUNNER_TEMP/patch.diff"
+          printf '%s\n' "$GITHUB_SHA" > /tmp/tslab-evidence/lab-commit.txt
+      - name: Obtain pinned ClickHouse and submodules
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache /usr/local/share/powershell || true
+          git remote add upstream https://github.com/ClickHouse/ClickHouse.git
+          git fetch --no-tags --depth=1 upstream "$SOURCE_SHA"
+          git checkout --detach FETCH_HEAD
+          git submodule sync --recursive
+          git submodule update --init --recursive --depth=1 --jobs 4
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git apply --check "$RUNNER_TEMP/patch.diff"
+          git apply "$RUNNER_TEMP/patch.diff"
+      - name: Install identical pinned LLVM
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 "https://www.kernel.org/pub/tools/llvm/files/llvm-$LLVM_VERSION-x86_64.tar.xz" -o "$RUNNER_TEMP/llvm.tar.xz"
+          echo "$LLVM_SHA256  $RUNNER_TEMP/llvm.tar.xz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/llvm" "$CCACHE_DIR"
+          tar -xf "$RUNNER_TEMP/llvm.tar.xz" -C "$RUNNER_TEMP/llvm" --strip-components=1
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ccache nasm
+      - name: Configure baseline or additional mode restriction
+        run: |
+          set -euo pipefail
+          export PATH="$RUNNER_TEMP/llvm/bin:$PATH"
+          extra=""
+          if [ "$PROFILE" = "disable-extra-modes" ]; then extra="-DENABLE_CLICKHOUSE_ALL=OFF"; fi
+          /usr/bin/time -v -o /tmp/tslab-evidence/configure-time.txt \
+            cmake -S . -B build-lab -G Ninja \
+              -DLINKER_NAME="$RUNNER_TEMP/llvm/bin/ld.lld" \
+              -DCMAKE_BUILD_TYPE=Release \
+              '-DCMAKE_C_FLAGS_RELEASE=-O1 -DNDEBUG -g0' \
+              '-DCMAKE_CXX_FLAGS_RELEASE=-O1 -DNDEBUG -g0' \
+              -DCOMPILER_CACHE=ccache \
+              -DCMAKE_C_COMPILER="$RUNNER_TEMP/llvm/bin/clang" \
+              -DCMAKE_CXX_COMPILER="$RUNNER_TEMP/llvm/bin/clang++" \
+              -DCMAKE_LINKER="$RUNNER_TEMP/llvm/bin/ld.lld" \
+              -DENABLE_LIBRARIES=OFF -DENABLE_TESTS=OFF \
+              -DENABLE_BENCHMARKS=OFF -DENABLE_RUST=OFF -DENABLE_CUDA=OFF \
+              -DENABLE_ARROW=OFF -DENABLE_ORC=OFF -DENABLE_HDFS=OFF \
+              -DENABLE_ISAL_LIBRARY=OFF -DENABLE_GPU=OFF \
+              -DENABLE_EXAMPLES=OFF -DENABLE_SUBSTRAIT=OFF \
+              -DCLICKHOUSE_OFFICIAL_BUILD=OFF $extra \
+              > /tmp/tslab-evidence/configure.log 2>&1
+      - name: Count build actions and compile patched CXX object only
+        run: |
+          set -euo pipefail
+          ninja -C build-lab -n clickhouse > /tmp/tslab-evidence/dry-run.txt
+          ninja -C build-lab -t targets all > /tmp/tslab-evidence/targets.txt
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          d=pathlib.Path('/tmp/tslab-evidence')
+          steps=[x for x in (d/'dry-run.txt').read_text().splitlines() if re.match(r'^\[\d+/\d+\]',x)]
+          cxx=[x for x in steps if 'Building CXX object ' in x]
+          targets=[x.split(': ',1)[0] for x in (d/'targets.txt').read_text().splitlines() if 'PrometheusQueryToSQL/Converter.cpp.o:' in x]
+          assert len(targets)==1, targets
+          (d/'converter.txt').write_text(targets[0]+'\n')
+          metrics={'run_id':os.environ['GITHUB_RUN_ID'],'commit':os.environ['GITHUB_SHA'],'profile':os.environ['PROFILE'],'source_sha':os.environ['SOURCE_SHA'],'ninja_actions':len(steps),'cxx_objects':len(cxx),'patched_object_target':targets[0]}
+          (d/'metrics.json').write_text(json.dumps(metrics,indent=2)+'\n')
+          print(json.dumps(metrics))
+          PY
+          /usr/bin/time -v -o /tmp/tslab-evidence/compile-time.txt \
+            ninja -C build-lab -j2 "$(cat /tmp/tslab-evidence/converter.txt)" > /tmp/tslab-evidence/compile.log 2>&1 || {
+              tail -80 /tmp/tslab-evidence/compile.log; exit 1;
+            }
+          ccache --show-stats > /tmp/tslab-evidence/ccache.txt
+          cat /tmp/tslab-evidence/compile-time.txt
+      - name: Publish graph and compile logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-probe-${{ matrix.profile }}-${{ github.run_id }}
+          path: /tmp/tslab-evidence/
+          retention-days: 7
+          if-no-files-found: warn
+
+  cache_writer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/test-cache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_DEPEND: 'true'
+    steps:
+      - name: Build cache entries
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ccache
+          mkdir -p src obj "$CCACHE_DIR"
+          for i in $(seq -w 0 15); do
+            printf '#include <vector>\n#include <numeric>\nint f%s(){std::vector<int> a(100,%s); return std::accumulate(a.begin(),a.end(),0);}\n' "$i" "$i" > "src/$i.cpp"
+          done
+          ccache -z
+          for x in src/*.cpp; do
+            n="$(basename "$x" .cpp)"
+            ccache clang++ -O1 -std=c++20 -MD -MF "obj/$n.d" -c "$x" -o "obj/$n.o"
+          done
+          ccache --show-stats | tee writer.txt
+      - uses: actions/cache/save@v4
+        with:
+          path: test-cache
+          key: tslab-isolated-test-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tslab-cache-writer-${{ github.run_id }}
+          path: writer.txt
+          retention-days: 7
+
+  cache_reader:
+    needs: cache_writer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/test-cache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_DEPEND: 'true'
+    steps:
+      - uses: actions/cache/restore@v4
+        with:
+          path: test-cache
+          key: tslab-isolated-test-${{ github.run_id }}-${{ github.run_attempt }}
+          fail-on-cache-miss: true
+      - name: Compile same source in new runner
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ccache
+          mkdir -p src obj
+          for i in $(seq -w 0 15); do
+            printf '#include <vector>\n#include <numeric>\nint f%s(){std::vector<int> a(100,%s); return std::accumulate(a.begin(),a.end(),0);}\n' "$i" "$i" > "src/$i.cpp"
+          done
+          ccache -z
+          for x in src/*.cpp; do
+            n="$(basename "$x" .cpp)"
+            ccache clang++ -O1 -std=c++20 -MD -MF "obj/$n.d" -c "$x" -o "obj/$n.o"
+          done
+          ccache --show-stats | tee reader.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tslab-cache-reader-${{ github.run_id }}
+          path: reader.txt
+          if-no-files-found: warn
+          retention-days: 7
