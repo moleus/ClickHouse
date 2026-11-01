@@ -1,0 +1,158 @@
+name: TimeSeries benchmark watch and verify
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-benchmark-watch.yml']
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: tslab-benchmark-watch-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  watch_and_benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 355
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      CH_RUN: '41301314345'
+      VM_RUN: '41288854734'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Wait until pinned compiler run completes
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          echo "Benchmark controller run=$GITHUB_RUN_ID commit=$GITHUB_SHA target=$CH_RUN" | tee evidence/provenance.txt
+          for i in $(seq 1 540); do
+            status="$(gh api "repos/$REPO/actions/runs/$CH_RUN" --jq '.status')"
+            conclusion="$(gh api "repos/$REPO/actions/runs/$CH_RUN" --jq '.conclusion // "pending"')"
+            if [ "$status" = "completed" ]; then
+              echo "RUN $CH_RUN $status $conclusion" | tee evidence/main-run.txt
+              if [ "$conclusion" != "success" ]; then
+                gh run view "$CH_RUN" -R "$REPO" --log-failed > evidence/main-failed-steps.log 2>&1 || true
+                tail -90 evidence/main-failed-steps.log || true
+                exit 1
+              fi
+              exit 0
+            fi
+            if [ $((i % 10)) -eq 1 ]; then echo "RUN $CH_RUN status=$status check=$i"; fi
+            sleep 30
+          done
+          echo "Timeout waiting for run=$CH_RUN" >&2
+          exit 1
+      - name: Download, hash-check and inspect patched ClickHouse
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch-artifact" "$RUNNER_TEMP/ch-bin"
+          gh run download "$CH_RUN" -R "$REPO" --pattern 'tslab-clickhouse-amd64-*' --dir "$RUNNER_TEMP/ch-artifact"
+          find "$RUNNER_TEMP/ch-artifact" -maxdepth 3 -type f -print
+          archive="$(find "$RUNNER_TEMP/ch-artifact" -type f -name 'clickhouse-linux-amd64.tar.zst' -print -quit)"
+          test -s "$archive"
+          archive_dir="$(dirname "$archive")"
+          (cd "$archive_dir" && sha256sum -c ARCHIVE_SHA256SUMS)
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
+          (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS)
+          chmod +x "$RUNNER_TEMP/ch-bin/clickhouse"
+          "$RUNNER_TEMP/ch-bin/clickhouse" --version | tee evidence/ch-version.txt
+          sha256sum "$archive" "$RUNNER_TEMP/ch-bin/clickhouse" | tee evidence/ch-sha256.txt
+          cat "$RUNNER_TEMP/ch-bin/BUILD_INFO.txt" | tee evidence/build-info.txt
+      - name: Download and hash-check VictoriaMetrics v1.134.0
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/vm-artifact" "$RUNNER_TEMP/vm-bin"
+          gh run download "$VM_RUN" -R "$REPO" --pattern 'tslab-victoria-metrics-v1.134.0' --dir "$RUNNER_TEMP/vm-artifact"
+          vm_archive="$(find "$RUNNER_TEMP/vm-artifact" -type f -name 'victoria-metrics-linux-amd64-v1.134.0.tar.gz' -print -quit)"
+          test -s "$vm_archive"
+          (cd "$(dirname "$vm_archive")" && sha256sum -c SHA256SUMS)
+          tar -xzf "$vm_archive" -C "$RUNNER_TEMP/vm-bin"
+          vm_binary="$(find "$RUNNER_TEMP/vm-bin" -type f -name 'victoria-metrics*' -print -quit)"
+          test -s "$vm_binary"
+          chmod +x "$vm_binary"
+          "$vm_binary" --version 2>&1 | head -n 3 | tee evidence/vm-version.txt
+          printf '%s\n' "$vm_binary" > "$RUNNER_TEMP/vm-bin/path.txt"
+          sha256sum "$vm_archive" "$vm_binary" | tee evidence/vm-sha256.txt
+      - name: Run 13 PromQL regression cases
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-scripts/validate_promql.py "$RUNNER_TEMP/ch-bin/clickhouse" | tee evidence/promql-core.txt
+          python3 .github/ts-lab-bench/validate_promql_extra.py "$RUNNER_TEMP/ch-bin/clickhouse" | tee evidence/promql-extra.txt
+      - name: Start isolated ClickHouse and VM HTTP services
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles" "$RUNNER_TEMP/vm/data"
+          cat > "$RUNNER_TEMP/ch-config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host>
+            <http_port>18191</http_port>
+            <tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path>
+            <tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><max_memory_usage>4000000000</max_memory_usage></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <default_profile>default</default_profile>
+            <default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/ch-bin/clickhouse" server --config-file="$RUNNER_TEMP/ch-config.xml" > evidence/clickhouse-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          vm_binary="$(cat "$RUNNER_TEMP/vm-bin/path.txt")"
+          "$vm_binary" -storageDataPath="$RUNNER_TEMP/vm/data" -httpListenAddr=127.0.0.1:8430 -search.disableCache > evidence/vm-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/vm.pid"
+          ready=0
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 2 http://127.0.0.1:18191/ping >/dev/null 2>&1 && curl -fsS --max-time 2 http://127.0.0.1:8430/health >/dev/null 2>&1; then ready=1; break; fi
+            sleep 2
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -80 evidence/clickhouse-server.log || true
+            tail -80 evidence/vm-server.log || true
+            exit 1
+          fi
+          curl -fsS http://127.0.0.1:18191/?query=SELECT%201
+          curl -fsS http://127.0.0.1:8430/health
+      - name: Generate same 5K-series dataset and import into VM
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-bench/generate.py --outdir "$RUNNER_TEMP/bench" --series 5000 --points 120 --step 60 | tee evidence/dataset.json
+          curl -fsS --max-time 180 -X POST --data-binary "@$RUNNER_TEMP/bench/vm-import.prom" \
+            http://127.0.0.1:8430/api/v1/import/prometheus | tee evidence/vm-import.txt
+      - name: Compare warm PromQL and MetricsQL query latency
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-bench/benchmark_http.py \
+            --data "$RUNNER_TEMP/bench" \
+            --clickhouse http://127.0.0.1:18191 \
+            --victoria http://127.0.0.1:8430 \
+            --table bench_ts_5k --load-clickhouse --warmups 4 --repetitions 12 \
+            | tee evidence/benchmark.log
+          cp "$RUNNER_TEMP/bench/benchmark-results.json" evidence/benchmark-results.json
+          python3 - <<'PY'
+          import json,pathlib
+          q=json.loads(pathlib.Path("evidence/benchmark-results.json").read_text())
+          pairs={}
+          for r in q["cases"]:pairs.setdefault(r["name"],{})[r["engine"]]=r
+          out=[{"query":k,"ch_p50_ms":v["ch"]["p50_ms"],"vm_p50_ms":v["vm"]["p50_ms"],"ch_vm_ratio":round(v["ch"]["p50_ms"]/v["vm"]["p50_ms"],3)} for k,v in pairs.items() if "ch" in v and "vm" in v]
+          print(json.dumps(out,indent=2))
+          pathlib.Path("evidence/comparison.json").write_text(json.dumps(out,indent=2)+"\n")
+          PY
+          ps -o pid,rss,%cpu,comm -p "$(cat "$RUNNER_TEMP/ch.pid"),$(cat "$RUNNER_TEMP/vm.pid")" | tee evidence/process-usage.txt
+          du -sb "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/vm/data" | tee evidence/storage-usage.txt
+      - name: Publish verified binaries and benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-run41301314345-benchmark-${{ github.run_id }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 14
