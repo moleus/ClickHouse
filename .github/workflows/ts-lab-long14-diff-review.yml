@@ -1,0 +1,97 @@
+name: TimeSeries long14 numerical divergence review
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-long14-diff-review.yml']
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: tslab-long14-diff-review
+  cancel-in-progress: false
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: \${{ github.token }}
+      REPO: moleus/ClickHouse
+      SOURCE_RUN: '41304682666'
+    steps:
+      - name: Retrieve long14 benchmark evidence
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/reference
+          gh run download "$SOURCE_RUN" -R "$REPO" -n "tslab-long14-baseline-long14-$SOURCE_RUN" -D evidence/reference
+          find evidence/reference -type f | sort
+      - name: Analyze raw 1-minute values, memory and timing
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import datetime as dt
+          import gzip
+          import json
+          import pathlib
+          from collections import Counter
+          root=pathlib.Path('evidence/reference')
+          def only(pattern):
+              choices=list(root.rglob(pattern))
+              if len(choices)!=1:raise RuntimeError((pattern,choices))
+              return choices[0]
+          chjson=gzip.decompress(only('*-clickhouse-1m-response.gz').read_bytes()).decode()
+          vmjson=gzip.decompress(only('*-victoria-1m-response.gz').read_bytes()).decode()
+          chrows=[json.loads(s) for s in chjson.splitlines() if s.strip()]
+          vmobj=json.loads(vmjson)
+          assert len(chrows)==1 and vmobj['status']=='success'
+          assert len(vmobj['data']['result'])==1
+          def epoch(v):
+              if isinstance(v,(int,float)):return int(v)
+              return int(dt.datetime.fromisoformat(v.replace(' ','T')).replace(tzinfo=dt.timezone.utc).timestamp())
+          ch={epoch(t):float(v) for t,v in chrows[0]['samples']}
+          vm={int(t):float(v) for t,v in vmobj['data']['result'][0]['values']}
+          common=sorted(set(ch)&set(vm))
+          assert len(ch)==len(vm)==len(common),(len(ch),len(vm),len(common))
+          differing=[]
+          for t in common:
+              a,b=ch[t],vm[t]
+              rel=abs(a-b)/max(abs(b),1e-12)
+              if rel>1e-6:
+                  differing.append(dict(epoch=t,utc=dt.datetime.fromtimestamp(t,dt.timezone.utc).isoformat(),ch=a,vm=b,relative=rel,absolute=abs(a-b)))
+          summary={'run':41304682666,'series':44800,'samples':32256000,'points':len(common),
+                   'mismatch_count':len(differing),'mismatch_fraction':len(differing)/len(common),
+                   'first_12_mismatches':differing[:12],
+                   'largest_20_mismatches':sorted(differing,key=lambda x:x['relative'],reverse=True)[:20],
+                   'diff_frequency':dict(Counter(round(x['relative'],5) for x in differing).most_common(10))}
+          pathlib.Path('evidence/divergence.json').write_text(json.dumps(summary,indent=2)+'\n')
+          print('POINTWISE_DIVERGENCE',json.dumps(summary,indent=2)[:15000],flush=True)
+          metrics=json.loads(only('summary.json').read_text())
+          compact=[{'step':c['step_seconds'],'ch_p50_ms':c.get('clickhouse_p50_ms'),
+                    'vm_p50_ms':c.get('victoria_p50_ms'),'match':c.get('comparison'),
+                    'individual_runs':[{'engine':t['engine'],'http':t['http_status'],
+                    'wall_ms':t['wall_ms'],'cpu_s':t.get('cpu_seconds'),
+                    'peak_rss_bytes':t.get('rss_peak_bytes')}
+                    for t in c.get('runs',[])]} for c in metrics['cases']]
+          print('PER_STEP_TIMINGS',json.dumps(compact,indent=2)[:18000],flush=True)
+          p=list(root.rglob('ch-query-log.jsonl'))
+          if p:
+              q=[json.loads(s) for s in p[0].read_text().splitlines() if s.strip()]
+              stats={'count':len(q),'peak_query_memory_bytes':max((t.get('memory_usage',0) or 0 for t in q),default=0),
+                     'max_read_rows':max((t.get('read_rows',0) or 0 for t in q),default=0),
+                     'errors':[t for t in q if t.get('exception_code',0)]}
+              print('QUERY_STATS',json.dumps(stats)[:4500],flush=True)
+              pathlib.Path('evidence/query-stats.json').write_text(json.dumps(stats,indent=2)+'\n')
+          PY
+      - name: Preserve divergence analysis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-long14-diff-results
+          path: |
+            evidence/divergence.json
+            evidence/query-stats.json
+          if-no-files-found: warn
+          retention-days: 14
