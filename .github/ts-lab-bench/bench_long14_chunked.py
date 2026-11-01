@@ -9,6 +9,7 @@ import argparse
 import datetime as dt
 import json
 import math
+import os
 import pathlib
 import random
 import statistics
@@ -18,13 +19,16 @@ import urllib.parse
 import urllib.request
 
 
-def call(root, statement, timeout=180):
-    url=root.rstrip("/")+"/?"+urllib.parse.urlencode({
+def call(root, statement, timeout=180, query_id=None):
+    params={
         "max_memory_usage":1200000000,
         "max_bytes_before_external_group_by":250000000,
         "max_threads":4,
         "max_execution_time":350,
-        "wait_end_of_query":1})
+        "wait_end_of_query":1}
+    if query_id is not None:
+        params["query_id"]=query_id
+    url=root.rstrip("/")+"/?"+urllib.parse.urlencode(params)
     start=time.perf_counter()
     req=urllib.request.Request(url,data=statement.encode("utf-8"),method="POST")
     try:
@@ -78,8 +82,10 @@ def main():
     metric=m["metric"]
     native_sql=("SELECT * FROM prometheusQueryRange("+args.table+", 'sum(rate("+metric+
                 "[5m]))', "+str(start)+","+str(end)+",60) FORMAT JSONEachRow")
-    def native():
-        ms,raw=call(args.ch,native_sql,timeout=370)
+    run_prefix='tslab_chunk_'+os.environ.get('GITHUB_RUN_ID','local')
+    recorded_query_ids={}
+    def native(query_id=None):
+        ms,raw=call(args.ch,native_sql,timeout=370,query_id=query_id)
         rows=[json.loads(x) for x in raw.splitlines() if x.strip()]
         assert len(rows)==1 and rows[0].get("tags")==[],(len(rows),raw[:300])
         output={parse_timestamp(ts):float(v) for ts,v in rows[0]["samples"]}
@@ -103,7 +109,7 @@ def main():
         return "SELECT sumForEach(grid) AS values FROM ("+selected+") FORMAT JSONEachRow"
     counters={}
     query_samples=[]
-    def bounded(width):
+    def bounded(width, marker, record):
         values=[]
         duration=0.0
         qcount=0
@@ -112,7 +118,9 @@ def main():
             left=start+offset*step
             right=left+(size-1)*step
             q=window_query(left,right)
-            ms,raw=call(args.ch,q,timeout=200)
+            qid=f'{run_prefix}_{marker}_bounded_{width}_{offset}'
+            ms,raw=call(args.ch,q,timeout=200,query_id=qid)
+            if record: recorded_query_ids.setdefault(f'bounded_{width}',[]).append(qid)
             rows=[json.loads(s) for s in raw.splitlines() if s.strip()]
             if len(rows)!=1 or len(rows[0].get("values",[]))!=size:
                 raise AssertionError((offset,width,size,raw[:500]))
@@ -128,13 +136,16 @@ def main():
     keys=["native"]+["bounded_"+str(w) for w in widths]
     timings={k:[] for k in keys}
     equivalence={}
-    def execute(key,record):
+    def execute(key,record,iteration):
+        marker=('r' if record else 'w')+str(iteration)
         if key=="native":
-            total,values=native()
+            qid=f'{run_prefix}_{marker}_native'
+            total,values=native(qid)
+            if record: recorded_query_ids.setdefault(key,[]).append(qid)
             calls=1
         else:
             width=int(key.split("_")[1])
-            total,values,calls=bounded(width)
+            total,values,calls=bounded(width,marker,record)
         if len(values)!=len(canonical):
             raise AssertionError(("size",key,len(values),len(canonical)))
         max_rel=0.0
@@ -159,19 +170,57 @@ def main():
             timings[key].append(total)
         return total
     for key in keys:
-        for _ in range(args.warmups):
-            execute(key,False)
+        for w in range(args.warmups):
+            execute(key,False,w)
     rng=random.Random(501134)
     for iteration in range(args.repeats):
         order=list(keys)
         rng.shuffle(order)
         for key in order:
-            ms=execute(key,True)
+            ms=execute(key,True,iteration)
             print("CHUNK_TRIAL",iteration,key,"wall_ms",ms,flush=True)
     stats={key:{"p50_ms":pct(vals,.5),"p95_ms":pct(vals,.95),
                 "p99_ms":pct(vals,.99),"individual_ms":vals,
                 "speedup_vs_native_p50":round(pct(timings["native"],.5)/pct(vals,.5),3)}
            for key,vals in timings.items()}
+    # Query-level attribution is mandatory: unlabelled LIKE queries do not
+    # distinguish native PromQL from bounded widths, and memory_usage is
+    # per query, not a sum across HTTP requests.
+    call(args.ch,"SYSTEM FLUSH LOGS")
+    log_sql=("SELECT query_id, query_duration_ms, read_rows, read_bytes, memory_usage, exception_code "
+             "FROM system.query_log WHERE type='QueryFinish' AND startsWith(query_id,'"
+             +run_prefix+"') FORMAT JSONEachRow")
+    _,log_body=call(args.ch,log_sql)
+    by_id={row["query_id"]:row for line in log_body.splitlines() if line
+           for row in [json.loads(line)]}
+    metrics={}
+    for key in keys:
+        query_ids=recorded_query_ids.get(key,[])
+        expected_calls=equivalence[key]["http_requests"]*args.repeats
+        if len(query_ids)!=expected_calls:
+            raise AssertionError(("unexpected query count",key,len(query_ids),expected_calls))
+        if any(qid not in by_id for qid in query_ids):
+            raise AssertionError(("missing QueryFinish",key,[qid for qid in query_ids if qid not in by_id][:5]))
+        rows=[by_id[qid] for qid in query_ids]
+        if any(x["exception_code"] for x in rows):
+            raise AssertionError(("query failed",key,rows))
+        memory=[int(x["memory_usage"]) for x in rows]
+        reads=[int(x["read_rows"]) for x in rows]
+        per_trial=[]
+        for trial in range(args.repeats):
+            marker=f'{run_prefix}_r{trial}_'
+            trial_rows=[by_id[q] for q in query_ids if q.startswith(marker)]
+            assert len(trial_rows)==equivalence[key]["http_requests"],(key,trial,len(trial_rows))
+            per_trial.append({"trial":trial,"requests":len(trial_rows),
+                              "total_read_rows":sum(int(x["read_rows"]) for x in trial_rows),
+                              "max_query_memory_bytes":max(int(x["memory_usage"]) for x in trial_rows),
+                              "sum_query_duration_ms":sum(int(x["query_duration_ms"]) for x in trial_rows)})
+        metrics[key]={"logged_requests":len(rows),"query_memory_p50_bytes":pct(memory,.5),
+                      "query_memory_p95_bytes":pct(memory,.95),
+                      "max_query_memory_bytes":max(memory),
+                      "total_read_rows_p50":pct([x["total_read_rows"] for x in per_trial],.5),
+                      "per_trial":per_trial}
+        print("BOUNDED_MEMORY",key,json.dumps(metrics[key]),flush=True)
     result={"benchmark":"long14 bounded grid sum(rate())","source":"raw inner table SQL",
             "semantics":"SQL groups by id and sums grid per window; not general PromQL",
             "manifest":m,"stored_series":raw_series,"stored_samples":raw_samples,"stored_rows":stored_rows,
@@ -179,7 +228,8 @@ def main():
             "evaluation_points":n,"time_range_step_seconds":step,
             "max_memory_usage_bytes":1200000000,
             "warmups":args.warmups,"repeats":args.repeats,"stats":stats,
-            "equivalence_vs_native":equivalence,"first_query_samples":query_samples}
+            "equivalence_vs_native":equivalence,"first_query_samples":query_samples,
+            "query_log_by_variant":metrics,"query_log_prefix":run_prefix}
     output=pathlib.Path(args.output)
     output.parent.mkdir(parents=True,exist_ok=True)
     output.write_text(json.dumps(result,indent=2)+"\n")
