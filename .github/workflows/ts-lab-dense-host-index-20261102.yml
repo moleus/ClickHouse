@@ -1,0 +1,194 @@
+name: TimeSeries dense host tag physical index A/B/C/A vs VictoriaMetrics
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-dense-host-index-20261102.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-dense-host-index-20261102-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      CH_RUN: '41301314345'
+      VM_RUN: '41288854734'
+      DAYS: '3'
+      BUILDS_PER_DAY: '2474'
+      STAGE_VARIANTS: '1448'
+      LIMIT_PROBE: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Download verified baseline ClickHouse and VictoriaMetrics binaries
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/ch-art" "$RUNNER_TEMP/ch-bin" "$RUNNER_TEMP/vm-art" "$RUNNER_TEMP/vm-bin"
+          gh run download "$CH_RUN" -R "$REPO" --pattern 'tslab-clickhouse-amd64-*' -D "$RUNNER_TEMP/ch-art"
+          archive="$(find "$RUNNER_TEMP/ch-art" -type f -name 'clickhouse-linux-amd64.tar.zst' -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/ch-archive-hash.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
+          (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS) | tee evidence/ch-binary-hash.txt
+          chmod +x "$RUNNER_TEMP/ch-bin/clickhouse"
+          "$RUNNER_TEMP/ch-bin/clickhouse" --version | tee evidence/ch-version.txt
+          gh run download "$VM_RUN" -R "$REPO" -n tslab-victoria-metrics-v1.134.0 -D "$RUNNER_TEMP/vm-art"
+          (cd "$RUNNER_TEMP/vm-art" && sed 's#  output/#  #' SHA256SUMS | sha256sum -c -) | tee evidence/vm-archive-hash.txt
+          tar -xzf "$RUNNER_TEMP/vm-art/victoria-metrics-linux-amd64-v1.134.0.tar.gz" -C "$RUNNER_TEMP/vm-bin"
+          chmod +x "$RUNNER_TEMP/vm-bin/victoria-metrics-prod"
+          "$RUNNER_TEMP/vm-bin/victoria-metrics-prod" --version 2>&1 | head -n 4 | tee evidence/vm-version.txt
+
+      - name: Launch query-enabled loopback engines with explicit VM unique-series limit
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles" "$RUNNER_TEMP/vm/data"
+          cat > "$RUNNER_TEMP/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path><tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <max_server_memory_usage>6000000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions><log_queries>1</log_queries><max_memory_usage>3000000000</max_memory_usage></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/ch-bin/clickhouse" server --config-file="$RUNNER_TEMP/config.xml" >evidence/ch-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          "$RUNNER_TEMP/vm-bin/victoria-metrics-prod" -storageDataPath="$RUNNER_TEMP/vm/data" \
+            -retentionPeriod=4w -httpListenAddr=127.0.0.1:8430 -search.disableCache \
+            -search.maxUniqueTimeseries=1000000 \
+            >evidence/vm-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/vm.pid"
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 2 http://127.0.0.1:18191/ping >/dev/null 2>&1 && \
+               curl -fsS --max-time 2 http://127.0.0.1:8430/health >/dev/null 2>&1; then exit 0; fi
+            sleep 2
+          done
+          tail -100 evidence/ch-server.log evidence/vm-server.log
+          exit 1
+
+      - name: Create three ClickHouse TimeSeries layouts with identical dense inputs
+        run: |
+          set -euo pipefail
+          curl -fsS --data-binary \
+            'CREATE TABLE dense_base ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0,store_time_ranges=false' \
+            'http://127.0.0.1:18191/?allow_experimental_time_series_table=1' >evidence/dense-base-create.txt
+          curl -fsS --data-binary \
+            "CREATE TABLE dense_host_col ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0,store_time_ranges=false,tags_to_columns={'host':'host'}" \
+            'http://127.0.0.1:18191/?allow_experimental_time_series_table=1' >evidence/dense-col-create.txt
+          curl -fsS --data-binary \
+            "CREATE TABLE dense_host_sorted ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0,store_time_ranges=false,tags_to_columns={'host':'host'} TAGS ENGINE=ReplacingMergeTree ORDER BY (metric_name,host,id)" \
+            'http://127.0.0.1:18191/?allow_experimental_time_series_table=1' >evidence/dense-host-sorted-create.txt
+          python3 .github/ts-lab-bench/generate.py \
+            --outdir "$RUNNER_TEMP/dense" --series 20000 --points 120 --step 60 | tee evidence/dense-manifest.log
+          cp "$RUNNER_TEMP/dense/manifest.json" evidence/dense-manifest.json
+          (cd "$RUNNER_TEMP/dense" && sha256sum vm-import.prom ch-import.jsonl) >evidence/dense-input-sha256.txt
+
+      - name: Load identical 2.4 million samples into all ClickHouse TimeSeries and VictoriaMetrics
+        run: |
+          set -euo pipefail
+          for table in dense_base dense_host_col dense_host_sorted; do
+            curl -fsS --max-time 340 -w "INSERT_$table_SECONDS=%{time_total}\n" \
+              --data-binary "@$RUNNER_TEMP/dense/ch-import.jsonl" \
+              "http://127.0.0.1:18191/?allow_experimental_time_series_table=1&wait_end_of_query=1&query=INSERT%20INTO%20$table%20(metric_name%2Ctags%2Csamples)%20FORMAT%20JSONEachRow" \
+              | tee "evidence/ingest-$table.log"
+          done
+          curl -fsS --max-time 340 -w 'INSERT_VM_SECONDS=%{time_total}\n' \
+            --data-binary "@$RUNNER_TEMP/dense/vm-import.prom" \
+            'http://127.0.0.1:8430/api/v1/import/prometheus' | tee evidence/ingest-vm.log
+          python3 - <<'PY'
+          import json,urllib.request,urllib.parse,time
+          m=json.load(open('evidence/dense-manifest.json'))
+          def sql(q):
+              with urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:18191/',data=q.encode()),timeout=180) as r:return r.read().decode().strip()
+          names=sql("SELECT name FROM system.tables WHERE database='default' AND startsWith(name,'.inner_id.samples.') FORMAT TSVRaw").splitlines()
+          assert len(names)==3,names
+          counts=[int(sql("SELECT sum(length(samples)) FROM default.`"+n+"`")) for n in names]
+          assert all(n==m['samples_total'] for n in counts),(counts,m['samples_total'])
+          print('DENSE_HOST_STORAGE_VALID',json.dumps({'counts':counts,'sample_total':m['samples_total']}),flush=True)
+          url='http://127.0.0.1:8430/api/v1/query?'+urllib.parse.urlencode({
+              'query':'count(bench_metric)','time':m['end_epoch'],'nocache':1})
+          for attempt in range(120):
+              with urllib.request.urlopen(url,timeout=180) as r:resp=json.load(r)
+              res=resp['data']['result']
+              observed=int(float(res[0]['value'][1])) if res else 0
+              print('DENSE_VM_READY_ATTEMPT',attempt+1,observed,flush=True)
+              if observed==m['series']:break
+              time.sleep(2)
+          else:raise AssertionError(('VM not query-visible',observed,m['series']))
+          PY
+
+      - name: Test dense host label pruning, rate and grouped rate with exact ClickHouse equivalence
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-bench/bench_dense_sorted_host.py \
+            --manifest evidence/dense-manifest.json --output evidence/dense-host-index.json \
+            --warmups 1 --repeats 6 | tee evidence/dense-host-index.log
+          curl -fsS --data-binary 'SYSTEM FLUSH LOGS' http://127.0.0.1:18191/ >/dev/null
+          curl -fsS --data-binary \
+            "SELECT query_id,read_rows,read_bytes,memory_usage,query_duration_ms,exception_code FROM system.query_log WHERE type='QueryFinish' AND startsWith(query_id,'tslab_hostindex_') FORMAT JSONEachRow" \
+            http://127.0.0.1:18191/ >evidence/dense-host-index-querylog.jsonl
+
+      - name: Measure on-disk data and run capped VictoriaMetrics unique-series diagnostic
+        if: success()
+        run: |
+          set -euo pipefail
+          curl -fsS --data-binary \
+            "SELECT table, sum(bytes_on_disk) AS bytes, sum(rows) AS rows FROM system.parts WHERE database='default' AND active GROUP BY table ORDER BY table FORMAT TSV" \
+            http://127.0.0.1:18191/ | tee evidence/ch-active-parts.tsv
+          du -sb "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/vm/data" 2>evidence/du-errors.txt \
+            | tee evidence/raw-storage-bytes.tsv || true
+          ps -eo pid,ppid,rss,comm | grep -E 'clickhouse|victoria-metrics|PID' \
+            | tee evidence/process-memory.tsv || true
+          if [ "$LIMIT_PROBE" = 1 ]; then
+            kill "$(cat "$RUNNER_TEMP/vm.pid")"
+            for i in $(seq 1 100); do
+              if ! kill -0 "$(cat "$RUNNER_TEMP/vm.pid")" 2>/dev/null; then break; fi
+              sleep 1
+            done
+            "$RUNNER_TEMP/vm-bin/victoria-metrics-prod" -storageDataPath="$RUNNER_TEMP/vm/data" \
+              -retentionPeriod=4w -httpListenAddr=127.0.0.1:8430 -search.disableCache \
+              -search.maxUniqueTimeseries=165000 >evidence/vm-capped-server.log 2>&1 &
+            echo "$!" > "$RUNNER_TEMP/vm-capped.pid"
+            for i in $(seq 1 90); do
+              if curl -fsS --max-time 2 http://127.0.0.1:8430/health >/dev/null 2>&1; then break; fi
+              sleep 2
+            done
+            python3 - <<'PY'
+          import json,urllib.parse,urllib.request,urllib.error
+          m=json.load(open('evidence/manifest.json'))
+          expr='avg by(stage)(avg_over_time(jenkins_avs_build_stage_duration[1d]))'
+          url='http://127.0.0.1:8430/api/v1/query_range?'+urllib.parse.urlencode({
+              'query':expr,'start':m['query_start_epoch'],'end':m['query_end_epoch'],'step':86400,'nocache':1})
+          try:
+              with urllib.request.urlopen(url,timeout=300) as r:
+                  code=r.status;payload=r.read().decode('utf-8','replace')
+          except urllib.error.HTTPError as e:
+              code=e.code;payload=e.read().decode('utf-8','replace')
+          record={'limit':165000,'series':m['total_series'],'status':code,'response_excerpt':payload[:2200]}
+          print('JENKINS_VM_165K_GATE',json.dumps(record,sort_keys=True))
+          with open('evidence/vm-limit-165k.json','w') as f:json.dump(record,f,indent=2)
+          PY
+          fi
+
+      - name: Preserve raw evidence and any errors
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-dense-host-index-20000x120-${{ github.run_id }}
+          path: evidence/
+          retention-days: 14
+          compression-level: 1
+          if-no-files-found: warn
