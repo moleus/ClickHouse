@@ -1,0 +1,129 @@
+{
+  "experiment": "TimeSeries unpatched ClickHouse vs VictoriaMetrics single-node same-runtime 50k series",
+  "created_date": "2026-11-01",
+  "engines": {
+    "clickhouse": {
+      "version": "26.11.1.974",
+      "sha256": "2263cb6eb1bacacba59d394963767b9ba438fc422e3c942b084a6500512d0721",
+      "patched": false,
+      "http_port": 18191
+    },
+    "victoria": {
+      "version": "v1.134.0",
+      "sha256": "cd6e109bae85ff7c138d838b32be9a7fe2a6d7a9b3a387a7cf9234f22991da10",
+      "http_port": 8430
+    }
+  },
+  "environment": {
+    "cgroup_cpu_quota_vcpu": 4,
+    "cgroup_memory_limit_gib": 4,
+    "local_loopback": true,
+    "other_existing_load": true
+  },
+  "workload": {
+    "series": 50000,
+    "samples_per_series": 120,
+    "points_ingested_per_engine": 6000000,
+    "sample_interval_seconds": 60,
+    "eval_steps": 60,
+    "labels": [
+      "host",
+      "region",
+      "team"
+    ],
+    "data_type": "synthetic_monotonic_counters",
+    "input_formula": "value += 1 + (series_index*7 + step_index*3)%9"
+  },
+  "measurement": {
+    "warmups": 4,
+    "repetitions": 20,
+    "query_cache": {
+      "vm": "nocache=1",
+      "clickhouse": "default query cache disabled"
+    },
+    "unit": "milliseconds",
+    "p50_p95": "client wall time including HTTP and JSON",
+    "no_parallel_queries": true,
+    "similar_server_state": "same cgroup, separate process and storage"
+  },
+  "columns": [
+    "name",
+    "expression",
+    "matching_series",
+    "ch_p50_ms",
+    "ch_p95_ms",
+    "vm_p50_ms",
+    "vm_p95_ms",
+    "ch_to_vm_p50_ratio"
+  ],
+  "results": [
+    [
+      "all",
+      "sum(rate(bench_metric[5m]))",
+      50000,
+      1069.707,
+      1180.373,
+      101.994,
+      125.68,
+      10.49
+    ],
+    [
+      "region",
+      "sum(rate(bench_metric{region=\"east\"}[5m]))",
+      25000,
+      419.793,
+      489.985,
+      54.032,
+      67.179,
+      7.77
+    ],
+    [
+      "team",
+      "sum(rate(bench_metric{team=\"t01\"}[5m]))",
+      1563,
+      146.752,
+      166.003,
+      3.446,
+      5.988,
+      42.59
+    ],
+    [
+      "host",
+      "sum(rate(bench_metric{host=\"h0001\"}[5m]))",
+      1,
+      20.967,
+      24.895,
+      0.39,
+      0.463,
+      53.76
+    ],
+    [
+      "all_count",
+      "count(bench_metric)",
+      50000,
+      664.591,
+      795.749,
+      108.341,
+      124.731,
+      6.13
+    ],
+    [
+      "regex5k",
+      "sum(rate(bench_metric{host=~\"h[0-4][0-9]{3}\"}[5m]))",
+      5000,
+      189.29,
+      211.982,
+      14.008,
+      18.024,
+      13.51
+    ]
+  ],
+  "limitations": [
+    "Not patched ClickHouse results. The lab fast path binary is still compiling in GitHub Actions.",
+    "VM implements MetricsQL rate() semantics; ClickHouse implements PromQL rate() extrapolation; verify results, not just latency.",
+    "Synthetic counters are highly compressible and have no churn or concurrency; do not extrapolate absolute numbers to production.",
+    "Results came from consecutive engine runs with other workloads present in the shared container, not perfect isolated experimental control.",
+    "ClickHouse and VM apply different query planning and grid conversion; identify CPU/RSS and read_rows bottlenecks before drawing conclusions.",
+    "The same generated input samples were imported into both engines; the source code for regenerating input is in .github/ts-lab-bench/generate.py."
+  ]
+}
