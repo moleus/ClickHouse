@@ -1,0 +1,141 @@
+name: TimeSeries sparse-grid CXX object experiment
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths:
+      - '.github/workflows/ts-lab-sparse-grid-obj.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tslab-sparse-grid-obj-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  sparse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 130
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_SHA: 52529f0c711566d696917678bf15e7068772fdde
+      LLVM_VERSION: 22.1.8
+      LLVM_SHA256: 8d5d1e52a06e1c10e457fd36489047053ac451ddad9c88017b0d0fc6b8e5d4c0
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 1100M
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Save experimental patch script before source checkout
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          cp .github/ts-lab-pending/apply_sparse_grid_patch.py "$RUNNER_TEMP/modify_sparse.py"
+          printf 'head=%s\nsource=%s\n' "$GITHUB_SHA" "$SOURCE_SHA" > evidence/provenance.txt
+      - name: Checkout pinned ClickHouse with previously verified metadata cache
+        run: |
+          set -euo pipefail
+          git remote add upstream https://github.com/ClickHouse/ClickHouse.git
+          git fetch --no-tags --depth=1 upstream "$SOURCE_SHA"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git submodule sync --recursive
+      - uses: actions/cache/restore@v4
+        with:
+          path: .git/modules
+          key: tslab-submodule-metadata-52529f0c711566d696917678bf15e7068772fdde-v2
+          fail-on-cache-miss: true
+      - name: Populate 159 submodules from local Git objects
+        run: |
+          set -euo pipefail
+          git submodule init
+          git config --file .gitmodules --get-regexp '.*path' | sed 's/[^ ]* //' |
+            xargs -r -n 1 -P 12 git submodule update --depth=1 --single-branch --
+          git submodule status --recursive > evidence/submodules.txt
+          if grep -E '^[+-U]' evidence/submodules.txt; then
+            echo 'Submodule SHAs are wrong' >&2; exit 1
+          fi
+          wc -l evidence/submodules.txt
+      - name: Apply sparse-window patch and preserve exact diff
+        run: |
+          set -euo pipefail
+          python3 "$RUNNER_TEMP/modify_sparse.py"
+          git diff --check
+          git diff -- src/AggregateFunctions/TimeSeries > evidence/patch.diff
+          test -s evidence/patch.diff
+          git diff --stat | tee evidence/patch-stat.txt
+      - name: Install pinned LLVM compiler and ccache
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 "https://www.kernel.org/pub/tools/llvm/files/llvm-$LLVM_VERSION-x86_64.tar.xz" -o "$RUNNER_TEMP/llvm.tar.xz"
+          echo "$LLVM_SHA256  $RUNNER_TEMP/llvm.tar.xz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/llvm" "$CCACHE_DIR"
+          tar -xf "$RUNNER_TEMP/llvm.tar.xz" -C "$RUNNER_TEMP/llvm" --strip-components=1
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ccache nasm
+      - uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: tslab-ccache-Linux-52529f0c711566d696917678bf15e7068772fdde-sparse-${{ github.run_id }}
+          restore-keys: |
+            tslab-ccache-Linux-52529f0c711566d696917678bf15e7068772fdde-
+      - name: Configure patched source with time-series ANTLR
+        run: |
+          set -euo pipefail
+          export PATH="$RUNNER_TEMP/llvm/bin:$PATH"
+          cmake -S . -B build-lab -G Ninja \
+            -DLINKER_NAME="$RUNNER_TEMP/llvm/bin/ld.lld" \
+            -DCMAKE_BUILD_TYPE=Release \
+            '-DCMAKE_C_FLAGS_RELEASE=-O1 -DNDEBUG -g0' \
+            '-DCMAKE_CXX_FLAGS_RELEASE=-O1 -DNDEBUG -g0' \
+            -DCOMPILER_CACHE=ccache \
+            -DCMAKE_C_COMPILER="$RUNNER_TEMP/llvm/bin/clang" \
+            -DCMAKE_CXX_COMPILER="$RUNNER_TEMP/llvm/bin/clang++" \
+            -DCMAKE_LINKER="$RUNNER_TEMP/llvm/bin/ld.lld" \
+            -DENABLE_LIBRARIES=OFF \
+            -DENABLE_ANTLR4_CPP_RUNTIME=ON \
+            -DENABLE_ANTLR4_GRAMMARS=ON \
+            -DENABLE_TESTS=OFF -DENABLE_BENCHMARKS=OFF -DENABLE_RUST=OFF \
+            -DENABLE_CUDA=OFF -DENABLE_ARROW=OFF -DENABLE_ORC=OFF \
+            -DENABLE_HDFS=OFF -DENABLE_ISAL_LIBRARY=OFF -DENABLE_GPU=OFF \
+            -DENABLE_EXAMPLES=OFF -DENABLE_SUBSTRAIT=OFF \
+            -DCLICKHOUSE_OFFICIAL_BUILD=OFF \
+            > evidence/cmake.log 2>&1 || {
+              tail -100 evidence/cmake.log; exit 1;
+            }
+      - name: Compile affected CXX object files without full link
+        run: |
+          set -euo pipefail
+          ninja -C build-lab -t targets all > evidence/targets.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          lines=Path('evidence/targets.txt').read_text().splitlines()
+          names=['AggregateFunctionTimeseriesExtrapolatedValue.cpp.o',
+                 'AggregateFunctionTimeseriesLastToGrid.cpp.o',
+                 'AggregateFunctionTimeseriesCount.cpp.o',
+                 'AggregateFunctionTimeseriesLinearRegression.cpp.o']
+          found=[]
+          for name in names:
+              matches=[x.split(': ',1)[0] for x in lines if 'TimeSeries/'+name+':' in x]
+              if len(matches) != 1:raise RuntimeError((name,matches))
+              found.append(matches[0])
+          Path('evidence/compile-targets.txt').write_text('\n'.join(found)+'\n')
+          print('\n'.join(found))
+          PY
+          /usr/bin/time -v -o evidence/compile-time.txt \
+            xargs -r ninja -C build-lab -j2 < evidence/compile-targets.txt > evidence/compile.log 2>&1 || {
+              tail -110 evidence/compile.log; exit 1;
+            }
+          ccache --show-stats | tee evidence/ccache.txt
+          cat evidence/compile-time.txt
+      - name: Upload compile evidence and reproducible source patch
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-sparse-grid-cxx-${{ github.run_id }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 14
