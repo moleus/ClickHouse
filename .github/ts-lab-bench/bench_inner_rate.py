@@ -69,9 +69,9 @@ def main():
     where = (" WHERE min_time <= fromUnixTimestamp64Milli(" + str(end) +
              ") AND max_time >= fromUnixTimestamp64Milli(" + str(start - 1000 * window) + ")")
     queries = {}
-    for group in ("id", "timeSeriesIdToGroup(id)"):
+    for group in ("id", "tupleElement(id,1), tupleElement(id,2)"):
         for threads in (1, 4):
-            key = ("id" if group == "id" else "mapping") + "_threads_" + str(threads)
+            key = ("id" if group == "id" else "pair") + "_threads_" + str(threads)
             queries[key] = ("SELECT sumForEach(grid) AS values FROM (SELECT " +
                             rate + " AS grid FROM " + tab + where + " GROUP BY " +
                             group + ") SETTINGS max_threads=" + str(threads) +
@@ -136,7 +136,7 @@ def main():
     }
     dest = pathlib.Path(cfg.output)
     dest.write_text(json.dumps(result, indent=2) + "\n")
-    for key in ("id_threads_1", "mapping_threads_4"):
+    for key in ("id_threads_1", "pair_threads_4"):
         qry = queries[key].replace(" FORMAT JSONEachRow", "")
         try:
             _, plan = sql(cfg.ch, "EXPLAIN PIPELINE " + qry, timeout=30)
