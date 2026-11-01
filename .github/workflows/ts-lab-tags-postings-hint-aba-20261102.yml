@@ -188,7 +188,7 @@ jobs:
       - name: Download verified fused grouped avg C++ binary only after its independent build succeeds
         run: |
           set -euo pipefail
-          run_id=41354277916
+          run_id=41354316893
           source_sha=b91faa94249697d26a6b0fe8626afb6848b60c02
           mkdir -p "$RUNNER_TEMP/postings-art" "$RUNNER_TEMP/postings-bin"
           success=0
