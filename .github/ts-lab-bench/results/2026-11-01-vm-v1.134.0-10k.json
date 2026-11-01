@@ -1,0 +1,151 @@
+{
+  "source_release": "VictoriaMetrics v1.134.0",
+  "binary_sha256": "cd6e109bae85ff7c138d838b32be9a7fe2a6d7a9b3a387a7cf9234f22991da10",
+  "verified_locally": true,
+  "setup": {
+    "cpu_quota": 4,
+    "memory_limit_bytes": 4294967296,
+    "mode": "single-node local HTTP",
+    "query_cache_control": "nocache=1 for uncached; no param for warm",
+    "warmups": 4,
+    "repetitions": 20
+  },
+  "dataset": {
+    "series": 10000,
+    "samples_per_series": 120,
+    "total_samples": 1200000,
+    "series_labels": [
+      "host",
+      "region",
+      "team"
+    ],
+    "step_seconds": 60,
+    "eval_steps": 60,
+    "kind": "synthetic monotonic counters"
+  },
+  "cases": [
+    [
+      "sum_rate_exact",
+      "nocache",
+      17.436,
+      20.669,
+      1,
+      60,
+      2105
+    ],
+    [
+      "sum_rate_exact",
+      "cache",
+      12.989,
+      16.003,
+      1,
+      60,
+      2106
+    ],
+    [
+      "sum_rate_regex",
+      "nocache",
+      15.413,
+      17.314,
+      1,
+      60,
+      2105
+    ],
+    [
+      "sum_rate_regex",
+      "cache",
+      11.625,
+      13.692,
+      1,
+      60,
+      2106
+    ],
+    [
+      "group_rate_region",
+      "nocache",
+      17.336,
+      33.593,
+      2,
+      120,
+      4180
+    ],
+    [
+      "group_rate_region",
+      "cache",
+      15.359,
+      23.34,
+      2,
+      120,
+      4237
+    ],
+    [
+      "group_rate_team",
+      "nocache",
+      20.571,
+      24.303,
+      32,
+      1920,
+      64384
+    ],
+    [
+      "group_rate_team",
+      "cache",
+      14.915,
+      18.803,
+      32,
+      1920,
+      64863
+    ],
+    [
+      "single_host",
+      "nocache",
+      0.343,
+      0.403,
+      1,
+      60,
+      1409
+    ],
+    [
+      "single_host",
+      "cache",
+      0.316,
+      0.37,
+      1,
+      60,
+      1409
+    ],
+    [
+      "wide_selector",
+      "nocache",
+      113.275,
+      133.502,
+      10000,
+      600000,
+      14011548
+    ],
+    [
+      "wide_selector",
+      "cache",
+      135.268,
+      184.296,
+      10000,
+      600000,
+      14011548
+    ]
+  ],
+  "fields": [
+    "name",
+    "cache_mode",
+    "p50_client_wall_ms",
+    "p95_client_wall_ms",
+    "result_series",
+    "result_points",
+    "response_bytes"
+  ],
+  "notes": [
+    "ClickHouse build is pending; these are NOT inter-engine comparisons.",
+    "Client wall latency includes HTTP transport, JSON encoding/decoding; wide-selector responses are ~14 MB.",
+    "Rate calculation and rollup cache differ across engines; keep all test settings and data fixed for comparisons.",
+    "The VM ingest POST for 1.2M points took 0.70s, including client transfer; no competing load."
+  ]
+}
