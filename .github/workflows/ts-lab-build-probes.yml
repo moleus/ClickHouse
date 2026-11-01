@@ -128,7 +128,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends ccache
           mkdir -p src obj "$CCACHE_DIR"
           for i in $(seq -w 0 15); do
-            printf '#include <vector>\n#include <numeric>\nint f%s(){std::vector<int> a(100,%s); return std::accumulate(a.begin(),a.end(),0);}\n' "$i" "$i" > "src/$i.cpp"
+            printf '#include <vector>\n#include <numeric>\nint f%s(){std::vector<int> a(100,%s); return std::accumulate(a.begin(),a.end(),0);}\n' "$i" "$((10#$i))" > "src/$i.cpp"
           done
           ccache -z
           for x in src/*.cpp; do
@@ -167,7 +167,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends ccache
           mkdir -p src obj
           for i in $(seq -w 0 15); do
-            printf '#include <vector>\n#include <numeric>\nint f%s(){std::vector<int> a(100,%s); return std::accumulate(a.begin(),a.end(),0);}\n' "$i" "$i" > "src/$i.cpp"
+            printf '#include <vector>\n#include <numeric>\nint f%s(){std::vector<int> a(100,%s); return std::accumulate(a.begin(),a.end(),0);}\n' "$i" "$((10#$i))" > "src/$i.cpp"
           done
           ccache -z
           for x in src/*.cpp; do
