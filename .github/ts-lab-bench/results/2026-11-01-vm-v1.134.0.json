@@ -1,0 +1,136 @@
+{
+  "run": "41288854734",
+  "source_release": "VictoriaMetrics/VictoriaMetrics v1.134.0",
+  "release_asset_sha256": "cd6e109bae85ff7c138d838b32be9a7fe2a6d7a9b3a387a7cf9234f22991da10",
+  "artifact_id": 13075574495,
+  "verified_in_runtime": true,
+  "hardware": {
+    "architecture": "x86_64",
+    "cpu_quota_vcpu": 4,
+    "mem_limit_bytes": 4294967296
+  },
+  "dataset": {
+    "series": 512,
+    "samples_per_series": 720,
+    "samples_total": 368640,
+    "interval_seconds": 60,
+    "eval_steps": 360,
+    "labels": [
+      "host",
+      "region",
+      "team"
+    ],
+    "source": "deterministic synthetic monotonically increasing counters"
+  },
+  "measurement": {
+    "n": 20,
+    "warmups": 4,
+    "unit": "ms",
+    "nocache_parameter": "1",
+    "latency": "client wall time incl HTTP JSON serialization"
+  },
+  "cases": [
+    {
+      "name": "sum_rate_exact",
+      "mode": "nocache",
+      "p50": 2.84,
+      "p95": 5.062,
+      "series": 1,
+      "points": 360
+    },
+    {
+      "name": "sum_rate_exact",
+      "mode": "cache",
+      "p50": 1.528,
+      "p95": 2.303,
+      "series": 1,
+      "points": 360
+    },
+    {
+      "name": "sum_rate_regex",
+      "mode": "nocache",
+      "p50": 2.89,
+      "p95": 5.28,
+      "series": 1,
+      "points": 360
+    },
+    {
+      "name": "sum_rate_regex",
+      "mode": "cache",
+      "p50": 1.661,
+      "p95": 2.221,
+      "series": 1,
+      "points": 360
+    },
+    {
+      "name": "group_rate_region",
+      "mode": "nocache",
+      "p50": 3.435,
+      "p95": 4.801,
+      "series": 2,
+      "points": 720
+    },
+    {
+      "name": "group_rate_region",
+      "mode": "cache",
+      "p50": 1.724,
+      "p95": 2.338,
+      "series": 2,
+      "points": 720
+    },
+    {
+      "name": "group_rate_team",
+      "mode": "nocache",
+      "p50": 7.387,
+      "p95": 9.956,
+      "series": 32,
+      "points": 11520
+    },
+    {
+      "name": "group_rate_team",
+      "mode": "cache",
+      "p50": 4.242,
+      "p95": 5.026,
+      "series": 32,
+      "points": 11520
+    },
+    {
+      "name": "single_host",
+      "mode": "nocache",
+      "p50": 0.446,
+      "p95": 0.553,
+      "series": 1,
+      "points": 360
+    },
+    {
+      "name": "single_host",
+      "mode": "cache",
+      "p50": 0.403,
+      "p95": 0.59,
+      "series": 1,
+      "points": 360
+    },
+    {
+      "name": "wide_selector",
+      "mode": "nocache",
+      "p50": 26.397,
+      "p95": 35.915,
+      "series": 512,
+      "points": 184320
+    },
+    {
+      "name": "wide_selector",
+      "mode": "cache",
+      "p50": 29.217,
+      "p95": 41.778,
+      "series": 512,
+      "points": 184320
+    }
+  ],
+  "limitations": [
+    "No ClickHouse patched binary available yet, so these numbers are not an engine comparison.",
+    "Synthetic counters compress unusually well and are not representative of production cardinality or churn.",
+    "Repeated warm queries on one process; use the same hardware, data, and concurrency when comparing engines.",
+    "The workload was generated outside CI, from deterministic code."
+  ]
+}
