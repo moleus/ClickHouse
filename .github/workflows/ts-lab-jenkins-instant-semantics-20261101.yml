@@ -146,7 +146,7 @@ jobs:
           set -euo pipefail
           python3 .github/ts-lab-bench/bench_jenkins_instant_semantics.py \
             --manifest evidence/manifest.json --output evidence/jenkins-querypath.json \
-            --repeats 4 --warmups 1 | tee evidence/jenkins-querypath.log
+            --repeats 4 | tee evidence/jenkins-querypath.log
           curl -fsS --data-binary 'SYSTEM FLUSH LOGS' http://127.0.0.1:18191/ >/dev/null
           curl -fsS --data-binary \
             "SELECT query_id,read_rows,read_bytes,memory_usage,query_duration_ms,exception_code FROM system.query_log WHERE type='QueryFinish' AND startsWith(query_id,'tslab_jsem_') FORMAT JSONEachRow" \
