@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-01",
+  "purpose": "Estimate benefit of eliminating redundant metric-name-drop aggregation by manual SQL on unpatched ClickHouse",
+  "version": "ClickHouse 26.11.1.974",
+  "patched_binary": false,
+  "cgroup": {
+    "cpus": 4,
+    "memory_gib": 4
+  },
+  "dataset": {
+    "series": 50000,
+    "samples_each": 120,
+    "eval_points": 60
+  },
+  "query": "SELECT sumForEach(values) FROM (SELECT timeSeriesRateToGrid(start,end,step,range)(samples) AS values FROM timeSeriesSelector('default','bench_ts_50k','bench_metric',start_minus_window,end,'samples') GROUP BY timeSeriesIdToGroup(id))",
+  "comparison": {
+    "native_sum_rate_p50_ms": 1069.707,
+    "manual_two_aggregations_p50_ms": 796.81,
+    "manual_p95_ms": 856.423,
+    "victoriametrics_p50_ms": 101.994,
+    "approx_native_to_manual_speedup": 1.3425,
+    "manual_to_vm_ratio": 7.81,
+    "identical_to_native_clickhouse_values": true
+  },
+  "setup": {
+    "manual_repetitions": 20,
+    "warmups": 3,
+    "native_repetitions": 20,
+    "native_warmups": 4,
+    "query_timestamps_identical": true
+  },
+  "limitations": [
+    "This is not the compiled C++ fastpath patch. Manual SQL may not match the patched planner exactly.",
+    "Manual timing excludes final timeSeriesFromGrid materialization and JSON rows; array output is 1 KB vs native 2.7 KB. HTTP output differences are minor at this response size but must be accounted for.",
+    "Other workloads present in shared container; compare with A/B interleaving for stronger controls.",
+    "Per-series grid materialization and selector cost remain, so the intended patch does not guarantee parity with VictoriaMetrics.",
+    "Verify handling of missing data, counters with resets, empty selectors, and identical label sets across multiple series IDs before using manual SQL broadly."
+  ]
+}
