@@ -141,6 +141,7 @@ jobs:
             --manifest evidence/manifest.json --output evidence/vm-ingest-readiness.json \
             --attempts 90 --sleep 2 | tee evidence/vm-ingest-readiness.log
 
+      # Storage-lock gate tested after previous VM restart failure; do not cancel other jobs.
       - name: Compare full-range VM 422 to exact day and two-project shard workarounds
         run: |
           set -euo pipefail
