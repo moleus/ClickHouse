@@ -1,0 +1,87 @@
+{
+  "engine": "ClickHouse 26.11.1.974 unpatched",
+  "environment": {
+    "cpu_limit": 4,
+    "memory_limit_gib": 4,
+    "shared_runtime": true
+  },
+  "dataset": {
+    "series": 50000,
+    "samples_per_series": 120,
+    "total_samples": 6000000,
+    "table": "default.bench_ts_50k",
+    "metric": "bench_metric",
+    "eval_steps": 60,
+    "window_seconds": 300
+  },
+  "warmups": 2,
+  "repeats": 8,
+  "groups_equal": true,
+  "max_absolute_delta": 4.092726157978177e-11,
+  "measurements_ms": {
+    "selector_count": [
+      182.752,
+      178.626,
+      173.998,
+      166.879,
+      160.082,
+      175.931,
+      186.184,
+      193.761
+    ],
+    "selector_sample_lengths": [
+      162.672,
+      156.838,
+      160.484,
+      166.033,
+      167.882,
+      183.458,
+      168.559,
+      183.497
+    ],
+    "selector_uniq_ids": [
+      192.555,
+      190.913,
+      191.615,
+      197.169,
+      206.892,
+      187.043,
+      198.905,
+      202.968
+    ],
+    "rate_group_tags": [
+      759.225,
+      768.904,
+      793.481,
+      800.125,
+      773.516,
+      793.127,
+      799.55,
+      901.201
+    ],
+    "rate_group_id": [
+      811.887,
+      819.725,
+      856.289,
+      826.183,
+      821.346,
+      867.893,
+      782.726,
+      824.984
+    ]
+  },
+  "summary_p50_ms": {
+    "selector_count": 177.279,
+    "selector_sample_lengths": 166.957,
+    "selector_uniq_ids": 194.862,
+    "rate_group_tags": 793.304,
+    "rate_group_id": 823.165
+  },
+  "limitations": [
+    "Unpatched ClickHouse binary, not laboratory C++ patch",
+    "Sequential HTTP wall time and shared runtime; no isolated CPU runs",
+    "Selector count has less work than rate grid aggregation; difference is not a direct CPU profile",
+    "Grouped per-series ID matches numeric result on synthetic data but is not faster",
+    "Full source SQL in bench_rate_stages.py generated from manifest"
+  ]
+}
