@@ -213,6 +213,7 @@ jobs:
             --manifest "$RUNNER_TEMP/dataset/manifest.json" \
             --output evidence/edge-input.json | tee evidence/edge-ingest.log
           curl -fsS -X POST --data-binary 'SYSTEM FLUSH LOGS' http://127.0.0.1:18191/ >/dev/null
+      # Across retries, preserve exact labels/time coordinates; permit only 1e-10 relative numeric error.
       - name: Capture original selector results across old and new nodes
         run: |
           set -euo pipefail
