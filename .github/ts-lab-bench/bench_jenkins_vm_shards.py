@@ -6,6 +6,7 @@ For one-sample CI events each stage/day overall avg is reconstructed as
 Never use average-of-averages without counts.
 """
 import argparse
+import fcntl
 import json
 import math
 import os
@@ -80,14 +81,26 @@ def main():
     # Restart VM safely on the SAME dataset with just the cap changed.
     pid=int(pathlib.Path(a.vm_pid_file).read_text())
     os.kill(pid,signal.SIGTERM)
-    for _ in range(150):
+    # VM may close its HTTP listener before releasing flock.lock.
+    # Waiting only for /health to fail raced with storage shutdown and the
+    # next VM process failed to acquire the exclusive disk lock.
+    lockfile=pathlib.Path(a.vm_data)/"flock.lock"
+    for attempt in range(300):
         try:
-            urllib.request.urlopen("http://127.0.0.1:8430/health",timeout=1)
-        except Exception:
+            with lockfile.open("rb") as fd:
+                try:
+                    fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                    fcntl.flock(fd,fcntl.LOCK_UN)
+                    break
+                except BlockingIOError:
+                    pass
+        except FileNotFoundError:
+            # VM deletes lock after exit on some versions.
             break
-        time.sleep(.2)
+        time.sleep(.1)
     else:
-        raise RuntimeError("VictoriaMetrics old server has not stopped")
+        raise RuntimeError("VictoriaMetrics old process still owns storage lock")
+    print("JENKINS_VM_FLOCK_RELEASED",json.dumps({"attempts":attempt+1,"pid":pid}),flush=True)
     log=pathlib.Path(a.output).parent/"vm-sharded-server.log"
     command=[a.vm_binary,
         "-storageDataPath="+a.vm_data,
