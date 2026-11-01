@@ -94,6 +94,26 @@ jobs:
             --data-binary "@$RUNNER_TEMP/data/vm-import.prom" \
             http://127.0.0.1:8430/api/v1/import/prometheus | tee evidence/vm-load-time.txt
           du -sb "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/vm/data" | tee evidence/storage-bytes.txt
+      - name: Wait until VictoriaMetrics indexes all imported samples
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib,time,urllib.parse,urllib.request
+          manifest=json.load(open(os.environ['RUNNER_TEMP']+'/data/manifest.json'))
+          expected=int(os.environ['SERIES'])
+          params=urllib.parse.urlencode(dict(query='count(bench_metric)',time=manifest['eval_end_epoch'],nocache='1'))
+          url='http://127.0.0.1:8430/api/v1/query?'+params
+          for attempt in range(120):
+              with urllib.request.urlopen(url,timeout=15) as response:result=json.load(response)
+              vals=result.get('data',{}).get('result',[])
+              count=float(vals[0]['value'][1]) if vals else 0
+              if count == expected:break
+              time.sleep(1)
+          else:raise RuntimeError(f'VM count={count}, expected={expected}; response={result}')
+          status={'run':os.environ['GITHUB_RUN_ID'],'series':expected,'visible':count,'visibility_attempt':attempt+1}
+          print(json.dumps(status))
+          pathlib.Path('evidence/vm-visibility.json').write_text(json.dumps(status,indent=2)+'\n')
+          PY
       - name: Benchmark SQL selection and rate stages, verify result consistency
         run: |
           set -euo pipefail
