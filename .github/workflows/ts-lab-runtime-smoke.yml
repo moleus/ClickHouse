@@ -82,6 +82,41 @@ jobs:
             | tee evidence/insert.txt
           curl -fsSG --data-urlencode 'query=SHOW CREATE TABLE probe_ts' \
             http://127.0.0.1:18191 | tee evidence/create-table.txt
+      - name: Verify VM baseline archive, startup and same-sample ingest
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/vm-artifact" "$RUNNER_TEMP/vm-bin" "$RUNNER_TEMP/vm/data"
+          gh run download 41288854734 -R "$REPO" \
+            -n tslab-victoria-metrics-v1.134.0 -D "$RUNNER_TEMP/vm-artifact"
+          (cd "$RUNNER_TEMP/vm-artifact" && sha256sum -c SHA256SUMS) | tee evidence/vm-archive-verified.txt
+          tar -xzf "$RUNNER_TEMP/vm-artifact/victoria-metrics-linux-amd64-v1.134.0.tar.gz" -C "$RUNNER_TEMP/vm-bin"
+          vm_binary="$RUNNER_TEMP/vm-bin/victoria-metrics-prod"
+          test -s "$vm_binary"
+          chmod +x "$vm_binary"
+          "$vm_binary" --version 2>&1 | tee evidence/vm-version.txt
+          "$vm_binary" -storageDataPath="$RUNNER_TEMP/vm/data" \
+            -httpListenAddr=127.0.0.1:8430 -search.disableCache \
+            > evidence/vm-server.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS --max-time 2 http://127.0.0.1:8430/health >/dev/null 2>&1; then
+              echo 'VM_SERVER_READY' | tee evidence/vm-server-status.txt
+              break
+            fi
+            sleep 2
+          done
+          test -s evidence/vm-server-status.txt || { tail -120 evidence/vm-server.log; exit 1; }
+          curl -fsS --max-time 120 -X POST --data-binary "@$RUNNER_TEMP/small/vm-import.prom" \
+            http://127.0.0.1:8430/api/v1/import/prometheus | tee evidence/vm-import.txt
+          python3 - <<'PY'
+          import json,pathlib,urllib.parse,urllib.request
+          d=json.loads((pathlib.Path(__import__('os').environ['RUNNER_TEMP'])/'small/manifest.json').read_text())
+          t=d['end_epoch']
+          q=urllib.parse.urlencode({'query':'count(bench_metric)','time':t,'nocache':'1'})
+          r=json.load(urllib.request.urlopen('http://127.0.0.1:8430/api/v1/query?'+q))
+          print(json.dumps(r,indent=2))
+          assert r.get('status')=='success',r
+          pathlib.Path('evidence/vm-query-count.json').write_text(json.dumps(r,indent=2)+'\n')
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
