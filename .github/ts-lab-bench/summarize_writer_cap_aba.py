@@ -74,6 +74,33 @@ def main():
             'exact_20155_CH_timestamps_labels_values_across_aba':True,
             'semantics':'CH-CH strict equality tolerance 1e-12; VM MetricsQL rate differs',
             'p50_p95_and_query_log':results,'recorded_finish_events':len(logs)}
+    # A correct binary is not necessarily a useful memory optimization.
+    # Compare against the rechecked baseline on the same runner/data.
+    # The first baseline is retained to detect scheduling/cache drift.
+    verdict={}
+    for step in (900,300,60):
+        first=results['baseline'][step]
+        candidate=results['writer-cap'][step]
+        control=results['baseline-recheck'][step]
+        memory_ratio=candidate['query_memory_p50_bytes']/control['query_memory_p50_bytes']
+        cpu_ratio=(candidate['actual_ch_cpu_seconds_p50']/control['actual_ch_cpu_seconds_p50']
+                   if candidate['actual_ch_cpu_seconds_p50'] is not None and control['actual_ch_cpu_seconds_p50'] else None)
+        latency_ratio=candidate['p50_ms']/control['p50_ms']
+        first_baseline_drift=control['p50_ms']/first['p50_ms']
+        # Must save >=10% of tracked query memory without >5% CPU/latency cost.
+        accepted=(memory_ratio <= .90 and latency_ratio <= 1.05
+                  and cpu_ratio is not None and cpu_ratio <= 1.05)
+        verdict[str(step)]={'accepted':accepted,
+            'candidate_vs_recheck_memory_ratio':round(memory_ratio,4),
+            'candidate_vs_recheck_cpu_ratio':round(cpu_ratio,4) if cpu_ratio is not None else None,
+            'candidate_vs_recheck_wall_p50_ratio':round(latency_ratio,4),
+            'baseline_recheck_wall_ratio':round(first_baseline_drift,4),
+            'wall_drift_gt_20_percent':abs(first_baseline_drift-1)>.20}
+    result['acceptance_gate']={'minimum_memory_saving':.10,
+        'maximum_cpu_regression':.05,'maximum_latency_regression':.05,
+        'verdict_by_step_seconds':verdict,
+        'accepted':all(v['accepted'] for v in verdict.values())}
+    print('WRITER_RESERVE_ACCEPTANCE',json.dumps(result['acceptance_gate'],sort_keys=True),flush=True)
     (ROOT/'writer-cap-aba-result.json').write_text(json.dumps(result,indent=2)+'\n')
     (ROOT/'writer-cap-querylog.jsonl').write_text(raw)
     print('WRITER_CAP_ABA',json.dumps(result,sort_keys=True),flush=True)
