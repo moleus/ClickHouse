@@ -96,6 +96,8 @@ jobs:
           cmake -S . -B build-lab -G Ninja \
             -DLINKER_NAME="${RUNNER_TEMP}/llvm/bin/ld.lld" \
             -DCMAKE_BUILD_TYPE=Release \
+            '-DCMAKE_C_FLAGS_RELEASE=-O1 -DNDEBUG -g0' \
+            '-DCMAKE_CXX_FLAGS_RELEASE=-O1 -DNDEBUG -g0' \
             -DCOMPILER_CACHE=ccache \
             -DCMAKE_C_COMPILER="${RUNNER_TEMP}/llvm/bin/clang" \
             -DCMAKE_CXX_COMPILER="${RUNNER_TEMP}/llvm/bin/clang++" \
@@ -136,7 +138,7 @@ jobs:
           mkdir -p output
           cp build-lab/programs/clickhouse output/clickhouse
           chmod +x output/clickhouse
-          printf 'source=%s\nfork=%s\nllvm=%s\n' "$SOURCE_SHA" "$GITHUB_SHA" "$LLVM_VERSION" > output/BUILD_INFO.txt
+          printf 'source=%s\nfork=%s\nllvm=%s\noptimization=O1\n' "$SOURCE_SHA" "$GITHUB_SHA" "$LLVM_VERSION" > output/BUILD_INFO.txt
           (cd output && sha256sum clickhouse > SHA256SUMS)
           tar -C output -cf - clickhouse SHA256SUMS BUILD_INFO.txt | zstd -T2 -10 -o output/clickhouse-linux-amd64.tar.zst
           (cd output && sha256sum clickhouse-linux-amd64.tar.zst > ARCHIVE_SHA256SUMS)
@@ -162,5 +164,5 @@ jobs:
           gh release create "$tag" output/clickhouse-linux-amd64.tar.zst output/ARCHIVE_SHA256SUMS \
             --repo "${GITHUB_REPOSITORY}" --target "$GITHUB_SHA" \
             --title "TimeSeries lab ${GITHUB_SHA:0:12}" \
-            --notes "Experimental ClickHouse build from pinned source $SOURCE_SHA; five local PromQL regression cases passed. Not production verified." \
+            --notes "Experimental -O1 ClickHouse build from pinned source $SOURCE_SHA; five local PromQL regression cases passed. Not production verified." \
             --prerelease --latest=false
