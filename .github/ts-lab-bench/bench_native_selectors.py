@@ -87,14 +87,15 @@ def main():
     results={"manifest":manifest,"warmups":a.warmups,"repetitions":a.repetitions,"cases":[]}
     reference=None
     for name,expr in QUERIES:
-        for engine,base in (("ch",a.clickhouse),("vm",a.victoria)):
+        for engine,base in (("ch",a.clickhouse),("vm_metricsql",a.victoria),("vm_promql",a.victoria)):
             if not base: continue
-            def run(): return evaluate(engine,base,a.table,expr,start,end,step)
+            effective_expr=expr.replace("rate(","rate_prometheus(") if engine=="vm_promql" else expr
+            def run(): return evaluate("ch" if engine=="ch" else "vm",base,a.table,effective_expr,start,end,step)
             for _ in range(a.warmups): run()
             samples=[run() for _ in range(a.repetitions)]
             last=samples[-1]
             t=[s["elapsed_ms"] for s in samples]
-            item=dict(name=name,engine=engine,p50_ms=pctl(t,50),p95_ms=pctl(t,95),mean_ms=round(statistics.mean(t),3),
+            item=dict(name=name,engine=engine,expression=effective_expr,p50_ms=pctl(t,50),p95_ms=pctl(t,95),mean_ms=round(statistics.mean(t),3),
                       min_ms=round(min(t),3),max_ms=round(max(t),3),
                       series=last["series"],points=last["points"],response_bytes=last["response_bytes"])
             if engine=="ch" and name=="sum_rate_exact": reference=last["rows"]
