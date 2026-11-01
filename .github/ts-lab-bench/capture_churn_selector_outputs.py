@@ -25,6 +25,7 @@ def main():
     a.add_argument("--warmups",type=int,default=0)
     a.add_argument("--repetitions",type=int,default=1)
     a.add_argument("--focus",default="",help="Comma-separated query names; defaults to all")
+    a.add_argument("--recent-hours",type=int,default=0,help="Evaluate only final N hours of the manifest")
     p=a.parse_args()
     if p.repetitions<1 or p.warmups<0:
         raise ValueError("Invalid benchmark repeats")
@@ -49,6 +50,13 @@ def main():
             ("edge_offset", 'sum(rate('+metric+'{instance="edge-gap-old"}[5m] offset 15m))'),
             ("edge_project", 'sum by (region) (rate('+metric+'{project="project-00"}[5m]))')
         ])
+    if p.recent_hours:
+        newest=f'node-{m["generations"]-1:03d}-000'
+        q.extend([
+            ("exact_last", 'rate('+metric+'{instance="'+newest+'"}[5m])'),
+            ("sum_exact_last", 'sum(rate('+metric+'{instance="'+newest+'"}[5m]))'),
+            ("offset_last", 'sum(rate('+metric+'{instance="'+newest+'"}[5m] offset 15m))'),
+        ])
     if p.focus:
         requested=p.focus.split(",")
         available={name for name,_ in q}
@@ -59,6 +67,8 @@ def main():
             raise ValueError("duplicate names in --focus")
         q=[case for case in q if case[0] in set(requested)]
     start,end=m["query_start_epoch"],m["query_end_epoch"]
+    if p.recent_hours:
+        start=max(start,end-p.recent_hours*3600)
     output={"phase":p.phase,"manifest":m,"cases":{},"timings":{}}
     def pct(a,pct_value):
         values=sorted(a)
