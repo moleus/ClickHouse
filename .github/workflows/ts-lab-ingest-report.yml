@@ -1,0 +1,73 @@
+name: TimeSeries aggregate ingest profiling artifacts
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-ingest-report.yml']
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: tslab-ingest-report-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      INGEST_RUN: '41303756030'
+    steps:
+      - name: Download three measured cases and inspect all QueryLog ProfileEvents
+        run: |
+          set -euo pipefail
+          mkdir -p measurements
+          for profile in recent-on-large-cache recent-off-large-cache recent-off-tiny-cache; do
+            mkdir -p "measurements/$profile"
+            gh run download "$INGEST_RUN" -R "$REPO" \
+              -n "tslab-ingest-$profile-$INGEST_RUN" -D "measurements/$profile"
+          done
+          python3 - <<'PY'
+          import collections,json,pathlib,statistics
+          base=pathlib.Path('measurements')
+          reports={}
+          for directory in sorted(base.iterdir()):
+              if not directory.is_dir():continue
+              profile=directory.name
+              summary=json.loads((directory/'summary.json').read_text())
+              events=[json.loads(x) for x in (directory/'query-log.jsonl').read_text().splitlines() if x.strip()]
+              counters=collections.Counter()
+              durations=[]
+              for event in events:
+                  counters.update(event.get('ProfileEvents',{}))
+                  durations.append(event.get('query_duration_ms',0))
+              selected={k:v for k,v in counters.items() if any(x in k.lower() for x in
+                ['insert', 'write','cache','hash','disk','memory','rows','bytes','merge','time','wait'])}
+              tags=next((x for x in summary['active_parts'] if '.tags.' in x['table']),{})
+              rec=next((x for x in summary['active_parts'] if '.recentsamples.' in x['table']),{})
+              samples=next((x for x in summary['active_parts'] if '.samples.' in x['table']),{})
+              report={'profile':profile,
+                 'run':summary['run'],'input_series':summary['series'],'input_samples':summary['samples'],
+                 'wall_insert_s':summary['wall_seconds'],
+                 'query_log_insert_count':len(events),
+                 'query_log_duration_total_ms':sum(durations),
+                 'tags_active_rows':tags.get('rows'),'tags_active_compressed_bytes':tags.get('bytes'),
+                 'main_active_bytes':samples.get('bytes'),
+                 'recent_active_bytes':rec.get('bytes',0),
+                 'process_data_directory_bytes':summary['data_dir_bytes'],
+                 'query_events':selected,
+                 'event_names':list(counters)}
+              reports[profile]=report
+              print('===== '+profile+' =====')
+              print(json.dumps(report,indent=2))
+          (base/'comparison.json').write_text(json.dumps(reports,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tslab-ingest-comparison-${{ github.run_id }}
+          path: measurements/comparison.json
+          retention-days: 14
