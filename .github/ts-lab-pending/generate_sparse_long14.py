@@ -20,6 +20,7 @@ def cli():
     p.add_argument('--samples-per-lifetime',type=int,default=720)
     p.add_argument('--sample-step',type=int,default=15)
     p.add_argument('--start-epoch',type=int,default=0)
+    p.add_argument('--shared-instances',type=int,default=0,help='Reuse instance across generations and slots; retain unique generation+slot labels')
     return p.parse_args()
 
 def main():
@@ -28,6 +29,8 @@ def main():
     out.mkdir(parents=True,exist_ok=True)
     mp=out/'manifest.json'
     if a.init:
+        if a.shared_instances<0 or a.shared_instances>a.slots:
+            raise ValueError(('shared-instances must be between 0 and slots',a.shared_instances,a.slots))
         base=a.start_epoch or (int(time.time())//60)*60-a.generations*a.samples_per_lifetime*a.sample_step
         meta={'slots':a.slots,'generations':a.generations,'samples_per_lifetime':a.samples_per_lifetime,
               'sample_step':a.sample_step,'start_epoch':base,
@@ -37,7 +40,7 @@ def main():
               'series':a.slots*a.generations,
               'samples':a.slots*a.generations*a.samples_per_lifetime,
               'metric':'lab_node_network_receive_bytes_total',
-              'generator':'sparse-long14-v1'}
+              'generator':'sparse-long14-v1','shared_instances':a.shared_instances}
         mp.write_text(json.dumps(meta,indent=2)+'\n')
         print(json.dumps(meta))
         return
@@ -57,9 +60,14 @@ def main():
     metric=m['metric']
     with ch.open('w') as clickhouse,vm.open('w') as victoria:
         for slot in range(m['slots']):
-            labels={'instance':f'node-{g:03d}-{slot:03d}',
+            reused=int(m.get('shared_instances',0))
+            labels={'instance':f'node-shared-{slot%reused:03d}' if reused else f'node-{g:03d}-{slot:03d}',
                     'slot':f'{slot:03d}','project':f'project-{slot%32:02d}',
                     'region':'east' if slot%2==0 else 'west'}
+            if reused:
+                # Keep each time-series identity distinct although the matcher
+                # 'instance=shared-*' now selects many historical series.
+                labels['generation']=f'{g:03d}'
             text_labels=','.join(k+'="'+v+'"' for k,v in labels.items())
             offset=1000+slot*100+g
             samples=[]
