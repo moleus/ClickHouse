@@ -70,7 +70,11 @@ jobs:
       - name: Configure ClickHouse
         run: |
           set -euo pipefail
+          export PATH="${RUNNER_TEMP}/llvm/bin:${PATH}"
+          command -v ld.lld
+          ld.lld --version
           cmake -S . -B build-lab -G Ninja \
+            -DLINKER_NAME="${RUNNER_TEMP}/llvm/bin/ld.lld" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER="${RUNNER_TEMP}/llvm/bin/clang" \
             -DCMAKE_CXX_COMPILER="${RUNNER_TEMP}/llvm/bin/clang++" \
