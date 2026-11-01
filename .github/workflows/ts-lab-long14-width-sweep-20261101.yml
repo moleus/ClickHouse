@@ -124,7 +124,13 @@ jobs:
           curl -fsS -X POST --data-binary 'SYSTEM FLUSH ASYNC INSERT QUEUE' http://127.0.0.1:18191/ >/dev/null
           curl -fsS -X POST --data-binary 'SYSTEM FLUSH LOGS' http://127.0.0.1:18191/ >/dev/null
           df -h . | tee evidence/disk.txt
-          du -sb "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/vm/data" | tee evidence/storage-bytes.tsv
+          # During merges tmp_merge paths can disappear while du traverses them.
+          # The size snapshot is diagnostic, not a gate for query correctness.
+          du -sb "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/vm/data" 2> evidence/du-warnings.txt \
+            | tee evidence/storage-bytes.tsv || true
+          curl -fsS -X POST --data-binary \
+            "SELECT table, sum(bytes_on_disk), sum(rows) FROM system.parts WHERE database='default' AND active AND startsWith(table,'.inner_id.') GROUP BY table FORMAT TSV" \
+            http://127.0.0.1:18191/ > evidence/ch-active-parts.tsv
       - name: Verify ClickHouse storage and VM query visibility before latency test
         run: |
           set -euo pipefail
