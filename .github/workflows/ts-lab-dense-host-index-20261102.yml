@@ -100,7 +100,7 @@ jobs:
         run: |
           set -euo pipefail
           for table in dense_base dense_host_col dense_host_sorted; do
-            curl -fsS --max-time 340 -w "INSERT_$table_SECONDS=%{time_total}\n" \
+            curl -fsS --max-time 340 -w "INSERT_${table}_SECONDS=%{time_total}\n" \
               --data-binary "@$RUNNER_TEMP/dense/ch-import.jsonl" \
               "http://127.0.0.1:18191/?allow_experimental_time_series_table=1&wait_end_of_query=1&query=INSERT%20INTO%20$table%20(metric_name%2Ctags%2Csamples)%20FORMAT%20JSONEachRow" \
               | tee "evidence/ingest-$table.log"
