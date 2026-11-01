@@ -134,6 +134,13 @@ jobs:
           json.dump({'ts':ts,'events':ev,'expected':m['total_samples']},open('evidence/ingest-check.json','w'))
           PY
 
+      - name: Wait until every imported VM day is visible to range queries
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-bench/wait_jenkins_vm_visible.py \
+            --manifest evidence/manifest.json --output evidence/vm-ingest-readiness.json \
+            --attempts 90 --sleep 2 | tee evidence/vm-ingest-readiness.log
+
       - name: Benchmark full query-path with exact stage day value checks and QueryFinish memory
         run: |
           set -euo pipefail
