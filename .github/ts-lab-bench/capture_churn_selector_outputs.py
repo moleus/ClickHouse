@@ -6,7 +6,10 @@ short-lived series. This is not a full staleness/HA or late-data proof.
 """
 import argparse
 import json
+import os
 import pathlib
+import statistics
+import time
 import urllib.parse
 import urllib.request
 
@@ -17,7 +20,12 @@ def main():
     a.add_argument("--ch",default="http://127.0.0.1:18191")
     a.add_argument("--phase",required=True)
     a.add_argument("--output",required=True)
+    a.add_argument("--edge",action="store_true",help="Include injected gap/reset/late samples")
+    a.add_argument("--warmups",type=int,default=0)
+    a.add_argument("--repetitions",type=int,default=1)
     p=a.parse_args()
+    if p.repetitions<1 or p.warmups<0:
+        raise ValueError("Invalid benchmark repeats")
     m=json.loads(pathlib.Path(p.manifest).read_text())
     metric=m["metric"]
     q=[
@@ -31,24 +39,54 @@ def main():
         ("negated", 'sum(rate('+metric+'{instance!="node-000-000"}[5m]))'),
         ("offset", 'sum(rate('+metric+'{instance="node-000-000"}[5m] offset 1h))'),
     ]
+    if p.edge:
+        q.extend([
+            ("edge_gap_old", 'rate('+metric+'{instance="edge-gap-old"}[5m])'),
+            ("edge_gap_new", 'rate('+metric+'{instance="edge-gap-new"}[5m])'),
+            ("edge_sum_old", 'sum(rate('+metric+'{instance="edge-gap-old"}[5m]))'),
+            ("edge_offset", 'sum(rate('+metric+'{instance="edge-gap-old"}[5m] offset 15m))'),
+            ("edge_project", 'sum by (region) (rate('+metric+'{project="project-00"}[5m]))')
+        ])
     start,end=m["query_start_epoch"],m["query_end_epoch"]
-    output={"phase":p.phase,"manifest":m,"cases":{}}
+    output={"phase":p.phase,"manifest":m,"cases":{},"timings":{}}
+    def pct(a,pct_value):
+        values=sorted(a)
+        x=(len(values)-1)*pct_value
+        i=int(x)
+        return round(values[i]+(values[min(i+1,len(values)-1)]-values[i])*(x-i),3)
     for name,exp in q:
         sql=("SELECT * FROM prometheusQueryRange("+p.table+", '"+exp.replace("'","''")+
              "', "+str(start)+", "+str(end)+", 60) FORMAT JSONEachRow")
-        params=urllib.parse.urlencode({"allow_experimental_time_series_table":1,"wait_end_of_query":1,
-                                       "log_comment":"tslab_churn_"+p.phase+"_"+name})
-        req=urllib.request.Request(p.ch.rstrip('/')+'/?'+params,sql.encode())
-        try:
-            with urllib.request.urlopen(req,timeout=180) as resp:raw=resp.read()
-        except Exception as exc:
-            raise RuntimeError(f"failed {name}: {exp}; {exc}") from exc
-        rows=[json.loads(line) for line in raw.splitlines() if line]
-        record=sorted([{"tags":tuple(tuple(x) for x in row["tags"]),
-                        "samples":tuple((str(t),float(v)) for t,v in row["samples"])}
-                       for row in rows],key=lambda x:x["tags"])
-        output["cases"][name]=record
-        print("CHURN_CAPTURE",p.phase,name,"series",len(record),"points",sum(len(r['samples']) for r in record),flush=True)
+        results=[]
+        durations=[]
+        for iteration in range(p.warmups+p.repetitions):
+            query_id="tslabedge_"+os.environ.get("GITHUB_RUN_ID","local")+"_"+p.phase+"_"+name+"_"+str(iteration)
+            params=urllib.parse.urlencode({"allow_experimental_time_series_table":1,"wait_end_of_query":1,
+                                           "query_id":query_id,
+                                           "log_comment":"tslab_edge_"+p.phase+"_"+name})
+            req=urllib.request.Request(p.ch.rstrip('/')+'/?'+params,sql.encode())
+            try:
+                t0=time.perf_counter_ns()
+                with urllib.request.urlopen(req,timeout=180) as resp:raw=resp.read()
+                elapsed=(time.perf_counter_ns()-t0)/1e6
+            except Exception as exc:
+                raise RuntimeError(f"failed {name}: {exp}; {exc}") from exc
+            rows=[json.loads(line) for line in raw.splitlines() if line]
+            record=sorted([{"tags":tuple(tuple(x) for x in row["tags"]),
+                            "samples":tuple((str(t),float(v)) for t,v in row["samples"])}
+                           for row in rows],key=lambda x:x["tags"])
+            if results:
+                assert record==results[0],(p.phase,name,iteration,"non-deterministic repeated output")
+            results.append(record)
+            if iteration>=p.warmups:durations.append(elapsed)
+        output["cases"][name]=results[-1]
+        output["timings"][name]={"p50_ms":pct(durations,.5),"p95_ms":pct(durations,.95),
+                                  "individual_ms":durations,
+                                  "query_id_prefix":"tslabedge_"+os.environ.get("GITHUB_RUN_ID","local")+"_"+p.phase+"_"+name+"_",
+                                  "warmups":p.warmups,"repetitions":p.repetitions}
+        print("CHURN_CAPTURE",p.phase,name,"series",len(results[-1]),
+              "points",sum(len(row['samples']) for row in results[-1]),
+              "p50_ms",pct(durations,.5),"p95_ms",pct(durations,.95),flush=True)
     pathlib.Path(p.output).write_text(json.dumps(output,indent=2)+'\n')
 
 if __name__=="__main__":
