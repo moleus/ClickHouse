@@ -117,10 +117,10 @@ jobs:
           print(json.dumps(status))
           pathlib.Path('evidence/vm-visibility.json').write_text(json.dumps(status,indent=2)+'\n')
           PY
-      - name: Create paired TimeSeries table without time-ranges target
+      - name: Create TimeSeries with dedicated host tag column
         run: |
           set -euo pipefail
-          sql="CREATE TABLE bench_ts_dedicated_$SERIES ENGINE=TimeSeries SETTINGS tags_to_columns=map('host','host_col')"
+          sql="CREATE TABLE bench_ts_dedicated_$SERIES ENGINE=TimeSeries SETTINGS tags_to_columns={'host':'host_col'}"
           curl -fsS -X POST --data-binary "$sql" 'http://127.0.0.1:18191/?allow_experimental_time_series_table=1' \
             -o evidence/ch-create-dedicated-response.txt
           curl -fsS -X POST --max-time 300 -o evidence/ch-load-dedicated-response.txt \
