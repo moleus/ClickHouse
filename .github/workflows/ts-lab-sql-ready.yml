@@ -115,40 +115,16 @@ jobs:
           print(json.dumps(status))
           pathlib.Path('evidence/vm-visibility.json').write_text(json.dumps(status,indent=2)+'\n')
           PY
-      - name: Benchmark SQL selection and rate stages, verify result consistency
+      - name: Benchmark direct samples rate without ANTL4 parser
         run: |
           set -euo pipefail
-          python3 .github/ts-lab-bench/bench_rate_stages.py \
-            --manifest "$RUNNER_TEMP/data/manifest.json" --ch http://127.0.0.1:18191 \
+          python3 .github/ts-lab-bench/bench_inner_rate.py \
+            --manifest "$RUNNER_TEMP/data/manifest.json" \
+            --ch http://127.0.0.1:18191 --vm http://127.0.0.1:8430 \
             --table "bench_ts_$SERIES" --repeats 12 --warmups 4 \
-            --output evidence/sql-stages.json | tee evidence/sql-stage-summary.log
-          python3 - <<'PY'
-          import json,os,time,urllib.parse,urllib.request,statistics,pathlib
-          m=json.load(open(os.environ['RUNNER_TEMP']+'/data/manifest.json'))
-          query='sum(rate(bench_metric[5m]))'
-          params=urllib.parse.urlencode(dict(query=query,start=m['eval_start_epoch'],end=m['eval_end_epoch'],step=m['eval_step_seconds'],nocache='1'))
-          url='http://127.0.0.1:8430/api/v1/query_range?'+params
-          durations=[]
-          for i in range(16):
-              st=time.perf_counter_ns()
-              with urllib.request.urlopen(url,timeout=180) as r:response=json.load(r)
-              durations.append((time.perf_counter_ns()-st)/1e6)
-              assert response.get('status')=='success',response
-          seq=sorted(durations[4:])
-          p50=statistics.median(seq)
-          p95=seq[10]*0.55+seq[11]*0.45
-          ch=json.load(open('evidence/sql-stages.json'))['summary_ms']
-          result={'run_id':os.environ['GITHUB_RUN_ID'],'commit':os.environ['GITHUB_SHA'],
-                  'series':m['series'],'samples':m['samples_total'],'engine_ch':'run7 -O1 converter-patched binary, ANTLR disabled; direct SQL only',
-                  'vm_metric_sql':'sum(rate(bench_metric[5m]))',
-                  'vm_p50_ms':p50,'vm_p95_ms':p95,'vm_ms':durations[4:],
-                  'ch_sql_stages':ch,'ch_rate_group_tags_to_vm_ratio':ch['rate_group_tags']['p50_ms']/p50,
-                  'vm_response_series':len(response['data']['result'])}
-          pathlib.Path('evidence/summary.json').write_text(json.dumps(result,indent=2)+'\n')
-          print(json.dumps(result,indent=2))
-          PY
+            --output evidence/inner-rate.json | tee evidence/summary.log
           ps -o pid,rss,%cpu,comm -p "$(cat "$RUNNER_TEMP/ch.pid"),$(cat "$RUNNER_TEMP/vm.pid")" \
-            | tee evidence/runtime-usage.txt
+            | tee evidence/process-usage.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
