@@ -110,19 +110,33 @@ def main():
         fv, fc = float(value), float(ch or 0)
         diffs.append(abs(fc - fv) / max(1e-12, abs(fv)))
     times = {x: [] for x in queries}
+    vm_times = []
+    def vm_request():
+        start_t = time.perf_counter()
+        with urllib.request.urlopen(vm_url, timeout=180) as response:
+            response.read()
+        return (time.perf_counter() - start_t) * 1000
     for key, query in queries.items():
         for _ in range(cfg.warmups):
             sql(cfg.ch, query)
+    for _ in range(cfg.warmups):
+        vm_request()
     rng = random.Random(20261101)
-    for _ in range(cfg.repeats):
+    for repetition in range(cfg.repeats):
         choices = list(queries)
         rng.shuffle(choices)
+        if repetition % 2 == 0:
+            vm_times.append(round(vm_request(), 3))
         for key in choices:
             elapsed, _ = sql(cfg.ch, queries[key])
             times[key].append(round(elapsed, 3))
+        if repetition % 2 != 0:
+            vm_times.append(round(vm_request(), 3))
     stats = {key: {"p50_ms": pctl(vals, 50), "p95_ms": pctl(vals, 95),
                    "p99_ms": pctl(vals, 99), "trials_ms": vals}
              for key, vals in times.items()}
+    vm_stats = {"p50_ms": pctl(vm_times, 50), "p95_ms": pctl(vm_times, 95),
+                "p99_ms": pctl(vm_times, 99), "trials_ms": vm_times}
     result = {
         "source": "direct inner samples table (no ANTL4)",
         "table": cfg.table, "inner_table": names[0], "manifest": m,
@@ -132,6 +146,9 @@ def main():
         "vm_vs_ch_max_relative_diff": max(diffs),
         "vm_vs_ch_median_relative_diff": statistics.median(diffs),
         "variant_max_absolute_diff": deltas, "stats": stats,
+        "vm_stats": vm_stats,
+        "ch_to_vm_p50_ratios": {name: round(values["p50_ms"] / vm_stats["p50_ms"], 3)
+                                for name, values in stats.items()},
         "queries": queries,
     }
     dest = pathlib.Path(cfg.output)
@@ -144,7 +161,8 @@ def main():
         except Exception as exc:
             dest.with_name(dest.stem + "-" + key + ".pipeline-error.txt").write_text(repr(exc))
     print(json.dumps({"table":cfg.table, "samples":int(stored), "series":int(series),
-                      "vm_ch_max_relative_diff":max(diffs), "variants":stats}, indent=2))
+                      "vm_ch_max_relative_diff":max(diffs), "vm":vm_stats,
+                      "ch_to_vm_ratios":result["ch_to_vm_p50_ratios"], "variants":stats}, indent=2))
 
 
 if __name__ == "__main__":
