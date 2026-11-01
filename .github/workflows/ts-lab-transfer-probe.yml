@@ -1,0 +1,49 @@
+name: TimeSeries lab transfer probe
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths:
+      - '.github/workflows/ts-lab-transfer-probe.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  transfer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Upload, download, verify and delete temporary prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="tslab-transfer-probe-${GITHUB_RUN_ID}"
+          printf 'repo=%s\nsha=%s\n' "$GITHUB_REPOSITORY" "$GITHUB_SHA" > payload.txt
+          sha256sum payload.txt > payload.SHA256
+          cleanup() {
+            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          }
+          trap cleanup EXIT
+          gh release create "$tag" payload.txt payload.SHA256 \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Temporary lab transfer probe" --notes "Automatically deleted after verification." \
+            --prerelease --latest=false
+          mkdir -p downloaded
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" \
+            --pattern payload.txt --dir downloaded
+          cmp payload.txt downloaded/payload.txt
+          cp payload.SHA256 downloaded/
+          (cd downloaded && sha256sum -c payload.SHA256)
+          echo "RELEASE_ROUNDTRIP_VERIFIED"
+
+      - name: Test Actions artifact handoff
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-transfer-probe-${{ github.run_id }}
+          path: |
+            payload.txt
+            payload.SHA256
+          if-no-files-found: error
+          retention-days: 1
