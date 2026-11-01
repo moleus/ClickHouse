@@ -124,7 +124,8 @@ jobs:
           curl -fsS -X POST --data-binary 'SYSTEM FLUSH ASYNC INSERT QUEUE' http://127.0.0.1:18191/ >/dev/null
           curl -fsS -X POST --data-binary 'SYSTEM FLUSH LOGS' http://127.0.0.1:18191/ >/dev/null
           df -h . | tee evidence/disk.txt
-          du -sb "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/vm/data" | tee evidence/storage-bytes.tsv
+          du -sb "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/vm/data" 2>evidence/du-warnings.txt | tee evidence/storage-bytes.tsv || true
+          # Live MergeTree compactions may remove tmp_merge directories during du.
       - name: Verify ClickHouse storage and VM query visibility before latency test
         run: |
           set -euo pipefail
