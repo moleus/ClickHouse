@@ -1,0 +1,72 @@
+{
+  "source": "VM 1.134.0 standalone binary, SHA256 cd6e109bae85ff7c138d838b32be9a7fe2a6d7a9b3a387a7cf9234f22991da10",
+  "workload": {
+    "metric": "bench_metric",
+    "series": 10000,
+    "samples_per_series": 120,
+    "eval_steps": 60,
+    "localhost": true,
+    "concurrency": 1,
+    "nocache": 1,
+    "warmup": 4,
+    "repetitions": 20,
+    "cpus": 4,
+    "wall_latency_includes_HTTP": true
+  },
+  "columns": [
+    "case",
+    "expression",
+    "seriesFetched",
+    "p50_ms",
+    "p95_ms"
+  ],
+  "results": [
+    [
+      "all_10000",
+      "sum(rate(bench_metric[5m]))",
+      10000,
+      17.729,
+      22.369
+    ],
+    [
+      "region_5000",
+      "sum(rate(bench_metric{region=\"east\"}[5m]))",
+      5000,
+      7.786,
+      8.878
+    ],
+    [
+      "team_313",
+      "sum(rate(bench_metric{team=\"t01\"}[5m]))",
+      313,
+      1.025,
+      1.849
+    ],
+    [
+      "host_1",
+      "sum(rate(bench_metric{host=\"h0001\"}[5m]))",
+      1,
+      0.335,
+      0.578
+    ],
+    [
+      "all_count_10000",
+      "count(bench_metric)",
+      10000,
+      15.473,
+      18.621
+    ],
+    [
+      "host_regex_5000",
+      "sum(rate(bench_metric{host=~\"h[0-4][0-9]{3}\"}[5m]))",
+      5000,
+      7.448,
+      8.701
+    ]
+  ],
+  "notes": [
+    "These values only measure VictoriaMetrics, not ClickHouse.",
+    "Synthetic counters on local storage; benchmark does not include concurrent ingestion.",
+    "Regex label matcher host matched 5000 series; query did not serialize 5000 series, only aggregate sum."
+  ]
+}
