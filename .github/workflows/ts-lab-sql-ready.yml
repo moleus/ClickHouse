@@ -115,7 +115,7 @@ jobs:
           print(json.dumps(status))
           pathlib.Path('evidence/vm-visibility.json').write_text(json.dumps(status,indent=2)+'\n')
           PY
-      - name: Benchmark direct samples rate without ANTL4 parser
+      - name: Benchmark raw sample aggregation with HTTP diagnostics
         run: |
           set -euo pipefail
           python3 .github/ts-lab-bench/bench_inner_rate.py \
