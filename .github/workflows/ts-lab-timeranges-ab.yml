@@ -1,0 +1,212 @@
+name: TimeSeries time-ranges join label selector A/B/A
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths:
+      - '.github/workflows/ts-lab-timeranges-ab.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: tslab-timeranges-ab-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  sql_bench:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        series: [5000, 50000]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SERIES: ${{ matrix.series }}
+      REPO: moleus/ClickHouse
+      CH_RUN: '41301314345'
+      VM_RUN: '41288854734'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify exact ANTL-enabled baseline and VM binaries
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/ch-art" "$RUNNER_TEMP/ch-bin" "$RUNNER_TEMP/vm-art" "$RUNNER_TEMP/vm-bin"
+          gh run download "$CH_RUN" -R "$REPO" --pattern 'tslab-clickhouse-amd64-*' \
+            -D "$RUNNER_TEMP/ch-art"
+          ch_archive="$(find "$RUNNER_TEMP/ch-art" -type f -name 'clickhouse-linux-amd64.tar.zst' -print -quit)"
+          test -s "$ch_archive"
+          (cd "$(dirname "$ch_archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/ch-archive-checksum.txt
+          zstd -dc "$ch_archive" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
+          (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS) | tee evidence/ch-binary-checksum.txt
+          chmod +x "$RUNNER_TEMP/ch-bin/clickhouse"
+          "$RUNNER_TEMP/ch-bin/clickhouse" --version | tee evidence/ch-version.txt
+          gh run download "$VM_RUN" -R "$REPO" -n tslab-victoria-metrics-v1.134.0 -D "$RUNNER_TEMP/vm-art"
+          (cd "$RUNNER_TEMP/vm-art" && sed 's#  output/#  #' SHA256SUMS | sha256sum -c -) | tee evidence/vm-archive-checksum.txt
+          tar -xzf "$RUNNER_TEMP/vm-art/victoria-metrics-linux-amd64-v1.134.0.tar.gz" -C "$RUNNER_TEMP/vm-bin"
+          chmod +x "$RUNNER_TEMP/vm-bin/victoria-metrics-prod"
+          "$RUNNER_TEMP/vm-bin/victoria-metrics-prod" --version 2>&1 | head -n 3 | tee evidence/vm-version.txt
+      - name: Start isolated query engines
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles" "$RUNNER_TEMP/vm/data"
+          cat > "$RUNNER_TEMP/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path><tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions><max_memory_usage>1200000000</max_memory_usage><log_queries>1</log_queries></default></profiles>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+          <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/ch-bin/clickhouse" server --config-file="$RUNNER_TEMP/config.xml" > evidence/ch-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          "$RUNNER_TEMP/vm-bin/victoria-metrics-prod" -storageDataPath="$RUNNER_TEMP/vm/data" \
+            -httpListenAddr=127.0.0.1:8430 -search.disableCache > evidence/vm-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/vm.pid"
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 2 http://127.0.0.1:18191/ping >/dev/null 2>&1 \
+               && curl -fsS --max-time 2 http://127.0.0.1:8430/health >/dev/null 2>&1; then
+              echo ready
+              exit 0
+            fi
+            sleep 2
+          done
+          tail -100 evidence/ch-server.log evidence/vm-server.log
+          exit 1
+      - name: Generate identical data and load both engines
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-bench/generate.py --outdir "$RUNNER_TEMP/data" \
+            --series "$SERIES" --points 120 --step 60 > evidence/manifest.json
+          curl -fsS -X POST --data-binary "CREATE TABLE bench_ts_$SERIES ENGINE=TimeSeries" \
+            'http://127.0.0.1:18191/?allow_experimental_time_series_table=1' \
+            -o evidence/ch-create-response.txt || { tail -50 evidence/ch-server.log; exit 1; }
+          curl -fsS -X POST --max-time 300 -o evidence/ch-load-response.txt -w 'CH load_seconds=%{time_total}\n' \
+            --data-binary "@$RUNNER_TEMP/data/ch-import.jsonl" \
+            "http://127.0.0.1:18191/?allow_experimental_time_series_table=1&wait_end_of_query=1&query=INSERT%20INTO%20bench_ts_$SERIES%20%28metric_name%2Ctags%2Csamples%29%20FORMAT%20JSONEachRow" | tee evidence/ch-load-time.txt
+          curl -fsS -X POST --max-time 300 -o evidence/vm-load-response.txt -w 'VM load_seconds=%{time_total}\n' \
+            --data-binary "@$RUNNER_TEMP/data/vm-import.prom" \
+            http://127.0.0.1:8430/api/v1/import/prometheus | tee evidence/vm-load-time.txt
+          du -sb "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/vm/data" | tee evidence/storage-bytes.txt
+      - name: Wait until VictoriaMetrics indexes all imported samples
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib,time,urllib.parse,urllib.request
+          manifest=json.load(open(os.environ['RUNNER_TEMP']+'/data/manifest.json'))
+          expected=int(os.environ['SERIES'])
+          params=urllib.parse.urlencode(dict(query='count(bench_metric)',time=manifest['eval_end_epoch'],nocache='1'))
+          url='http://127.0.0.1:8430/api/v1/query?'+params
+          for attempt in range(120):
+              with urllib.request.urlopen(url,timeout=15) as response:result=json.load(response)
+              vals=result.get('data',{}).get('result',[])
+              count=float(vals[0]['value'][1]) if vals else 0
+              if count == expected:break
+              time.sleep(1)
+          else:raise RuntimeError(f'VM count={count}, expected={expected}; response={result}')
+          status={'run':os.environ['GITHUB_RUN_ID'],'series':expected,'visible':count,'visibility_attempt':attempt+1}
+          print(json.dumps(status))
+          pathlib.Path('evidence/vm-visibility.json').write_text(json.dumps(status,indent=2)+'\n')
+          PY
+      - name: Create paired TimeSeries table without time-ranges target
+        run: |
+          set -euo pipefail
+          sql="CREATE TABLE bench_ts_noranges_$SERIES ENGINE=TimeSeries SETTINGS store_time_ranges=false"
+          curl -fsS -X POST --data-binary "$sql" 'http://127.0.0.1:18191/?allow_experimental_time_series_table=1' \
+            -o evidence/ch-create-noranges-response.txt
+          curl -fsS -X POST --max-time 300 -o evidence/ch-load-noranges-response.txt \
+            -w 'CH no-range load_seconds=%{time_total}\n' \
+            --data-binary "@$RUNNER_TEMP/data/ch-import.jsonl" \
+            "http://127.0.0.1:18191/?allow_experimental_time_series_table=1&wait_end_of_query=1&query=INSERT%20INTO%20bench_ts_noranges_$SERIES%20%28metric_name%2Ctags%2Csamples%29%20FORMAT%20JSONEachRow" \
+            | tee evidence/ch-load-noranges-time.txt
+          for name in "bench_ts_$SERIES" "bench_ts_noranges_$SERIES"; do
+            curl -fsS -X POST --data-binary "SHOW CREATE TABLE $name" http://127.0.0.1:18191/ \
+              > "evidence/create-$name.sql"
+          done
+      - name: Measure baseline, no-time-ranges and baseline again
+        run: |
+          set -euo pipefail
+          for phase in base_before no_ranges base_after; do
+            if [ "$phase" = no_ranges ]; then table="bench_ts_noranges_$SERIES"; else table="bench_ts_$SERIES"; fi
+            python3 .github/ts-lab-bench/bench_native_selectors.py \
+              --data "$RUNNER_TEMP/data" \
+              --clickhouse http://127.0.0.1:18191 \
+              --victoria http://127.0.0.1:8430 \
+              --table "$table" --warmups 2 --repetitions 6 \
+              | tee "evidence/selector-$phase.log"
+            cp "$RUNNER_TEMP/data/benchmark-results.json" "evidence/selector-$phase.json"
+          done
+          python3 - <<'PY'
+          import json, pathlib
+          root=pathlib.Path('evidence')
+          before=json.loads((root/'selector-base_before.json').read_text())
+          after=json.loads((root/'selector-base_after.json').read_text())
+          no=json.loads((root/'selector-no_ranges.json').read_text())
+          def bycase(d,engine='ch'):
+              return {x['name']:x for x in d['cases'] if x['engine']==engine}
+          b,a,n=bycase(before),bycase(after),bycase(no)
+          assert set(b)==set(a)==set(n)
+          results={}
+          for key in b:
+              x,y,z=b[key]['p50_ms'],n[key]['p50_ms'],a[key]['p50_ms']
+              results[key]={'baseline_before_ms':x,'no_ranges_ms':y,'baseline_after_ms':z,
+                            'ratio_no_ranges_to_baseline_before':round(y/x,3),
+                            'ratio_no_ranges_to_baseline_after':round(y/z,3),
+                            'points':b[key]['points']}
+          (root/'comparison.json').write_text(json.dumps(results,indent=2)+'\n')
+          print('TIME_RANGES_AB',json.dumps(results,indent=2),flush=True)
+          PY
+      - name: Validate exact points for baseline and no-time-ranges selectors
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,urllib.parse,urllib.request,datetime as dt,math,pathlib
+          m=json.load(open(os.environ['RUNNER_TEMP']+'/data/manifest.json'))
+          start,end,step=(m[k] for k in ('eval_start_epoch','eval_end_epoch','eval_step_seconds'))
+          expressions=['sum(rate(bench_metric[5m]))',
+                       'sum(rate(bench_metric{region="east"}[5m]))',
+                       'sum(rate(bench_metric{team="t00"}[5m]))',
+                       'sum(rate(bench_metric{host="h0001"}[5m]))',
+                       'sum by (team) (rate(bench_metric[5m]))']
+          def run(table,expression):
+              sql="SELECT * FROM prometheusQueryRange("+table+", '"+expression.replace("'","''")+"', "+str(start)+", "+str(end)+", "+str(step)+") FORMAT JSONEachRow"
+              query=urllib.parse.urlencode({'allow_experimental_time_series_table':1,'wait_end_of_query':1})
+              req=urllib.request.Request('http://127.0.0.1:18191/?'+query,sql.encode())
+              with urllib.request.urlopen(req,timeout=160) as res:body=res.read()
+              rows=[json.loads(s) for s in body.splitlines() if s]
+              def canonical(r):
+                  return (tuple(tuple(t) for t in r['tags']),[(str(ts),float(v)) for ts,v in r['samples']])
+              return sorted([canonical(r) for r in rows],key=lambda x:x[0])
+          verdict=[]
+          for expr in expressions:
+              x=run('bench_ts_'+os.environ['SERIES'],expr)
+              y=run('bench_ts_noranges_'+os.environ['SERIES'],expr)
+              assert len(x)==len(y),(expr,len(x),len(y))
+              for (tags1,p1),(tags2,p2) in zip(x,y):
+                  assert tags1==tags2 and len(p1)==len(p2),(expr,tags1,tags2)
+                  for (t,v),(u,w) in zip(p1,p2):
+                      assert t==u and math.isclose(v,w,rel_tol=1e-10,abs_tol=1e-8),(expr,t,v,w)
+              verdict.append({'expression':expr,'series':len(x),'points':sum(len(p) for _,p in x),'identical':True})
+          pathlib.Path('evidence/exact-verification.json').write_text(json.dumps(verdict,indent=2)+'\n')
+          print('EXACT_OUTPUTS',json.dumps(verdict),flush=True)
+          PY
+          curl -fsS -X POST --data-binary 'SYSTEM FLUSH LOGS' http://127.0.0.1:18191/ >/dev/null || true
+          curl -fsS -X POST --data-binary \
+            "SELECT query, query_duration_ms, read_rows, read_bytes, memory_usage, exception_code, type FROM system.query_log WHERE query LIKE '%prometheusQueryRange%' ORDER BY event_time_microseconds FORMAT JSONEachRow" \
+            http://127.0.0.1:18191/ > evidence/ch-querylog.jsonl || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tslab-timeranges-aba-${{ matrix.series }}-${{ github.run_id }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 14
