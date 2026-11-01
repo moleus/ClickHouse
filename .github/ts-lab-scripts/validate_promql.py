@@ -18,7 +18,7 @@ INSERT INTO t (metric_name, tags, samples) VALUES
 
 def evaluate(expr):
     query = f"SELECT * FROM prometheusQueryRange(t, '{expr}', 160, 280, 60) ORDER BY ALL FORMAT JSONEachRow;"
-    p = subprocess.run([clickhouse, "local", "--multiquery"], input=setup+query+"\n",
+    p = subprocess.run([clickhouse, "local", "--tmp", "--multiquery"], input=setup+query+"\n",
                        text=True, capture_output=True, timeout=90)
     if p.returncode:
         return {"error": p.stderr.strip(), "exit_code": p.returncode}

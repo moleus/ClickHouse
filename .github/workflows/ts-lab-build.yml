@@ -80,7 +80,8 @@ jobs:
           nasm --version
           mkdir -p "$CCACHE_DIR"
 
-      - uses: actions/cache@v4
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
         with:
           path: .ccache
           key: tslab-ccache-${{ runner.os }}-${{ env.SOURCE_SHA }}-${{ github.run_id }}
@@ -102,6 +103,7 @@ jobs:
             -DCMAKE_C_COMPILER="${RUNNER_TEMP}/llvm/bin/clang" \
             -DCMAKE_CXX_COMPILER="${RUNNER_TEMP}/llvm/bin/clang++" \
             -DCMAKE_LINKER="${RUNNER_TEMP}/llvm/bin/ld.lld" \
+            -DENABLE_LIBRARIES=OFF \
             -DENABLE_TESTS=OFF \
             -DENABLE_BENCHMARKS=OFF \
             -DENABLE_RUST=OFF \
@@ -123,14 +125,6 @@ jobs:
           ccache --show-stats
           test -s build-lab/programs/clickhouse
           build-lab/programs/clickhouse --version
-
-      - name: Smoke tests
-        run: |
-          set -euo pipefail
-          build-lab/programs/clickhouse local -q 'SELECT 1' | grep -x 1
-          build-lab/programs/clickhouse local -q 'SELECT version()'
-          build-lab/programs/clickhouse local --allow_experimental_time_series_table=1 -q 'SELECT 1' | grep -x 1
-          python3 "${RUNNER_TEMP}/validate_promql.py" build-lab/programs/clickhouse
 
       - name: Package lab binary
         run: |
@@ -154,6 +148,21 @@ jobs:
           if-no-files-found: error
           retention-days: 7
           compression-level: 0
+
+      - name: Save partial compilation cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .ccache
+          key: tslab-ccache-${{ runner.os }}-${{ env.SOURCE_SHA }}-${{ github.run_id }}
+
+      - name: Smoke tests
+        run: |
+          set -euo pipefail
+          build-lab/programs/clickhouse local -q 'SELECT 1' | grep -x 1
+          build-lab/programs/clickhouse local -q 'SELECT version()'
+          build-lab/programs/clickhouse local --allow_experimental_time_series_table=1 -q 'SELECT 1' | grep -x 1
+          python3 "${RUNNER_TEMP}/validate_promql.py" build-lab/programs/clickhouse
 
       - name: Publish lab prerelease
         env:
