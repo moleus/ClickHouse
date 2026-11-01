@@ -1,0 +1,91 @@
+name: TimeSeries binary runtime and digest smoke
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-runtime-smoke.yml']
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: tslab-runtime-smoke-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      ARTIFACT_ID: '13080944100'
+      ARTIFACT_DIGEST: 02be86e9c92d3984a3574949a07ad2f7c9ab50a98c9fd5e732abaf1025ee7b0c
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download original GitHub artifact ZIP and check both hashes
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/probe" "$RUNNER_TEMP/ch-bin"
+          gh api "repos/$REPO/actions/artifacts/$ARTIFACT_ID/zip" > "$RUNNER_TEMP/artifact.zip"
+          echo "$ARTIFACT_DIGEST  $RUNNER_TEMP/artifact.zip" | sha256sum -c - | tee evidence/outer-sha256.txt
+          unzip -q "$RUNNER_TEMP/artifact.zip" -d "$RUNNER_TEMP/probe"
+          (cd "$RUNNER_TEMP/probe" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/archive-sha256.txt
+          zstd -dc "$RUNNER_TEMP/probe/clickhouse-linux-amd64.tar.zst" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
+          (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS) | tee evidence/binary-sha256.txt
+          chmod +x "$RUNNER_TEMP/ch-bin/clickhouse"
+          "$RUNNER_TEMP/ch-bin/clickhouse" --version | tee evidence/ch-version.txt
+          "$RUNNER_TEMP/ch-bin/clickhouse" local -q 'SELECT 1' | grep -x 1
+          cat "$RUNNER_TEMP/ch-bin/BUILD_INFO.txt" | tee evidence/build-info.txt
+      - name: Verify standalone ClickHouse HTTP server can start
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles"
+          cat > "$RUNNER_TEMP/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host>
+            <http_port>18191</http_port>
+            <tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path>
+            <tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><max_memory_usage>4000000000</max_memory_usage></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/ch-bin/clickhouse" server --config-file="$RUNNER_TEMP/config.xml" > evidence/ch-server.log 2>&1 &
+          echo $! > "$RUNNER_TEMP/ch.pid"
+          for i in $(seq 1 60); do
+            if curl -fsS --max-time 2 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo 'HTTP_SERVER_READY' | tee evidence/server-status.txt
+              curl -fsSG --data-urlencode 'query=SELECT version()' http://127.0.0.1:18191 | tee evidence/http-version.txt
+              exit 0
+            fi
+            sleep 2
+          done
+          tail -120 evidence/ch-server.log
+          exit 1
+      - name: Exercise native TimeSeries ingest without PromQL parser
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-bench/generate.py --outdir "$RUNNER_TEMP/small" --series 512 --points 120 | tee evidence/input.json
+          curl -fsS --max-time 30 --data-binary '' \
+            'http://127.0.0.1:18191/?query=CREATE%20TABLE%20probe_ts%20ENGINE%3DTimeSeries&allow_experimental_time_series_table=1'
+          curl -fsS --max-time 120 --data-binary "@$RUNNER_TEMP/small/ch-import.jsonl" \
+            'http://127.0.0.1:18191/?query=INSERT%20INTO%20probe_ts%20(metric_name%2Ctags%2Csamples)%20FORMAT%20JSONEachRow&wait_end_of_query=1' \
+            | tee evidence/insert.txt
+          curl -fsSG --data-urlencode 'query=SHOW CREATE TABLE probe_ts' \
+            http://127.0.0.1:18191 | tee evidence/create-table.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tslab-verified-run7-runtime-${{ github.run_id }}
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: warn
