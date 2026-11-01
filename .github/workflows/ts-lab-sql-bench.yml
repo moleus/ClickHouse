@@ -84,16 +84,12 @@ jobs:
           set -euo pipefail
           python3 .github/ts-lab-bench/generate.py --outdir "$RUNNER_TEMP/data" \
             --series "$SERIES" --points 120 --step 60 > evidence/manifest.json
-          curl -fsS -X POST --max-time 300 -o evidence/ch-import-response.txt -w 'CH seconds=%{time_total}\n' \
-            --data-binary "@$RUNNER_TEMP/data/ch-import.jsonl" \
-            "http://127.0.0.1:18191/?query=INSERT%20INTO%20bench_ts_%SERIES%20(metric_name%2Ctags%2Csamples)%20FORMAT%20JSONEachRow" || true
           curl -fsS -G --data-urlencode "query=CREATE TABLE bench_ts_$SERIES ENGINE=TimeSeries" \
             --data-urlencode 'allow_experimental_time_series_table=1' \
             http://127.0.0.1:18191/ -o evidence/ch-create-response.txt
           curl -fsS -X POST --max-time 300 -o evidence/ch-load-response.txt -w 'CH load_seconds=%{time_total}\n' \
             --data-binary "@$RUNNER_TEMP/data/ch-import.jsonl" \
-            --get --data-urlencode "query=INSERT INTO bench_ts_$SERIES (metric_name,tags,samples) FORMAT JSONEachRow" \
-            http://127.0.0.1:18191/ | tee evidence/ch-load-time.txt
+            "http://127.0.0.1:18191/?allow_experimental_time_series_table=1&wait_end_of_query=1&query=INSERT%20INTO%20bench_ts_$SERIES%20%28metric_name%2Ctags%2Csamples%29%20FORMAT%20JSONEachRow" | tee evidence/ch-load-time.txt
           curl -fsS -X POST --max-time 300 -o evidence/vm-load-response.txt -w 'VM load_seconds=%{time_total}\n' \
             --data-binary "@$RUNNER_TEMP/data/vm-import.prom" \
             http://127.0.0.1:8430/api/v1/import/prometheus | tee evidence/vm-load-time.txt
