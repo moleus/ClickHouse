@@ -129,7 +129,7 @@ def main():
              'ch_query_mem_limit':args.ch_query_memory,'repeats':args.repeats,'cases':[]}
     for step in [int(x) for x in args.steps.split(',')]:
         start=manifest['query_start_epoch'];end=manifest['query_end_epoch']
-        query='SELECT * FROM prometheusQueryRange('+args.table+', '+json.dumps(expression)+', '+str(start)+', '+str(end)+', '+str(step)+') FORMAT JSONEachRow'
+        query='SELECT * FROM prometheusQueryRange('+args.table+", '"+expression.replace("'","''")+"', "+str(start)+', '+str(end)+', '+str(step)+') FORMAT JSONEachRow'
         url_ch=args.ch+'/?'+urllib.parse.urlencode({
             'allow_experimental_time_series_table':1,
             'max_memory_usage':args.ch_query_memory,
