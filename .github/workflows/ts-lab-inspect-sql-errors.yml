@@ -1,0 +1,38 @@
+name: TimeSeries inspect failed SQL benchmark evidence
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-inspect-sql-errors.yml']
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: tslab-diagnostics-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - name: Fetch and print exact SQL benchmark HTTP error responses
+        run: |
+          set -euo pipefail
+          for profile in 5000 50000; do
+            mkdir -p "evidence/$profile"
+            gh run download 41303226219 -R "$REPO" \
+              -n "tslab-direct-sql-vm-$profile-41303226219" \
+              -D "evidence/$profile"
+            echo "===== PROFILE=$profile RESPONSE ====="
+            cat "evidence/$profile/ch-load-response.txt" || true
+            echo "===== PROFILE=$profile CH SERVER LOG ====="
+            tail -100 "evidence/$profile/ch-server.log" || true
+            echo "===== PROFILE=$profile DATA MANIFEST ====="
+            cat "evidence/$profile/manifest.json" || true
+          done
