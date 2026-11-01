@@ -26,13 +26,15 @@ jobs:
           set -euo pipefail
           for profile in 5000 50000; do
             mkdir -p "evidence/$profile"
-            gh run download 41303226219 -R "$REPO" \
-              -n "tslab-direct-sql-vm-$profile-41303226219" \
+            gh run download 41303401765 -R "$REPO" \
+              -n "tslab-direct-sql-vm-$profile-41303401765" \
               -D "evidence/$profile"
             echo "===== PROFILE=$profile RESPONSE ====="
             cat "evidence/$profile/ch-load-response.txt" || true
             echo "===== PROFILE=$profile CH SERVER LOG ====="
             tail -100 "evidence/$profile/ch-server.log" || true
+            echo "===== PROFILE=$profile SQL STAGE LOG ====="
+            cat "evidence/$profile/sql-stage-summary.log" || true
             echo "===== PROFILE=$profile DATA MANIFEST ====="
             cat "evidence/$profile/manifest.json" || true
           done
