@@ -1,0 +1,36 @@
+{
+  "experiment": "50k series PromQL sum(rate) output comparison",
+  "date": "2026-11-01",
+  "clickhouse": {
+    "version": "26.11.1.974",
+    "patched": false
+  },
+  "victoria": {
+    "version": "v1.134.0"
+  },
+  "data": {
+    "series": 50000,
+    "samples": 6000000,
+    "eval_steps": 60,
+    "window_seconds": 300
+  },
+  "expression": "sum(rate(bench_metric[5m]))",
+  "timestamp_mismatch": 0,
+  "max_absolute_delta": 0.012500000613727025,
+  "max_relative_delta": 0.0000030000031472969708,
+  "first_three_CH": [
+    4166.637500000918,
+    4166.66250000092,
+    4166.650000000943
+  ],
+  "first_three_VM": [
+    4166.64000000031,
+    4166.650000000306,
+    4166.6600000003045
+  ],
+  "notes": [
+    "Both engines produced 60 points at the same timestamps",
+    "The numeric values differ; do not claim identical rate semantics",
+    "This compares unpatched ClickHouse to VictoriaMetrics 1.134.0, not the TimeSeries C++ patch"
+  ]
+}
