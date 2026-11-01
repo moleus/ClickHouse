@@ -163,13 +163,28 @@ def main():
                 timings.append(ms)
         if a.phase=="base_before":
             canonical[key]=to_json_rows(reference)
-        if key.startswith("jenkins_") and a.phase=="base_before":
-            # VM exact check for explicit one-sample [1d] rollup; no instant rollup mismatch.
-            vm_ms,vm_payload=vm_call(expr,start,end,step)
-            vm=normalized_vm(vm_payload)
-            vm_rows={(tuple([("stage",stage)]),timestamp):v for (stage,timestamp),v in vm.items()}
-            outputs["cases"][key]={"vm_one_request_ms":vm_ms,
-                                   "vm_exact_sql":assert_same(reference,vm_rows,key,"VM")}
+        if a.phase=="base_before":
+            # VM 1.134.0 is evaluated in the same runner. For Jenkins
+            # explicit [1d] the SQL event oracle checks every VM value.
+            # For dense rate() do NOT silently equate VM MetricsQL rate
+            # with CH PromQL rate; only time it and capture output count.
+            vm_times=[]
+            vm_check=None
+            vm_points=None
+            for trial in range(a.warmups+a.repeats):
+                vm_ms,vm_payload=vm_call(expr,start,end,step)
+                vm_points=sum(len(x["values"]) for x in vm_payload["data"]["result"])
+                if key.startswith("jenkins_"):
+                    vm=normalized_vm(vm_payload)
+                    vm_rows={(tuple([("stage",stage)]),timestamp):v for (stage,timestamp),v in vm.items()}
+                    vm_check=assert_same(reference,vm_rows,key,"VM")
+                if trial>=a.warmups:
+                    vm_times.append(vm_ms)
+            outputs["cases"][key]={"vm_p50_ms":pct(vm_times,.5),
+                                   "vm_p95_ms":pct(vm_times,.95),
+                                   "vm_http_timings_ms":vm_times,
+                                   "vm_points":vm_points,
+                                   "vm_exact_sql":vm_check if key.startswith("jenkins_") else "not asserted: MetricsQL/PromQL semantics differ"}
         else:
             outputs["cases"][key]={}
         stats=outputs["cases"][key]
