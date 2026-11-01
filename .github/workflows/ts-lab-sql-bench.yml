@@ -14,7 +14,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  wait_for_binary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 355
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      CH_RUN: '41301314345'
+    steps:
+      - name: Poll original running compile, require uploaded ClickHouse artifact
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 560); do
+            status="$(gh api "repos/$REPO/actions/runs/$CH_RUN" --jq '.status')"
+            if [ "$status" = "completed" ]; then
+              conclusion="$(gh api "repos/$REPO/actions/runs/$CH_RUN" --jq '.conclusion')"
+              count="$(gh api "repos/$REPO/actions/runs/$CH_RUN/artifacts" --jq '.total_count')"
+              echo "RUN $CH_RUN status=$status conclusion=$conclusion artifacts=$count"
+              test "$count" -gt 0 || { gh run view "$CH_RUN" -R "$REPO" --log-failed || true; exit 1; }
+              exit 0
+            fi
+            if [ $((i % 10)) -eq 1 ]; then echo "RUN $CH_RUN status=$status check=$i"; fi
+            sleep 30
+          done
+          echo "Timed out waiting for ClickHouse binary" >&2
+          exit 1
   sql_bench:
+    needs: wait_for_binary
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
@@ -25,7 +51,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       SERIES: ${{ matrix.series }}
       REPO: moleus/ClickHouse
-      CH_ARTIFACT: '13080944100'
+      CH_RUN: '41301314345'
       VM_RUN: '41288854734'
     steps:
       - uses: actions/checkout@v4
@@ -35,11 +61,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p evidence "$RUNNER_TEMP/ch-art" "$RUNNER_TEMP/ch-bin" "$RUNNER_TEMP/vm-art" "$RUNNER_TEMP/vm-bin"
-          gh run download 41289735046 -R "$REPO" -n \
-            tslab-clickhouse-amd64-8db1f4bc82e426ddedbd209a952ee94b1cdb5192 \
+          gh run download "$CH_RUN" -R "$REPO" --pattern 'tslab-clickhouse-amd64-*' \
             -D "$RUNNER_TEMP/ch-art"
-          (cd "$RUNNER_TEMP/ch-art" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/ch-archive-checksum.txt
-          zstd -dc "$RUNNER_TEMP/ch-art/clickhouse-linux-amd64.tar.zst" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
+          ch_archive="$(find "$RUNNER_TEMP/ch-art" -type f -name 'clickhouse-linux-amd64.tar.zst' -print -quit)"
+          test -s "$ch_archive"
+          (cd "$(dirname "$ch_archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/ch-archive-checksum.txt
+          zstd -dc "$ch_archive" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
           (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS) | tee evidence/ch-binary-checksum.txt
           chmod +x "$RUNNER_TEMP/ch-bin/clickhouse"
           "$RUNNER_TEMP/ch-bin/clickhouse" --version | tee evidence/ch-version.txt
@@ -138,7 +165,7 @@ jobs:
           p95=seq[10]*0.55+seq[11]*0.45
           ch=json.load(open('evidence/sql-stages.json'))['summary_ms']
           result={'run_id':os.environ['GITHUB_RUN_ID'],'commit':os.environ['GITHUB_SHA'],
-                  'series':m['series'],'samples':m['samples_total'],'engine_ch':'O1 patched Converter with disabled ANTLR; direct SQL path only',
+                  'series':m['series'],'samples':m['samples_total'],'engine_ch':'patched TimeSeries compiler run 41301314345; ANTLR enabled; direct SQL stage',
                   'vm_metric_sql':'sum(rate(bench_metric[5m]))',
                   'vm_p50_ms':p50,'vm_p95_ms':p95,'vm_ms':durations[4:],
                   'ch_sql_stages':ch,'ch_rate_group_tags_to_vm_ratio':ch['rate_group_tags']['p50_ms']/p50,
