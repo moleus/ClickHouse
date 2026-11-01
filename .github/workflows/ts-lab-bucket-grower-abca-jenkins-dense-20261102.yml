@@ -214,9 +214,9 @@ jobs:
               sleep 15
             done
             [ "$success" = 1 ] || { echo "C++ $degree artifact not found" >&2; exit 1; }
-            archive="$RUNNER_TEMP/bucket$degree-art/clickhouse-bucket-grower-$degree-linux-amd64.tar.zst"
+            archive="$(find "$RUNNER_TEMP/bucket$degree-art" -type f -name "clickhouse-bucket-grower-$degree-linux-amd64.tar.zst" -print -quit)"
             test -s "$archive"
-            (cd "$RUNNER_TEMP/bucket$degree-art" && sha256sum -c ARCHIVE_SHA256SUMS) | tee "evidence/bucket$degree-archive-hash.txt"
+            (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee "evidence/bucket$degree-archive-hash.txt"
             zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/bucket$degree-bin"
             (cd "$RUNNER_TEMP/bucket$degree-bin" && sha256sum -c SHA256SUMS) | tee "evidence/bucket$degree-binary-hash.txt"
             chmod +x "$RUNNER_TEMP/bucket$degree-bin/clickhouse"
