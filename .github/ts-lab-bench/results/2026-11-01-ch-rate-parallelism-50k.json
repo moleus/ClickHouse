@@ -1,0 +1,24 @@
+{
+  "engine": "ClickHouse 26.11.1.974 unpatched",
+  "series": 50000,
+  "samples": 6000000,
+  "window_seconds": 300,
+  "steps": 60,
+  "query": "two-stage manual sum(rate), grouped by full id",
+  "environment": "4 vCPU 4GiB shared runtime, HTTP wall time",
+  "warmups": 2,
+  "repetitions": 8,
+  "max_threads_p50_ms": {
+    "1": 817.26,
+    "2": 805.7,
+    "4": 807.36,
+    "8": 819.5
+  },
+  "optimize_read_in_order_p50_ms": {
+    "0": 850.8775,
+    "1": 841.851
+  },
+  "optimize_read_in_order_repetitions": 10,
+  "equality_check_for_read_order_max_abs_delta": 1.8189894035458565e-12,
+  "interpretation": "No significant improvement from max_threads 1 to 8 or disabling optimize_read_in_order under these conditions; results are noisy. Do not claim rate aggregation is globally single-threaded from these measurements alone."
+}
