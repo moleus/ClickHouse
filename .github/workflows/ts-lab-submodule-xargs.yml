@@ -1,0 +1,71 @@
+name: TimeSeries xargs submodule checkout probe
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-submodule-xargs.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tslab-submodule-xargs-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  xargs_checkout:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      SOURCE_SHA: 52529f0c711566d696917678bf15e7068772fdde
+      GIT_TERMINAL_PROMPT: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Clone exact baseline
+        run: |
+          set -euo pipefail
+          mkdir -p measurements
+          df -h . | tee measurements/disk-before.txt
+          git remote add upstream https://github.com/ClickHouse/ClickHouse.git
+          /usr/bin/time -v -o measurements/base-fetch-time.txt \
+            git fetch --no-tags --depth=1 upstream "$SOURCE_SHA"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git submodule sync --recursive
+          git submodule init
+      - name: Concurrent independent submodules with GNU xargs
+        run: |
+          set -euo pipefail
+          git config --file .gitmodules --get-regexp '.*path' | sed 's/[^ ]* //' > measurements/paths.txt
+          echo "Top-level submodules: $(wc -l < measurements/paths.txt)"
+          /usr/bin/time -v -o measurements/submodule-time.txt sh -c \
+            "cat measurements/paths.txt | xargs -r -n 1 -P 12 git submodule update --depth=1 --single-branch --" \
+            > measurements/submodules.log 2>&1 || {
+              tail -120 measurements/submodules.log
+              exit 1
+            }
+          git submodule status --recursive > measurements/submodule-status.txt
+          if grep -E '^[+-U]' measurements/submodule-status.txt; then
+            echo 'Checkout incomplete: missing or invalid submodule revision' >&2; exit 1
+          fi
+          du -sb contrib .git/modules | tee measurements/disk-usage.txt
+          df -h . | tee measurements/disk-after.txt
+          cat measurements/submodule-time.txt
+          python3 - <<'PY'
+          import json, pathlib, os
+          p=pathlib.Path('measurements')
+          sizes={line.split()[1]:int(line.split()[0]) for line in p.joinpath('disk-usage.txt').read_text().splitlines()}
+          stats={'run':os.environ['GITHUB_RUN_ID'],'commit':os.environ['GITHUB_SHA'],'source':os.environ['SOURCE_SHA'],'method':'xargs -P 12','paths':len(p.joinpath('paths.txt').read_text().splitlines()),'checked_out':len(p.joinpath('submodule-status.txt').read_text().splitlines()),'sizes_bytes':sizes}
+          p.joinpath('metrics.json').write_text(json.dumps(stats,indent=2)+'\n')
+          print(json.dumps(stats,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tslab-submodule-xargs-${{ github.run_id }}
+          path: measurements/
+          if-no-files-found: warn
+          retention-days: 7
