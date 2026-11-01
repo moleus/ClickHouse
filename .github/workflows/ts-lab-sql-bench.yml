@@ -44,7 +44,7 @@ jobs:
           chmod +x "$RUNNER_TEMP/ch-bin/clickhouse"
           "$RUNNER_TEMP/ch-bin/clickhouse" --version | tee evidence/ch-version.txt
           gh run download "$VM_RUN" -R "$REPO" -n tslab-victoria-metrics-v1.134.0 -D "$RUNNER_TEMP/vm-art"
-          (cd "$RUNNER_TEMP/vm-art" && sed 's#^output/##' SHA256SUMS | sha256sum -c -) | tee evidence/vm-archive-checksum.txt
+          (cd "$RUNNER_TEMP/vm-art" && sed 's#  output/#  #' SHA256SUMS | sha256sum -c -) | tee evidence/vm-archive-checksum.txt
           tar -xzf "$RUNNER_TEMP/vm-art/victoria-metrics-linux-amd64-v1.134.0.tar.gz" -C "$RUNNER_TEMP/vm-bin"
           chmod +x "$RUNNER_TEMP/vm-bin/victoria-metrics-prod"
           "$RUNNER_TEMP/vm-bin/victoria-metrics-prod" --version 2>&1 | head -n 3 | tee evidence/vm-version.txt
