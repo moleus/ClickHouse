@@ -261,10 +261,10 @@ jobs:
       - name: Same-run A/B/A benchmark - exact original CH vs C++ fusion vs recheck
         run: |
           set -euo pipefail
-          for phase in base_before direct_grouped base_after; do
+          for phase in base_before direct_inner base_after; do
             case "$phase" in
               base_before) ;;
-              direct_grouped) "$RUNNER_TEMP/ch-restart.sh" "$RUNNER_TEMP/direct-bin/clickhouse" direct_grouped ;;
+              direct_inner) "$RUNNER_TEMP/ch-restart.sh" "$RUNNER_TEMP/direct-bin/clickhouse" direct_inner ;;
               base_after) "$RUNNER_TEMP/ch-restart.sh" "$RUNNER_TEMP/ch-bin/clickhouse" base_after ;;
             esac
             echo "DIRECT_PHASE_BEGIN=$phase"
@@ -279,7 +279,7 @@ jobs:
           python3 - <<'PY'
           import json,pathlib
           root=pathlib.Path('evidence')
-          phases=['base_before','direct_grouped','base_after']
+          phases=['base_before','direct_inner','base_after']
           items={p:json.loads((root/('direct-'+p+'.json')).read_text()) for p in phases}
           result=[]
           for case in items['base_before']['cases']:
@@ -291,9 +291,9 @@ jobs:
                   row[phase]={k:x[k] for k in [
                       'p50_ms','p95_ms','p99_ms','read_rows_p50','read_bytes_p50',
                       'tracked_memory_p95_bytes','tracked_memory_peak_bytes']}
-              row['direct_speedup_vs_recheck']=round(row['base_after']['p50_ms']/row['direct_grouped']['p50_ms'],4)
+              row['direct_speedup_vs_recheck']=round(row['base_after']['p50_ms']/row['direct_inner']['p50_ms'],4)
               row['direct_memory_ratio_vs_recheck']=round(
-                  row['direct_grouped']['tracked_memory_p95_bytes']/
+                  row['direct_inner']['tracked_memory_p95_bytes']/
                   max(1,row['base_after']['tracked_memory_p95_bytes']),4)
               print('DIRECT_ABA_CASE',json.dumps(row,separators=(',',':')),flush=True)
               result.append(row)
