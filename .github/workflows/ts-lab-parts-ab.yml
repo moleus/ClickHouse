@@ -1,0 +1,158 @@
+name: TimeSeries MergeTree part compaction AB
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths:
+      - '.github/workflows/ts-lab-parts-ab.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: tslab-parts-ab-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  sql_bench:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        series: [5000, 50000]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SERIES: ${{ matrix.series }}
+      REPO: moleus/ClickHouse
+      CH_RUN: '41301314345'
+      VM_RUN: '41288854734'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download exact patched ClickHouse O1 and VM baseline
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/ch-art" "$RUNNER_TEMP/ch-bin" "$RUNNER_TEMP/vm-art" "$RUNNER_TEMP/vm-bin"
+          gh run download "$CH_RUN" -R "$REPO" --pattern 'tslab-clickhouse-amd64-*' \
+            -D "$RUNNER_TEMP/ch-art"
+          ch_archive="$(find "$RUNNER_TEMP/ch-art" -type f -name 'clickhouse-linux-amd64.tar.zst' -print -quit)"
+          test -s "$ch_archive"
+          (cd "$(dirname "$ch_archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/ch-archive-checksum.txt
+          zstd -dc "$ch_archive" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
+          (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS) | tee evidence/ch-binary-checksum.txt
+          chmod +x "$RUNNER_TEMP/ch-bin/clickhouse"
+          "$RUNNER_TEMP/ch-bin/clickhouse" --version | tee evidence/ch-version.txt
+          gh run download "$VM_RUN" -R "$REPO" -n tslab-victoria-metrics-v1.134.0 -D "$RUNNER_TEMP/vm-art"
+          (cd "$RUNNER_TEMP/vm-art" && sed 's#  output/#  #' SHA256SUMS | sha256sum -c -) | tee evidence/vm-archive-checksum.txt
+          tar -xzf "$RUNNER_TEMP/vm-art/victoria-metrics-linux-amd64-v1.134.0.tar.gz" -C "$RUNNER_TEMP/vm-bin"
+          chmod +x "$RUNNER_TEMP/vm-bin/victoria-metrics-prod"
+          "$RUNNER_TEMP/vm-bin/victoria-metrics-prod" --version 2>&1 | head -n 3 | tee evidence/vm-version.txt
+      - name: Start isolated query engines
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles" "$RUNNER_TEMP/vm/data"
+          cat > "$RUNNER_TEMP/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path><tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><max_memory_usage>8000000000</max_memory_usage></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/ch-bin/clickhouse" server --config-file="$RUNNER_TEMP/config.xml" > evidence/ch-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          "$RUNNER_TEMP/vm-bin/victoria-metrics-prod" -storageDataPath="$RUNNER_TEMP/vm/data" \
+            -httpListenAddr=127.0.0.1:8430 -search.disableCache > evidence/vm-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/vm.pid"
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 2 http://127.0.0.1:18191/ping >/dev/null 2>&1 \
+               && curl -fsS --max-time 2 http://127.0.0.1:8430/health >/dev/null 2>&1; then
+              echo ready
+              exit 0
+            fi
+            sleep 2
+          done
+          tail -100 evidence/ch-server.log evidence/vm-server.log
+          exit 1
+      - name: Generate identical data and load both engines
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-bench/generate.py --outdir "$RUNNER_TEMP/data" \
+            --series "$SERIES" --points 120 --step 60 > evidence/manifest.json
+          curl -fsS -X POST --data-binary "CREATE TABLE bench_ts_$SERIES ENGINE=TimeSeries" \
+            'http://127.0.0.1:18191/?allow_experimental_time_series_table=1' \
+            -o evidence/ch-create-response.txt || { tail -50 evidence/ch-server.log; exit 1; }
+          curl -fsS -X POST --max-time 300 -o evidence/ch-load-response.txt -w 'CH load_seconds=%{time_total}\n' \
+            --data-binary "@$RUNNER_TEMP/data/ch-import.jsonl" \
+            "http://127.0.0.1:18191/?allow_experimental_time_series_table=1&wait_end_of_query=1&query=INSERT%20INTO%20bench_ts_$SERIES%20%28metric_name%2Ctags%2Csamples%29%20FORMAT%20JSONEachRow" | tee evidence/ch-load-time.txt
+          curl -fsS -X POST --max-time 300 -o evidence/vm-load-response.txt -w 'VM load_seconds=%{time_total}\n' \
+            --data-binary "@$RUNNER_TEMP/data/vm-import.prom" \
+            http://127.0.0.1:8430/api/v1/import/prometheus | tee evidence/vm-load-time.txt
+          du -sb "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/vm/data" | tee evidence/storage-bytes.txt
+      - name: Wait until VictoriaMetrics indexes all imported samples
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib,time,urllib.parse,urllib.request
+          manifest=json.load(open(os.environ['RUNNER_TEMP']+'/data/manifest.json'))
+          expected=int(os.environ['SERIES'])
+          params=urllib.parse.urlencode(dict(query='count(bench_metric)',time=manifest['eval_end_epoch'],nocache='1'))
+          url='http://127.0.0.1:8430/api/v1/query?'+params
+          for attempt in range(120):
+              with urllib.request.urlopen(url,timeout=15) as response:result=json.load(response)
+              vals=result.get('data',{}).get('result',[])
+              count=float(vals[0]['value'][1]) if vals else 0
+              if count == expected:break
+              time.sleep(1)
+          else:raise RuntimeError(f'VM count={count}, expected={expected}; response={result}')
+          status={'run':os.environ['GITHUB_RUN_ID'],'series':expected,'visible':count,'visibility_attempt':attempt+1}
+          print(json.dumps(status))
+          pathlib.Path('evidence/vm-visibility.json').write_text(json.dumps(status,indent=2)+'\n')
+          PY
+      - name: Paired AB measurement on same data before and after final merge
+        run: |
+          set -euo pipefail
+          url=http://127.0.0.1:18191
+          table="$(curl -fsS -X POST --data-binary "SELECT name FROM system.tables WHERE database='default' AND startsWith(name, '.inner_id.samples.') LIMIT 1 FORMAT TSVRaw" "$url/")"
+          test -n "$table"
+          echo "INNER_TABLE=$table"
+          for phase in before after; do
+            curl -fsS -X POST --data-binary "SELECT count() AS parts, sum(rows) AS rows, sum(bytes_on_disk) AS bytes FROM system.parts WHERE active AND database='default' AND table='$table' FORMAT JSONEachRow" "$url/" | tee "evidence/parts-$phase.jsonl"
+            python3 .github/ts-lab-bench/bench_inner_rate.py \
+              --manifest "$RUNNER_TEMP/data/manifest.json" \
+              --ch "$url" --vm http://127.0.0.1:8430 \
+              --table "bench_ts_$SERIES" --repeats 8 --warmups 3 \
+              --output "evidence/grid-$phase.json" | tee "evidence/grid-$phase.log"
+            if [ "$phase" = before ]; then
+              /usr/bin/time -v -o evidence/optimize-final-time.txt \
+                curl -fsS -X POST --max-time 600 --data-binary "OPTIMIZE TABLE default.\`$table\` FINAL" \
+                  "$url/?wait_end_of_query=1&max_execution_time=600" \
+                > evidence/optimize-final-output.txt
+            fi
+          done
+          python3 - <<'PY'
+          import json
+          a=json.load(open('evidence/grid-before.json'))
+          b=json.load(open('evidence/grid-after.json'))
+          results={}
+          for key in a['stats']:
+              p=a['stats'][key]['p50_ms'];q=b['stats'][key]['p50_ms']
+              results[key]={'before_ms':p,'after_ms':q,'ratio_after_over_before':round(q/p,3)}
+          print('PART_MERGE_AB',json.dumps(results,indent=2))
+          json.dump(results,open('evidence/paired-result.json','w'),indent=2)
+          PY
+          ps -o pid,rss,%cpu,comm -p "$(cat "$RUNNER_TEMP/ch.pid"),$(cat "$RUNNER_TEMP/vm.pid")" | tee evidence/process-usage.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tslab-part-ab-${{ matrix.series }}-${{ github.run_id }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 14
