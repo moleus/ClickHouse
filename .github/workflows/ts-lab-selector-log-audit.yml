@@ -1,0 +1,65 @@
+name: TimeSeries selector query log audit
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-selector-log-audit.yml']
+permissions:
+  actions: read
+  contents: read
+concurrency:
+  group: tslab-selector-audit-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN: '41333026964'
+    steps:
+      - name: Download measured selector artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/raw
+          gh run download "$RUN" -R moleus/ClickHouse --pattern 'tslab-selector-compare-*' -D evidence/raw
+          find evidence/raw -name selector-querylog.jsonl -o -name selector-summary.json
+      - name: Read ClickHouse execution cost, rows and memory
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,pathlib,statistics
+          root=pathlib.Path('evidence/raw')
+          records=[]
+          def classify(q):
+              for key,phrase in [('host','host="h0001"'),('team','team="t00"'),('region','region="east"'),('by_team','sum by (team)'),('by_region','sum by (region)'),('regex','__name__=~'),('all','sum(rate(')]:
+                  if phrase in q:return key
+              return None
+          names={'host':'sum_host_h0001','team':'sum_team_t00','region':'sum_region_east','by_team':'sum_rate_by_team','by_region':'sum_rate_by_region','regex':'sum_rate_regex','all':'sum_rate_exact'}
+          for f in root.rglob('selector-summary.json'):
+              m=json.loads(f.read_text())
+              qfile=f.parent/'selector-querylog.jsonl'
+              logs=[json.loads(s) for s in qfile.read_text().splitlines() if s.strip()] if qfile.exists() else []
+              groups={}
+              for row in logs:
+                  key=classify(row.get('query',''))
+                  if key is None or str(row.get('type')) not in ('QueryFinish','2') or row.get('exception_code'):continue
+                  groups.setdefault(names[key],[]).append(row)
+              stats={}
+              for v in m['cases']:
+                  if v['engine']!='ch':continue
+                  q=groups.get(v['name'],[])
+                  mid=lambda field:round(statistics.median([float(r.get(field,0)) for r in q]),3) if q else None
+                  stats[v['name']]={'http_p50_ms':v['p50_ms'],'query_log_count':len(q),'query_duration_p50_ms':mid('query_duration_ms'),'read_rows_p50':mid('read_rows'),'read_bytes_p50':mid('read_bytes'),'peak_query_memory_bytes':max((int(r.get('memory_usage',0)) for r in q),default=None)}
+              rec={'series':m['manifest']['series'],'querylog_rows':len(logs),'cases':stats}
+              print('INDEX_QUERY_AUDIT',json.dumps(rec,indent=2),flush=True)
+              records.append(rec)
+          assert len(records)==2,records
+          pathlib.Path('evidence/selector-audit.json').write_text(json.dumps(records,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tslab-selector-query-audit-${{ github.run_id }}
+          path: evidence/selector-audit.json
+          if-no-files-found: warn
+          retention-days: 14
