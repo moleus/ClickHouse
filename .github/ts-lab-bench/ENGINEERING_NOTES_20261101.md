@@ -40,3 +40,37 @@ Source data: user-supplied `REPORT.md`, `MASTER_V11_REPORT.md`; local synthetic 
 ## Safety
 
 Only write `lab/timeseries-fastpath-ci`. Do not push master or upstream, create PR, cancel active runs, or change central build triggers while compiling. Never claim that queued/in-progress jobs passed. For failure read complete finished job log; preserve exact run ID and SHA256 of artifacts. Hourly autonomous task ID `6ae6f0c0fe9081919f499187f801dd8c` is enabled and requires launching >=2 independent useful experiments per iteration when feasible, not status-only summaries.
+
+
+## Continuation: 15:05 UTC 2026-11-01 — verified results and active hypotheses
+
+### Successful warm full binary builds
+
+- `41318355575`, commit `805dd851846d36c35d52711e1703d832c1347528`, SUCCESS. Reused pinned submodule metadata and `ccache`, **7,103/7,104 new compiler requests hit (99.99%)**, complete linked ClickHouse artifact `13088561213`, 13/13 deterministic PromQL regressions PASS. GitHub prerelease is unavailable (workflow treats 403 as nonblocking). The previous ANTL-enabled full compile `41301314345` required **201 minutes**, only 2,850/14,066 compiler cache hits, and passed the first 5 regressions.
+- `41304416884`, sparse-grid C++ patch binary commit `dd152ce17dbe9738a14f029078c2c5afa74c8ae2`: **132 seconds** for `ninja clickhouse` under warm cache (after setup), 7,089/7,104 new compiler cache hits, 13/13 regressions PASS; artifact `13088397010` SHA256 ZIP `8b51ca06082a0ef915af6254d8ca865ac9442456927dd8c13ccac573e5e98f17`; workflow overall FAILED only release 403. This patch skips empty grid calculations but still allocates full dense arrays; **not memory-complexity fix**. The 132s compile time is not the entire workflow's checkout/LLVM/CMake time.
+
+### Sparse-grid and 14d benchmark
+
+- Baseline `41304682666`, commit `2c42cec28a5ef5559e3276d4b80d8b955020a5d0`: 44,800 historical series / **32,256,000** samples; `sum(rate(lab_node_network_receive_bytes_total[5m]))`; VM p50 15m 336.283ms / 5m 783.643ms / 1m 3508.972ms; CH (converter patch, no sparse optimization) p50 **760.005 / 2723.134 / 10091.662ms**. All 200 at 1.2GB per-query limit; peak CH query_log tracked memory **267,225,516 bytes**; max read rows 268800, no query errors. 1m output 20155 points.
+- Sparse-grid version from `41318649849`, commit `48923617b6f755c8f8fc68a2664f4f0e1f4abaf7`: same deterministic 44,800 series/32.256M samples on DIFFERENT runner. VM p50 15m 460.149 /5m 1097.731 /1m 5001.163ms; CH sparse p50 15m 840.345 /5m 2718.707 /1m **5359.916ms**. Unpaired CH 1m 10091.662->5359.916 = 1.883x faster, but VM in same run also changed 3508.972->5001.163ms (1.425x slower). **NOT a reliable isolated sparse speedup** until same-run A/B. Sparse code still allocates dense arrays per output series.
+- Matched A/B/A workflow `.github/workflows/ts-lab-long14-paired.yml` run `41319232637` compares baseline -> sparse -> baseline recheck on same runner and exact SAME already ingested ClickHouse TimeSeries data, with 13+ points of numeric equivalence and 14d 1m/5m/15m speedup. Inspect finished logs; fix any startup/shutdown or consistency failures.
+- Experimental chunked query `.github/ts-lab-bench/bench_long14_chunked.py`, independent workflow `.github/workflows/ts-lab-long14-chunked.yml`, compares one raw-inner-table `sum(rate())` across 1h/3h/12h bounded grids to native full 14d PromQL on **every evaluation timestamp and numeric result**; note this is NOT a general production-safe parser. Check its logs and fix test failures; if effective, implement a correct native ClickHouse bounded-grid operator.
+
+### Numerical semantics is NOT evidence of a C++ correctness regression
+
+- `41318689745` artifact reviewer (job `124884104810`): on baseline long14 1m, exactly **444/20,155 points (2.2029%)** disagree; at each every 3-hour node-lifetime switch, four 1-minute points differ by exactly 50%: CH sum ~400, VM MetricsQL sum ~800.
+- `41319131971`, commit `7301ac685f253eaba706a4079bdc43dd19795a2e`, **targeted 2 slots x2 generations** proved why: VM `rate()` maintains slope 1.0 on both old and new series for first 4 minutes so sum is 4.0 rather than steady 2.0; CH PromQL `rate()` computes extrapolated falling/rising per-series rates (e.g. 0.775 old + 0.225 new) so sum remains 2.0; VM `rate_prometheus()` returns different boundary values (around sum 1.8). This is a MetricsQL vs PromQL semantics difference, **not proved C++ bug**. Other 19,711 points matched baseline within ~1e-16 relative tolerance.
+- Source: VM `app/vmselect/promql/rollup.go` uses `rollupDerivFast`; CH `timeSeriesRateToGrid` implements PromQL extrapolation. All speed acceptance tests must say which semantics they benchmark.
+
+### Direct sample-stage bottleneck and part compaction negative result
+
+- `41318047417`, commit `0ce9500997e67ee0dac2053beea1665674f1af15`, direct v11 TimeSeries samples aggregation without PromQL parser on 50k series /6M samples: raw count 7.383ms; sum(length(samples)) 9.663ms; `uniqExact(id)` 82.638ms; `GROUP BY id` 89.915ms; `timeSeriesRateToGrid` + sumForEach ~2,293.123ms (one worker), while VM p50 124.052ms. On 5k series CH rate ~56.915ms, VM ~9.840ms. Earlier run `41317830016` saw CH rate 566ms vs VM100.8ms for 50k; different runner/runtime = ~4x variance, do not attribute cause without within-run AB.
+- `41318822378`, paired `OPTIMIZE FINAL` test on 50k series: samples table had exactly **ONE ACTIVE PART** *both before and after*, 150000 stored rows, 17.364MB active. `GROUP BY id` raw-grid rate: 2,396.916ms before and 2,305.015ms after (3.8% faster); 5k baseline 67.287 vs 66.322ms (1.4%). **This experiment cannot establish that part count caused prior variation**, as it had 1 part in both phases. DO NOT recommend `OPTIMIZE FINAL` in prod.
+- Query-script process RSS and CPU previously pointed to `ClickHouseWatch` guardian PID, not the ClickHouse server worker (CPU 0.01 etc). **RSS/CPU for ClickHouse from those runs are invalid** until benchmark script follows child PID or uses server telemetry. `system.query_log.memory_usage` is a tracked per-query metric, not full process RSS.
+
+### Current action list for autonomous worker
+
+1. Follow up `41319232637` (paired A/B/A) and latest bounded-grid workflow. Read complete failed/successful job logs, quantify paired speedups, memory and correctness. Repair failures by pushing only independent workflow/script changes.
+2. If bounded-grid SQL passes and beats native, write a safe C++ converter/executor prototype for `sum(rate())` with bounded grids, preserving out-of-order/reset/gap/offset and group semantics. Test 5k, 50k, long14, highcard, 1m/5m/15m steps. No production claims before compatible MetricsQL/PromQL behavior and 15s HA dedup tests.
+3. Test a staged compiler/link cache with actual elapsed checkout/submodule/LLVM/CMake/object/link times, not just Ninja duration; warm compile target <=2-3min, baseline vs candidate pinned and matched compiler flags.
+4. Do not stop at CI status. Hourly autonomous task `6ae6f0c0fe9081919f499187f801dd8c` must launch >=2 meaningful independent experiments/hypotheses per run unless truly blocked. No master/upstream/PR, no cancellation of long runs, no false claims about prerelease.
