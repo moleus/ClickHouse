@@ -87,3 +87,57 @@ Completed source experiment `41319478369` / fork commit `ddfcd42ffb2fef3a44f28a0
 The pinned main build `41301314345` reached compiled binary and artifact `13088430930` ZIP sha256 `84066302b43744c9f7db0d29b79ac24bbf1023f4100037ba0292d149a6195320`; overall workflow failed at optional prerelease HTTP 403, not compiler. Full log of the adaptive build was inspected; this does not imply access to in-progress job live logs. Need read fresh completed job logs for two new experiments, annotate p50/p95/p99, memory, read_rows/bytes and correct C++ worker PID, then iterate.
 
 Root `REPORT.md` and `MASTER_V11_REPORT.md` are absent (GitHub contents 404 on this branch); earlier original reports were user supplied, referenced in these notes. Do not claim their full files were read in this run.
+
+
+## 17:50 UTC 2026-11-01: completed follow-up runs and source-level findings
+
+### Completed A/B/A adaptive C++ benchmark
+
+- `41332753647`, commit `69c64e39b89a1546a63c23fc69f4db827d2705e2`, SUCCESS. Same runner, exact same 44,800 historical series/32,256,000 samples, 14d, baseline->adaptive->baseline. CH p50 (baseline/adaptive):
+  - 15m step (1,344 grid points): **784.914 / 901.016 ms** (adaptive slower; threshold 2048 should take normal path, so test variation suspected).
+  - 5m step (4,031 points): **3024.670 / 1675.055 ms** (1.806x).
+  - 1m step (20,155 points): **10665.631 / 2701.738 ms** (3.948x); baseline recheck **6647.754 ms** (2.461x vs recheck). VM in adaptive phase **3871.084 ms**, candidate 1.43x faster on this single sparse long14 workload.
+  - Baseline/adaptive/recheck CH 1m values numerically identical. VM MetricsQL `rate()` differs by 50% at 444 boundary points (known semantic difference).
+- `41332905200`, commit `55c537be993fac1ecd3b0edc9ec43133d9d7d561`, SUCCESS. Dense 60-step `sum(rate(bench_metric[5m]))` native CH, same data same runner, 5k: baseline 54.700ms -> adaptive 54.617ms -> baseline recheck 58.014ms; 50k: baseline 901.824ms -> adaptive 910.325ms -> baseline recheck 2452.382ms. All CH results equal; adaptive keeps normal algorithm for <2048 points. **Huge 2.7x drift on 50k baseline recheck** means CH background state/query cache/merge/CPU needs controlled profiling. VM stayed ~133ms on same run. Do not infer regressions below >10% without stable A/B/A.
+- `41332818743` initially FAILED at unrelated `du -sb` during sample ingest because ClickHouse removed a `tmp_merge_*` directory during traversal; source data fully inserted. Fixed only dedicated lab workflow `ts-lab-long14-adaptive-paired.yml` commit `56cc61051a5d955f8a5b106d049f6c44497175a6`. Repeat `41333087397` completed SUCCESS; inspect metrics if needed.
+
+### Bounded-grid width response curve (pointwise exact)
+
+- `41332762159`, commit `560751823e4d668b5437e2f9dc1265e3fd281feb`, SUCCESS, 14d 44,800 series, 20,155 result points, 3 timed trials, same CH binary/runner; **ALL bounded variants have 0 mismatched values** vs native with max relative error <3.7e-15.
+  - Native single-grid query p50 **10,823.875ms**.
+  - Width 360 (6h), 56 HTTP subqueries: **7,964.306ms** (1.359x faster).
+  - Width 720 (12h), 28 HTTP subqueries: **5,185.108ms** (2.087x).
+  - Width 1440 (24h), 14 HTTP subqueries: **3,880.205ms** (2.790x).
+  - Width 2880 (48h), 7 HTTP subqueries: **3,443.640ms** (3.143x).
+  - Earlier `41319478369` width 720 on another runner 6,676.908ms vs native 15,940.98ms (2.39x); 60/180 steps were slower. Need next sweep 3d/4d/7d windows, plus per-query max memory, CPU, read_rows to optimize total runtime without OOM.
+  - This is a SQL client batching prototype; it does not eliminate native per-series dense `timeSeriesRateToGrid` arrays and is not production integration.
+
+### Label selector bottleneck and physical index evidence
+
+- `41333026964`, commit `b7f61fa95ec93c13394b83861c89de55cc02f66c`, SUCCESS, full ANTL PromQL on CH vs VM MetricsQL `rate` and `rate_prometheus`, 6 timed repetitions after 2 warmups:
+  - 50k series /6M samples /60 output points, p50 CH vs VM `rate_prometheus()`:
+    - all: 243.795ms vs 87.083ms (2.80x)
+    - metric regex: 308.735ms vs 92.318ms (3.34x), matches exact CH result.
+    - region=east: 172.973ms vs 44.515ms (3.89x)
+    - team=t00: 81.928ms vs 3.275ms (25.02x)
+    - host=h0001 (exact ONE series): **16.557ms vs 0.341ms (48.55x)**.
+    - group by region: 304.357ms vs 86.881ms; group by team 398.638ms vs 110.688ms.
+  - 5k series 600k samples: host CH 19.447ms vs VM-promql 0.450ms; team 31.899 vs 0.923ms; all 71.951 vs 11.915ms.
+- `41333445354`, index-query-log artifact audit from same runs (SUCCESS). On 50k series, CH native host query `system.query_log` reports median **58,448 read_rows**, **3,030,849 read_bytes**, p50 server query duration 16ms and max query memory ~6.35MB, despite selecting ONE series. All-series native sum reads 500,000 rows /120,129,976 bytes with 245ms server duration; team=t00 reads 363,040 rows/82,016,616 bytes. On 5k, host reads **10,256 rows** /802,314 bytes. Strong hypothesis: 50k host = 50,000 time-ranges rows + 8,192 tags granule + 256 samples granule; 5k host = 5,000 time ranges + 5,000 tags + 256 samples. These arithmetic decompositions are HYPOTHESES, not independently instrumented source-table reads.
+- **Pinned ClickHouse source `src/Storages/StorageTimeSeriesSelector.cpp`**:
+  - `matcherToAST` around lines 354–408: exact tag matcher becomes equality on `tags['tag']` or dedicated tag column; literal regex alternatives may become IN, else regex match.
+  - `addTimeRangesTableJoin` around lines 486–555: selector tags query LEFT JOINs time_ranges table to select IDs, with `full_sorting_merge` `join_algorithm` pinned in `applySettingsForSelectIDsQuery` around line 1180, `optimize_read_in_order=true`.
+  - `makeWhereFilterForSamplesTable` lines ~722–780: after ID set selection, filters samples by time range and `id IN (select from tags)`; `makeSelectQuery` around lines 900–915 has `WHERE notEmpty(samples)` for bucketed samples.
+  - `readImpl` around lines 1230–1365: chooses recent or full samples, resolves IDs via tags/time-ranges join, then probes sample table. Primary-key hint fast path is only for old (one sample per row) tables, **not** version 11 bucketed samples.
+  - `StorageTimeSeries.cpp` embedded pinned schema around lines 1195–1270: TimeSeries v11 default TAGS ReplacingMergeTree `PRIMARY KEY metric_name ORDER BY (metric_name,id) SETTINGS index_granularity=8192` with `INDEX tags_idx tags TYPE text(tokenizer='keyValuePairs')`, full-part inverted posting lists; TIME_RANGES AggregatingMergeTree ORDER BY id; SAMPLES AggregatingMergeTree ORDER BY (id,bucket) index_granularity=256; recent samples duplication on by default.
+  - VM source `lib/storage/index_db.go` holds tag-value to MetricID posting lists and date/tag to MetricID indexes; 0.34ms CH/VM comparison shows a practical gap for high-selectivity labels, but not yet a proven exact cause.
+- New isolated A/B/A workflow `ts-lab-timeranges-ab.yml`, commit `5594259b1324c1959c4f73fcf20135f6c6e6f89d`, run `41333353318`. Creates two TimeSeries tables on one runner with identical synthetic samples: `store_time_ranges=true` vs `store_time_ranges=false`, measures 7 selectors baseline/no-ranges/baseline, compares actual timestamp/value output for all/specific labels and group-by-team. This controls one specific proposed source of read-amplification. **Check 50k job completion and read full logs before claiming a speedup.** Note disabling time range target may worsen inactive-series pruning in long history; any optimization must balance that case.
+- `ts-lab-selector-log-audit.yml` read-only workflow, commit `5deedc59b4b056c60182fd3ccf1e05bc0977cffa`, run `41333445354`, SUCCESS, collects labels vs read_rows/memory metrics. Important: earlier process RSS sampling targeted `ClickHouseWatch`, not real server child, so prefer query_log and child PID.
+
+### Explicit next actions
+
+1. Get complete `41333353318` 50k A/B/A logs; confirm exact outputs and separate cause of tag lookup costs. If no-timerange makes host fast, test opt-in C++ selector optimization which can skip time-range join for an EQ tag matcher *only if correctness is proved for stale, missing, late, inactive, empty series*. Benchmark on long historical churn before considering default change.
+2. Measure precise source scan via `EXPLAIN indexes=1`, per-table query log if available, and query plan for `timeSeriesSelector`; evaluate `tags_to_columns` dedicated label columns/index effect.
+3. Bound grid evaluation windows to 48h–7d with p50/p95 and memory; learn optimal adaptation from workload density. Source patch still calls `writer.addRow()` and fills per-step nullable grids, so memory complexity remains.
+4. Need production-like highcard 113,284 series /27.32M samples and 13.4M+ live series, 650K–800K samples/s ingest, 539 new series/s, HA dedup 15s; strict numerical semantics comparison vs VM MetricsQL and VM `rate_prometheus`.
+5. The hourly Automation ID `6ae6f0c0fe9081919f499187f801dd8c` **was observed DISABLED at 17:40 UTC**, last run 15:34–15:37 UTC `requires_user_action=true`, no additional runs after 15:15 until manual work resumed. Do NOT claim uninterrupted autonomous operation; reconnect/approval may be necessary. Explicitly re-enable only with accurate limitations. It must try working per run, not status-only reporting.
