@@ -24,6 +24,7 @@ def main():
     a.add_argument("--edge",action="store_true",help="Include injected gap/reset/late samples")
     a.add_argument("--warmups",type=int,default=0)
     a.add_argument("--repetitions",type=int,default=1)
+    a.add_argument("--focus",default="",help="Comma-separated query names; defaults to all")
     p=a.parse_args()
     if p.repetitions<1 or p.warmups<0:
         raise ValueError("Invalid benchmark repeats")
@@ -48,6 +49,15 @@ def main():
             ("edge_offset", 'sum(rate('+metric+'{instance="edge-gap-old"}[5m] offset 15m))'),
             ("edge_project", 'sum by (region) (rate('+metric+'{project="project-00"}[5m]))')
         ])
+    if p.focus:
+        requested=p.focus.split(",")
+        available={name for name,_ in q}
+        unknown=set(requested)-available
+        if unknown:
+            raise ValueError(("unknown selectors",sorted(unknown),sorted(available)))
+        if len(requested)!=len(set(requested)):
+            raise ValueError("duplicate names in --focus")
+        q=[case for case in q if case[0] in set(requested)]
     start,end=m["query_start_epoch"],m["query_end_epoch"]
     output={"phase":p.phase,"manifest":m,"cases":{},"timings":{}}
     def pct(a,pct_value):
