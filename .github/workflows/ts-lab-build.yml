@@ -71,12 +71,13 @@ jobs:
           tar -xf "${RUNNER_TEMP}/llvm.tar.xz" -C "${RUNNER_TEMP}/llvm" --strip-components=1
           "${RUNNER_TEMP}/llvm/bin/clang++" --version
 
-      - name: Install ccache
+      - name: Install ccache and NASM
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends ccache
+          sudo apt-get install -y --no-install-recommends ccache nasm
           ccache --version
+          nasm --version
           mkdir -p "$CCACHE_DIR"
 
       - uses: actions/cache@v4
