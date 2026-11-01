@@ -5,6 +5,19 @@ Apply to ClickHouse source SHA 52529f0c711566d696917678bf15e7068772fdde.
 Never deploy by default; instance/host are NOT universally unique or safe\ncardinality guards. This is a test-only mitigation of the observed project label\nregression, not a general optimizer or semantic guarantee.
 """
 from pathlib import Path
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--allow-unverified-instance-bypass", action="store_true",
+    help="RESEARCH ONLY: bypass time-ranges for instance/host even when the label has high cardinality"
+)
+args = parser.parse_args()
+if not args.allow_unverified_instance_bypass:
+    print("SAFE DEFAULT: no selector patch applied. A/B/A run 41342350563 showed "
+          "unverified instance/host equality can increase memory and latency. "
+          "Use --allow-unverified-instance-bypass only for isolated regressions.")
+    raise SystemExit(0)
 
 path = Path("src/Storages/StorageTimeSeriesSelector.cpp")
 data = path.read_text()
