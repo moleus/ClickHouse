@@ -112,9 +112,15 @@ jobs:
           d=json.loads((pathlib.Path(__import__('os').environ['RUNNER_TEMP'])/'small/manifest.json').read_text())
           t=d['end_epoch']
           q=urllib.parse.urlencode({'query':'count(bench_metric)','time':t,'nocache':'1'})
-          r=json.load(urllib.request.urlopen('http://127.0.0.1:8430/api/v1/query?'+q))
-          print(json.dumps(r,indent=2))
-          assert r.get('status')=='success',r
+          import time
+          for attempt in range(60):
+              r=json.load(urllib.request.urlopen('http://127.0.0.1:8430/api/v1/query?'+q))
+              if r.get('status')=='success' and r.get('data',{}).get('result'):
+                  actual=float(r['data']['result'][0]['value'][1])
+                  if actual == 512: break
+              time.sleep(1)
+          else: raise AssertionError('VM failed to expose 512 series after import: '+json.dumps(r))
+          print('VM count(bench_metric)=',actual,'attempt=',attempt+1)
           pathlib.Path('evidence/vm-query-count.json').write_text(json.dumps(r,indent=2)+'\n')
           PY
       - uses: actions/upload-artifact@v4
