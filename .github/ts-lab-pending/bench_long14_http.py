@@ -31,6 +31,7 @@ def parser():
     a.add_argument('--steps',default='900,300,60')
     a.add_argument('--repeats',type=int,default=2)
     a.add_argument('--ch-query-memory',type=int,default=1200000000)
+    a.add_argument('--query-id-prefix',default='',help='Optional query_log correlation ID prefix')
     return a.parse_args()
 
 
@@ -140,7 +141,11 @@ def main():
         output={'step_seconds':step,'expected_output_points':((end-start)//step)+1,'runs':[],'comparison':None}
         for n in range(args.repeats+1):
             versions={}
-            for engine,url,payload,pid in [('victoria',url_vm,None,args.vm_pid),('clickhouse',url_ch,query.encode(),args.ch_pid)]:
+            trial_url_ch=url_ch
+            if args.query_id_prefix:
+                query_id=args.query_id_prefix+'_'+args.label+'_'+str(step)+'_'+str(n)
+                trial_url_ch+='&'+urllib.parse.urlencode({'query_id':query_id})
+            for engine,url,payload,pid in [('victoria',url_vm,None,args.vm_pid),('clickhouse',trial_url_ch,query.encode(),args.ch_pid)]:
                 result,data=request(url,payload,pid)
                 if result['http_status']==200:
                     try:
