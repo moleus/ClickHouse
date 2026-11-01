@@ -97,6 +97,7 @@ jobs:
             --data-binary "@$RUNNER_TEMP/data/vm-import.prom" \
             http://127.0.0.1:8430/api/v1/import/prometheus | tee evidence/vm-load-time.txt
           du -sb "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/vm/data" | tee evidence/storage-bytes.txt
+          ps -o pid,rss,%cpu,comm -p "$(cat "$RUNNER_TEMP/ch.pid"),$(cat "$RUNNER_TEMP/vm.pid")" > evidence/process-memory-after-ingest.txt || true
       - name: Wait until VictoriaMetrics indexes all imported samples
         run: |
           set -euo pipefail
@@ -201,7 +202,7 @@ jobs:
           PY
           curl -fsS -X POST --data-binary 'SYSTEM FLUSH LOGS' http://127.0.0.1:18191/ >/dev/null || true
           curl -fsS -X POST --data-binary \
-            "SELECT query, query_duration_ms, read_rows, read_bytes, memory_usage, exception_code, type FROM system.query_log WHERE query LIKE '%prometheusQueryRange%' ORDER BY event_time_microseconds FORMAT JSONEachRow" \
+            "SELECT query, query_duration_ms, read_rows, read_bytes, memory_usage, exception_code, type FROM system.query_log WHERE query LIKE '%prometheusQueryRange%' AND type='QueryFinish' ORDER BY event_time_microseconds FORMAT JSONEachRow" \
             http://127.0.0.1:18191/ > evidence/ch-querylog.jsonl || true
       - uses: actions/upload-artifact@v4
         if: always()
