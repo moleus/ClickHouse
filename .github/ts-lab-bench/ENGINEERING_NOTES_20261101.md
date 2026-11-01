@@ -141,3 +141,31 @@ Root `REPORT.md` and `MASTER_V11_REPORT.md` are absent (GitHub contents 404 on t
 3. Bound grid evaluation windows to 48h–7d with p50/p95 and memory; learn optimal adaptation from workload density. Source patch still calls `writer.addRow()` and fills per-step nullable grids, so memory complexity remains.
 4. Need production-like highcard 113,284 series /27.32M samples and 13.4M+ live series, 650K–800K samples/s ingest, 539 new series/s, HA dedup 15s; strict numerical semantics comparison vs VM MetricsQL and VM `rate_prometheus`.
 5. The hourly Automation ID `6ae6f0c0fe9081919f499187f801dd8c` **was observed DISABLED at 17:40 UTC**, last run 15:34–15:37 UTC `requires_user_action=true`, no additional runs after 15:15 until manual work resumed. Do NOT claim uninterrupted autonomous operation; reconnect/approval may be necessary. Explicitly re-enable only with accurate limitations. It must try working per run, not status-only reporting.
+
+
+## 17:54+ UTC 2026-11-01 — Time-ranges A/B fully verified; new C++ selective fastpath
+
+### Stable targeted performance finding
+
+- `41333353318` commit `5594259b1324c1959c4f73fcf20135f6c6e6f89d`, **SUCCESS both 5k/50k matrix**, 6 trials per phase. Same runner / same synthetic samples per two TimeSeries tables, time_ranges target enabled (baseline) vs `store_time_ranges=false` (candidate), A/B/A timings and exact CH outputs.
+  - 50k historical/live series, `sum(rate(bench_metric{host="h0001"}[5m]))`: baseline p50 **31.934ms**, no time-ranges **17.244ms**, baseline recheck **31.938ms**, **46.0% faster** candidate. Checked exact labels/values/timestamps, 60 points. Complete time-ranges removal is semantically safe for 5 tested queries **on this particular synthetic dataset only**.
+  - 5k host: 17.190ms -> 13.130ms ->17.379ms (~24% better).
+  - 50k all: 861.024 ->884.548 ->853.402ms (candidate slightly worse); team=t00 145.424->141.278->147.678ms; by team 953.589->954.634->947.511ms. 5k all:54.206->46.459->64.033ms, drift present. This proves no time-ranges JOIN advantage for selective query but broad query benefit is not established.
+  - Avoid disabling `store_time_ranges` globally in production: long histories with many inactive series require time pruning. The performance difference could be in merge join/ID resolution; verify with EXPLAIN and source query metrics.
+
+### C++ prototype to preserve time-ranges for unselective queries
+
+- `.github/ts-lab-pending/apply_selector_exact_no_timeranges_patch.py` commit `b4d5adbc675f9c85377e661a0a6d88d7af5dfc34`: source-pinned Python patch for `src/Storages/StorageTimeSeriesSelector.cpp::readImpl` **ONLY**. For v11 bucketed TimeSeries with at least one nonempty exact EQ label matcher other than `__name__`, it bypasses the `time_ranges` join during ID resolution, keeping samples time range & `notEmpty(samples)` filters. For all other queries and for `makeSelectIDsQuery`, retains original path. This is **experimental** automatic heuristic and is not yet proven correct for long-term churn/gaps; do not use in prod. Source contains TODOs for safety.
+- `ts-lab-selector-fast-cxx.yml` commit `0122e680556c371c70a0b90370afcc577ce81147`, build run **41333837985**, compiling pending/success check; restored warm C++ ccache from adaptive run `41319688851`. Full compiled artifact expected `tslab-selector-fast-binary-0122e680556c371c70a0b90370afcc577ce81147`, archive `clickhouse-selector-fast-linux-amd64.tar.zst`, SHA256 manifests, 13 PromQL regressions.
+- `.github/ts-lab-bench/capture_native_selector_outputs.py` commit `4d454ca53f2eb1a537665f561462c3d17aa46d12` captures exact 7 native selector outputs, tags, all timestamps and float values; gives query_log `log_comment` per phase/case to separate table read_rows/bytes.
+- Pending workflow `.github/ts-lab-pending/ts-lab-selector-cxx-aba.yml` commit `d0481c5879450f10984ada27f5d592f4a77d7570`; it is NOT ACTIVE until moved to `.github/workflows/ts-lab-selector-cxx-aba.yml`. It reuses finished C++ artifact from **41333837985** and compares baseline/candidate/baseline full native PromQL 7 selector queries for 5k and 50k series, numeric labels/timestamps and query_log read_rows, once source C++ build SUCCESS. Do not activate before compiled artifact exists; no need to burn runner on idle polling.
+
+### Two independent schema variants launched
+
+- `ts-lab-dedicated-host-ab.yml` commit `276fc71d0622cb36e5cbdb3f842969c197432ac6`, run `41334029882`, experiments 5k and 50k. Compares `tags_to_columns=map('host','host_col')` to default TimeSeries: physical `host_col String` vs Map label access; five exact PromQL expressions checked for equality, A/B/A p50.
+- `ts-lab-granularity256-ab.yml` commit `877b2df939a6e96a729675d911851993312a2ad8`, run `41334034658`, experiments 5k and 50k. Compares `tags_index_granularity=256` vs default 8192; tests granule vs tag index pruning, same A/B/A correctness checks. Watch for schema/insert failures and fix from complete job logs; results pending.
+- Branch-only commits, no PR/upstream or master mutation. Long builds never cancelled.
+
+### Automation
+
+- The hourly automation `6ae6f0c0fe9081919f499187f801dd8c` was found DISABLED after a run with `requires_user_action=true` (last recorded 15:37 UTC). We explicitly **re-enabled** it in the current conversation with a shorter task-specific prompt (2910 chars) requiring >=2 independent experiments, actual code changes, reading GitHub and this journal, and error repairs each run. Schedule unchanged `BEGIN:VEVENT\nDTSTART:20261101T180000\nRRULE:FREQ=HOURLY\nEND:VEVENT` timezone Europe/Moscow. Still cannot guarantee future autonomous work if connector asks user to approve/reconnect; do not claim continuous functioning without verifying next scheduled run.
