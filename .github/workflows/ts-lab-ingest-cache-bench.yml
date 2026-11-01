@@ -122,6 +122,18 @@ jobs:
             rss="$(ps -o rss= -p "$(cat "$RUNNER_TEMP/ch.pid")" | tr -d ' ')"
             printf '%s\t%s\t%s\n' "$i" "$seconds" "$rss" | tee -a evidence/rounds.tsv
           done
+          curl -fsS -X POST --data-binary 'SYSTEM FLUSH ASYNC INSERT QUEUE' \
+            http://127.0.0.1:18191/ > evidence/flush-inner-queue.txt
+          samples_table="$(curl -fsS -X POST \
+            --data-binary "SELECT name FROM system.tables WHERE database='default' AND name LIKE '.inner_id.samples.%' LIMIT 1 FORMAT TSVRaw" \
+            http://127.0.0.1:18191/ | tr -d '\n')"
+          test -n "$samples_table"
+          stored_samples="$(curl -fsS -X POST \
+            --data-binary "SELECT sum(length(samples)) FROM default.\`$samples_table\`" \
+            http://127.0.0.1:18191/ | tr -d '\n')"
+          echo "STORED_SAMPLES=$stored_samples expected=$((COUNT_SERIES*ROUND_COUNT))" \
+            | tee evidence/stored-samples.txt
+          test "$stored_samples" -eq "$((COUNT_SERIES*ROUND_COUNT))"
           curl -fsS -X POST --data-binary 'SYSTEM FLUSH LOGS' http://127.0.0.1:18191/ > evidence/flush-logs.txt
           curl -fsS -X POST --data-binary 'SELECT table, sum(data_compressed_bytes) AS bytes, sum(rows) AS rows FROM system.parts WHERE active AND database = '\''default'\'' GROUP BY table ORDER BY table FORMAT JSONEachRow' \
             http://127.0.0.1:18191/ > evidence/active-parts.jsonl
