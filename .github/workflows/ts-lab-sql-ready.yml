@@ -3,7 +3,9 @@ name: TimeSeries direct SQL ready binary vs VictoriaMetrics 1.134.0
 on:
   push:
     branches: [lab/timeseries-fastpath-ci]
-    paths: ['.github/workflows/ts-lab-sql-ready.yml']
+    paths:
+      - '.github/workflows/ts-lab-sql-ready.yml'
+      - '.github/ts-lab-bench/bench_inner_rate.py'
 
 permissions:
   actions: read
