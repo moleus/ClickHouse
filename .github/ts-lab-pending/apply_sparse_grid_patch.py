@@ -55,7 +55,7 @@ private:
 )
 base = "src/AggregateFunctions/TimeSeries/AggregateFunctionTimeseriesBase.h"
 start_marker = "    void doInsertResultInto(AggregateDataPtr __restrict place, ResultWriter & writer) const"
-end_marker = "    /// Closed range \`[start_time, end_time]\` of timestamps with the scale of the input columns."
+end_marker = "    /// Closed range `[start_time, end_time]` of timestamps with the scale of the input columns."
 p = Path(base)
 data = p.read_text()
 first = data.index(start_marker)
