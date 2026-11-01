@@ -1,0 +1,66 @@
+--- a/src/Storages/TimeSeries/PrometheusQueryToSQL/Converter.cpp
++++ b/src/Storages/TimeSeries/PrometheusQueryToSQL/Converter.cpp
+@@ -6,6 +6,7 @@
+ #include <Storages/TimeSeries/PrometheusQueryToSQL/applyBinaryOperator.h>
+ #include <Storages/TimeSeries/PrometheusQueryToSQL/applyFunction.h>
+ #include <Storages/TimeSeries/PrometheusQueryToSQL/applyFusedAggregationBinaryOperator.h>
++#include <Storages/TimeSeries/PrometheusQueryToSQL/applyFunctionOverRange.h>
+ #include <Storages/TimeSeries/PrometheusQueryToSQL/applyOffset.h>
+ #include <Storages/TimeSeries/PrometheusQueryToSQL/applySubquery.h>
+ #include <Storages/TimeSeries/PrometheusQueryToSQL/applyUnaryOperator.h>
+@@ -102,6 +103,55 @@
+             case NodeType::AggregationOperator:
+             {
+                 const auto * aggregation_operator = static_cast<const PrometheusQueryTree::AggregationOperator *>(node);
++
++                /// The output of rate() drops the metric name by running a separate
++                /// aggregation with anyForEach() and countForEach() to detect label
++                /// collisions. For an exact single-metric selector consumed immediately
++                /// by an ungrouped sum(), no collision is possible, and sum() already
++                /// drops all labels. Avoid materializing an extra dense time grid for
++                /// each series in the duplicate-series checking stage.
++                ///
++                /// Keep the fast path deliberately narrow: regex metric selectors,
++                /// by()/without(), label-changing functions and offsets still take
++                /// the full PromQL path with all its validation.
++                if (aggregation_operator->operator_name == "sum" && !aggregation_operator->by && !aggregation_operator->without
++                    && aggregation_operator->getArguments().size() == 1)
++                {
++                    const auto * child = aggregation_operator->getArguments()[0];
++                    if (child->node_type == NodeType::Function)
++                    {
++                        const auto * function_node = static_cast<const PrometheusQueryTree::Function *>(child);
++                        if (function_node->function_name == "rate" && function_node->getArguments().size() == 1
++                            && function_node->getArguments()[0]->node_type == NodeType::RangeSelector)
++                        {
++                            const auto * range_node
++                                = static_cast<const PrometheusQueryTree::RangeSelector *>(function_node->getArguments()[0]);
++                            const auto * selector = range_node->getInstantSelector();
++                            bool has_exact_metric_name = false;
++                            for (const auto & matcher : selector->matchers)
++                            {
++                                if (matcher.label_name == "__name__" && matcher.matcher_type == PrometheusQueryTree::MatcherType::EQ
++                                    && !matcher.label_value.empty())
++                                {
++                                    has_exact_metric_name = true;
++                                    break;
++                                }
++                            }
++                            if (has_exact_metric_name)
++                            {
++                                std::vector<SQLQueryPiece> rate_arguments;
++                                rate_arguments.emplace_back(visitNode(range_node, context));
++                                auto rate_piece = applyFunctionOverRange(
++                                    function_node, function_node->function_name, std::move(rate_arguments), context,
++                                    /* drop_metric_name = */ false);
++                                std::vector<SQLQueryPiece> sum_arguments;
++                                sum_arguments.emplace_back(std::move(rate_piece));
++                                return applyAggregationOperator(aggregation_operator, std::move(sum_arguments), context);
++                            }
++                        }
++                    }
++                }
++
+                 std::vector<SQLQueryPiece> arguments;
+                 for (const auto * arg_node : aggregation_operator->getArguments())
+                 {
