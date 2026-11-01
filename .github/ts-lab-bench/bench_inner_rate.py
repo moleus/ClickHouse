@@ -76,6 +76,33 @@ def main():
                             rate + " AS grid FROM " + tab + where + " GROUP BY " +
                             group + ") SETTINGS max_threads=" + str(threads) +
                             " FORMAT JSONEachRow")
+    stage_queries = {
+        "scan_rows": "SELECT count() FROM " + tab + where,
+        "decode_samples": "SELECT sum(length(samples)) FROM " + tab + where,
+        "hash_ids": "SELECT uniqExact(id) FROM " + tab + where,
+        "group_ids": "SELECT count() FROM (SELECT id FROM " + tab + where + " GROUP BY id)",
+    }
+    stage_results = {}
+    for key, query in stage_queries.items():
+        _, raw = sql(cfg.ch, query)
+        stage_results[key] = int(raw)
+    if stage_results["hash_ids"] != m["series"] or stage_results["group_ids"] != m["series"]:
+        raise AssertionError(("grouped IDs mismatch", stage_results, m["series"]))
+    stage_times = {k: [] for k in stage_queries}
+    for query in stage_queries.values():
+        for _ in range(cfg.warmups):
+            sql(cfg.ch, query)
+    stage_rng = random.Random(8102345)
+    for _ in range(cfg.repeats):
+        stage_keys = list(stage_queries)
+        stage_rng.shuffle(stage_keys)
+        for key in stage_keys:
+            elapsed, _ = sql(cfg.ch, stage_queries[key])
+            stage_times[key].append(round(elapsed, 3))
+    stage_stats = {key: {"p50_ms": pctl(vals, 50), "p95_ms": pctl(vals, 95),
+                         "p99_ms": pctl(vals, 99), "trials_ms": vals,
+                         "result": stage_results[key]}
+                   for key, vals in stage_times.items()}
     values = {}
     for key, query in queries.items():
         _, response = sql(cfg.ch, query)
@@ -146,6 +173,7 @@ def main():
         "vm_vs_ch_max_relative_diff": max(diffs),
         "vm_vs_ch_median_relative_diff": statistics.median(diffs),
         "variant_max_absolute_diff": deltas, "stats": stats,
+        "stage_stats": stage_stats, "stage_queries": stage_queries,
         "vm_stats": vm_stats,
         "ch_to_vm_p50_ratios": {name: round(values["p50_ms"] / vm_stats["p50_ms"], 3)
                                 for name, values in stats.items()},
@@ -162,7 +190,8 @@ def main():
             dest.with_name(dest.stem + "-" + key + ".pipeline-error.txt").write_text(repr(exc))
     print(json.dumps({"table":cfg.table, "samples":int(stored), "series":int(series),
                       "vm_ch_max_relative_diff":max(diffs), "vm":vm_stats,
-                      "ch_to_vm_ratios":result["ch_to_vm_p50_ratios"], "variants":stats}, indent=2))
+                      "ch_to_vm_ratios":result["ch_to_vm_p50_ratios"], "variants":stats,
+                      "stages":stage_stats}, indent=2))
 
 
 if __name__ == "__main__":
