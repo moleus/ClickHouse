@@ -1,4 +1,4 @@
-name: TimeSeries bounded width sweep 360 to 2880 14-day
+name: TimeSeries bounded-grid Pareto of peak memory and full query time
 
 on:
   push:
@@ -173,18 +173,18 @@ jobs:
             "SELECT query_duration_ms, read_rows, read_bytes, memory_usage, exception_code, type FROM system.query_log WHERE query LIKE 'SELECT * FROM prometheusQueryRange%' ORDER BY event_time_microseconds FORMAT JSONEachRow" \
             http://127.0.0.1:18191/ > evidence/ch-query-log.jsonl || true
           ps -o pid,rss,%cpu,comm -p "$(cat "$RUNNER_TEMP/ch.pid"),$(cat "$RUNNER_TEMP/vm.pid")" | tee evidence/processes.txt
-      - name: Measure bounded 1h/3h/6h/12h grids and query memory against native
+      - name: Measure Pareto grid 720 1440 2880 with exact outputs and per-query memory
         run: |
           set -euo pipefail
           python3 .github/ts-lab-bench/bench_long14_chunked.py \
             --manifest "$RUNNER_TEMP/dataset/manifest.json" \
             --ch http://127.0.0.1:18191 --table long_ts \
-            --widths 60,180,360,720 --warmups 1 --repeats 3 \
+            --widths 720,1440,2880 --warmups 1 --repeats 3 \
             --output evidence/bounded-grid-results.json \
             | tee evidence/bounded-grid-summary.log
           curl -fsS -X POST --data-binary 'SYSTEM FLUSH LOGS' http://127.0.0.1:18191/ >/dev/null || true
           curl -fsS -X POST --data-binary \
-            "SELECT query_duration_ms, read_rows, read_bytes, memory_usage, exception_code, type FROM system.query_log WHERE query LIKE '%timeSeriesRateToGrid%' ORDER BY event_time_microseconds FORMAT JSONEachRow" \
+            "SELECT query_id, query_duration_ms, read_rows, read_bytes, memory_usage, exception_code, type FROM system.query_log WHERE type='QueryFinish' AND startsWith(query_id,'tslab_chunk_') ORDER BY event_time_microseconds FORMAT JSONEachRow" \
             http://127.0.0.1:18191/ > evidence/ch-bounded-querylog.jsonl || true
       - name: Preserve 14-day performance evidence
         if: always()
