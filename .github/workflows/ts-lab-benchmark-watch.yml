@@ -71,7 +71,7 @@ jobs:
           gh run download "$VM_RUN" -R "$REPO" --pattern 'tslab-victoria-metrics-v1.134.0' --dir "$RUNNER_TEMP/vm-artifact"
           vm_archive="$(find "$RUNNER_TEMP/vm-artifact" -type f -name 'victoria-metrics-linux-amd64-v1.134.0.tar.gz' -print -quit)"
           test -s "$vm_archive"
-          (cd "$(dirname "$vm_archive")" && sha256sum -c SHA256SUMS)
+          (cd "$(dirname "$vm_archive")" && sed 's#^output/##' SHA256SUMS | sha256sum -c -)
           tar -xzf "$vm_archive" -C "$RUNNER_TEMP/vm-bin"
           vm_binary="$(find "$RUNNER_TEMP/vm-bin" -type f -name 'victoria-metrics*' -print -quit)"
           test -s "$vm_binary"
