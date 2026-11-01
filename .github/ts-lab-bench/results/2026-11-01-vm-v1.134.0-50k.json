@@ -1,0 +1,90 @@
+{
+  "engine": "VictoriaMetrics",
+  "version": "v1.134.0",
+  "verified_binary_sha256": "cd6e109bae85ff7c138d838b32be9a7fe2a6d7a9b3a387a7cf9234f22991da10",
+  "environment": {
+    "cpu_quota_vcpu": 4,
+    "memory_limit_bytes": 4294967296,
+    "network": "loopback",
+    "warmups": 4,
+    "repeats": 20,
+    "nocache": 1,
+    "concurrent_load": false
+  },
+  "dataset": {
+    "time_series": 50000,
+    "samples_per_series": 120,
+    "total_samples": 6000000,
+    "eval_steps": 60,
+    "labels": [
+      "host",
+      "region",
+      "team"
+    ],
+    "type": "deterministic monotonically increasing counters"
+  },
+  "ingestion": {
+    "http_body_bytes_approx": 458000000,
+    "elapsed_seconds": 1.63,
+    "vm_rows_inserted": 6000000,
+    "notes": "HTTP transfer and parse; not durable-ingestion guarantee"
+  },
+  "results": {
+    "schema": [
+      "test",
+      "series_fetched",
+      "p50_ms",
+      "p95_ms"
+    ],
+    "cases": [
+      [
+        "sum(rate) all",
+        50000,
+        101.994,
+        125.68
+      ],
+      [
+        "sum(rate) region=east",
+        25000,
+        54.032,
+        67.179
+      ],
+      [
+        "sum(rate) team=t01",
+        1563,
+        3.446,
+        5.988
+      ],
+      [
+        "sum(rate) host=h0001",
+        1,
+        0.39,
+        0.463
+      ],
+      [
+        "count(metric) all",
+        50000,
+        108.341,
+        124.731
+      ],
+      [
+        "sum(rate) host regex 5000",
+        5000,
+        14.008,
+        18.024
+      ]
+    ]
+  },
+  "observed": {
+    "rss_kib_after_benchmark": 117000,
+    "disk_size_approx_bytes": 10066330,
+    "storage_small_bytes": 6661800,
+    "indexdb_file_bytes": 3214800
+  },
+  "limitations": [
+    "Not a ClickHouse comparison. Await patched ClickHouse binary and identical runtime/data.",
+    "Synthetic counter values compress well; absolute disk sizes are not representative of production.",
+    "Host regex matches 5000 series rather than half the 50000 series.",
+    "Client wall latency includes HTTP request/response overhead; all test queries aggregate to one small result."
+  ]
+}
