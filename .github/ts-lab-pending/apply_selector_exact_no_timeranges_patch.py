@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""EXPERIMENTAL ONLY: selective EQ label selector bypasses time-ranges JOIN.
+"""EXPERIMENTAL ONLY: restrict time-range bypass to lab identity-like label keys.
 
 Apply to ClickHouse source SHA 52529f0c711566d696917678bf15e7068772fdde.
-Never deploy by default; benchmark and validate history gaps / stale markers.
+Never deploy by default; instance/host are NOT universally unique or safe\ncardinality guards. This is a test-only mitigation of the observed project label\nregression, not a general optimizer or semantic guarantee.
 """
 from pathlib import Path
 
@@ -14,17 +14,21 @@ old = """    const StorageID time_ranges_table_id = time_series_storage->hasTarg
         ? time_series_storage->getTargetTableID(ViewTarget::TimeRanges, context)
         : StorageID::createEmpty();
     const TableTimeRange time_range_to_filter_ids = getTimeRangeToFilterIDs(table_time_range, time_ranges_table_id, *time_series_settings);"""
-new = """    // Experimental selective-label fast path: skip the time-ranges table only
-    // while resolving IDs for non-empty exact tag matchers in bucketed v11.
+new = """    // Experimental high-selectivity lab guard: bypass time ranges only when
+    // an exact nonempty instance/host identity-like matcher is present.
+    // This deliberately excludes broad project/region/team equality labels.
+    // IMPORTANT: instance and host need not be unique in production. Do NOT
+    // enable this heuristic in the generic v11 engine without cardinality proof.
     // The sample-table query still checks the time range and drops empty
     // samples, and makeSelectIDsQuery() retains its original behavior.
     // For sparse label matchers this avoids a full_sorting_merge LEFT JOIN
-    // over time ranges. For broad labels it can increase the samples scan.
+    // over time ranges. This known-case whitelist is a temporary LAB gate,
+    // not a generic solution to selectivity estimation.
     const bool skip_time_ranges_for_exact_tag = time_series_settings->hasBucketedSamples()
         && std::any_of(matchers.begin(), matchers.end(), [](const auto & matcher)
         {
             return matcher.matcher_type == PrometheusQueryTree::MatcherType::EQ
-                && matcher.label_name != TimeSeriesTagNames::MetricName
+                && (matcher.label_name == "instance" || matcher.label_name == "host")
                 && !matcher.label_value.empty();
         });
     const StorageID time_ranges_table_id = (!skip_time_ranges_for_exact_tag && time_series_storage->hasTarget(ViewTarget::TimeRanges))
@@ -37,4 +41,4 @@ if body.count(old) != 1:
     raise RuntimeError("Unexpected pinned source: missing or extra target block")
 body = body.replace(old, new, 1)
 path.write_text(prefix + body)
-print("Applied exact-label selective TimeSeries JOIN bypass to readImpl only")
+print("Applied experimental instance/host-only JOIN bypass in readImpl; broad project labels keep join")
