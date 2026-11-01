@@ -1,0 +1,27 @@
+name: TimeSeries selector fail-closed safety regression
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-selector-patch-safety-20261101.yml']
+permissions:
+  contents: read
+concurrency:
+  group: tslab-selector-patch-safety-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  safety:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify no default modifications and pinned opt-in
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-bench/test_selector_patch_safety.py
+      - name: Record source hashes
+        run: |
+          set -euo pipefail
+          sha256sum .github/ts-lab-bench/test_selector_patch_safety.py .github/ts-lab-pending/apply_selector_exact_no_timeranges_patch.py
