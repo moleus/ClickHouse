@@ -1,0 +1,60 @@
+name: TimeSeries ANTL4 artifact PromQL regression suite
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths:
+      - '.github/workflows/ts-lab-promql-smoke.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: tslab-promql-regression-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  promql:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      BUILD_RUN: '41301314345'
+      BUILD_SHA: f0e5d949afb947e5dcf7a6090430979d7bc03ae9
+      EXPECTED_ARTIFACT_DIGEST: 84066302b43744c9f7db0d29b79ac24bbf1023f4100037ba0292d149a6195320
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Download exact ANTL-enabled ClickHouse and check two SHA256 files
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/artifact" "$RUNNER_TEMP/ch"
+          artifact_id="$(gh api "repos/$REPO/actions/runs/$BUILD_RUN/artifacts" --jq '.artifacts[] | select(.name == "tslab-clickhouse-amd64-" + env.BUILD_SHA) | .id')"
+          test -n "$artifact_id"
+          gh run download "$BUILD_RUN" -R "$REPO" -n "tslab-clickhouse-amd64-$BUILD_SHA" -D "$RUNNER_TEMP/artifact"
+          archive="$(find "$RUNNER_TEMP/artifact" -name 'clickhouse-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/archive-sha.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/ch"
+          (cd "$RUNNER_TEMP/ch" && sha256sum -c SHA256SUMS) | tee evidence/binary-sha.txt
+          "$RUNNER_TEMP/ch/clickhouse" --version | tee evidence/version.txt
+          printf 'build_run=%s\nbuild_sha=%s\nartifact_id=%s\n' "$BUILD_RUN" "$BUILD_SHA" "$artifact_id" > evidence/provenance.txt
+      - name: Run all 13 deterministic PromQL regressions
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-scripts/validate_promql.py "$RUNNER_TEMP/ch/clickhouse" 2>&1 | tee evidence/regressions-5.log
+          python3 .github/ts-lab-bench/validate_promql_extra.py "$RUNNER_TEMP/ch/clickhouse" 2>&1 | tee evidence/regressions-8.log
+          grep -Fx 'RESULT: 5 PromQL regression cases passed' evidence/regressions-5.log
+          grep -Fx 'RESULT: 8 additional PromQL cases passed' evidence/regressions-8.log
+      - name: Preserve regression logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-promql-regressions-${{ github.run_id }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 14
