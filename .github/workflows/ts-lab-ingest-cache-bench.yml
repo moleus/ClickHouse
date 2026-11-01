@@ -1,0 +1,154 @@
+name: TimeSeries ingest tag-cache and recent-copy profile
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-ingest-cache-bench.yml']
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: tslab-ingest-tag-cache-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: recent-on-large-cache
+            tag_cache: 16777216
+            recent_ttl: 345600
+          - name: recent-off-large-cache
+            tag_cache: 16777216
+            recent_ttl: 0
+          - name: recent-off-tiny-cache
+            tag_cache: 65536
+            recent_ttl: 0
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      PROFILE: ${{ matrix.name }}
+      TAG_CACHE: ${{ matrix.tag_cache }}
+      RECENT_TTL: ${{ matrix.recent_ttl }}
+      COUNT_SERIES: '12000'
+      ROUND_COUNT: '12'
+    steps:
+      - name: Download verified ClickHouse binary without PromQL
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/ch-art" "$RUNNER_TEMP/bin"
+          gh run download 41289735046 -R "$REPO" \
+            -n tslab-clickhouse-amd64-8db1f4bc82e426ddedbd209a952ee94b1cdb5192 \
+            -D "$RUNNER_TEMP/ch-art"
+          (cd "$RUNNER_TEMP/ch-art" && sha256sum -c ARCHIVE_SHA256SUMS) > evidence/archive-hash.txt
+          zstd -dc "$RUNNER_TEMP/ch-art/clickhouse-linux-amd64.tar.zst" | tar -xf - -C "$RUNNER_TEMP/bin"
+          (cd "$RUNNER_TEMP/bin" && sha256sum -c SHA256SUMS) > evidence/binary-hash.txt
+          chmod +x "$RUNNER_TEMP/bin/clickhouse"
+          "$RUNNER_TEMP/bin/clickhouse" --version | tee evidence/ch-version.txt
+      - name: Start isolated TimeSeries service with query metrics
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/data" "$RUNNER_TEMP/tmp" "$RUNNER_TEMP/userfiles"
+          cat > "$RUNNER_TEMP/ch-config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/data/</path><tmp_path>$RUNNER_TEMP/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/userfiles/</user_files_path>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><max_memory_usage>8000000000</max_memory_usage><log_queries>1</log_queries></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/bin/clickhouse" server --config-file="$RUNNER_TEMP/ch-config.xml" > evidence/ch-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          for i in $(seq 1 60); do
+            if curl -fsS --max-time 2 http://127.0.0.1:18191/ping >/dev/null 2>&1; then echo 'CH_READY'; exit 0; fi
+            sleep 2
+          done
+          tail -90 evidence/ch-server.log
+          exit 1
+      - name: Generate 12 repeat scrapes for a stable 12K-series working set
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import datetime as dt,json,os,pathlib,time
+          path=pathlib.Path(os.environ['RUNNER_TEMP'])/'rounds'
+          path.mkdir(parents=True,exist_ok=True)
+          n=int(os.environ['COUNT_SERIES']); rounds=int(os.environ['ROUND_COUNT'])
+          base=int(time.time())//15*15-15*(rounds+2)
+          for step in range(rounds):
+              stamp=dt.datetime.fromtimestamp(base+step*15,dt.timezone.utc).strftime('%Y-%m-%d %H:%M:%S.000')
+              with (path/f'{step:02d}.jsonl').open('w') as f:
+                  for i in range(n):
+                      tags={'instance':f'host-{i:05d}','project':f'p{i%48:02d}','region':'eu' if i%2==0 else 'us'}
+                      sample={'metric_name':'lab_cache_metric','tags':tags,'samples':[[stamp,float(1000+i+step)]]}
+                      f.write(json.dumps(sample,separators=(',',':'))+'\n')
+          summary={'generated_series':n,'rounds':rounds,'samples':n*rounds,'base_epoch':base,'inter_round_secs':15,'profile':os.environ['PROFILE']}
+          pathlib.Path('evidence/generation.json').write_text(json.dumps(summary,indent=2)+'\n')
+          print(summary)
+          PY
+      - name: Create TimeSeries with exact variant settings
+        run: |
+          set -euo pipefail
+          sql="CREATE TABLE cachelab ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=$RECENT_TTL,tags_deduplication_cache_size_bytes=$TAG_CACHE"
+          curl -fsS -X POST --data-binary "$sql" \
+            'http://127.0.0.1:18191/?allow_experimental_time_series_table=1' \
+            -o evidence/create-response.txt || {
+              tail -50 evidence/ch-server.log; exit 1;
+            }
+      - name: Insert scrapes in 12 separate HTTP requests and profile stats
+        run: |
+          set -euo pipefail
+          : > evidence/rounds.tsv
+          for i in $(seq -w 0 11); do
+            seconds="$(curl -fsS -X POST --max-time 180 -w '%{time_total}' \
+              --data-binary "@$RUNNER_TEMP/rounds/$i.jsonl" \
+              "http://127.0.0.1:18191/?allow_experimental_time_series_table=1&wait_end_of_query=1&query=INSERT%20INTO%20cachelab%20(metric_name%2Ctags%2Csamples)%20FORMAT%20JSONEachRow" \
+              -o "evidence/response-$i.txt")" || {
+                echo "ROUND $i FAILED"
+                cat "evidence/response-$i.txt" || true
+                tail -45 evidence/ch-server.log
+                exit 1
+              }
+            rss="$(ps -o rss= -p "$(cat "$RUNNER_TEMP/ch.pid")" | tr -d ' ')"
+            printf '%s\t%s\t%s\n' "$i" "$seconds" "$rss" | tee -a evidence/rounds.tsv
+          done
+          curl -fsS -X POST --data-binary 'SYSTEM FLUSH LOGS' http://127.0.0.1:18191/ > evidence/flush-logs.txt
+          curl -fsS -X POST --data-binary 'SELECT table, sum(data_compressed_bytes) AS bytes, sum(rows) AS rows FROM system.parts WHERE active AND database = '\''default'\'' GROUP BY table ORDER BY table FORMAT JSONEachRow' \
+            http://127.0.0.1:18191/ > evidence/active-parts.jsonl
+          curl -fsS -X POST --data-binary 'SELECT query_duration_ms, read_rows, written_rows, memory_usage, ProfileEvents FROM system.query_log WHERE query LIKE '\''INSERT INTO cachelab%'\'' AND type = '\''QueryFinish'\'' ORDER BY event_time_microseconds FORMAT JSONEachRow' \
+            http://127.0.0.1:18191/ > evidence/query-log.jsonl || true
+          du -sb "$RUNNER_TEMP/data" | tee evidence/data-directory-bytes.txt
+          python3 - <<'PY'
+          import os,json,pathlib
+          p=pathlib.Path('evidence')
+          lines=p.joinpath('rounds.tsv').read_text().splitlines()
+          times=[float(x.split('\t')[1]) for x in lines]
+          rss=[int(x.split('\t')[2]) for x in lines]
+          parts=[json.loads(x) for x in p.joinpath('active-parts.jsonl').read_text().splitlines() if x]
+          events=[json.loads(x) for x in p.joinpath('query-log.jsonl').read_text().splitlines() if x]
+          counters={}
+          for event in events:
+              for k,v in event.get('ProfileEvents',{}).items():
+                  if ('Tag' in k or 'TimeSeries' in k):
+                      counters[k]=counters.get(k,0)+v
+          res={'run':os.environ['GITHUB_RUN_ID'],'head':os.environ['GITHUB_SHA'],'profile':os.environ['PROFILE'],'tag_cache_bytes':int(os.environ['TAG_CACHE']),'recent_ttl_seconds':int(os.environ['RECENT_TTL']),'series':int(os.environ['COUNT_SERIES']),'rounds':len(lines),'samples':int(os.environ['COUNT_SERIES'])*len(lines),'wall_seconds':sum(times),'peak_sampled_rss_kb':max(rss),'active_parts':parts,'query_log_insert_events':len(events),'tag_profile_events':counters,'data_dir_bytes':int(p.joinpath('data-directory-bytes.txt').read_text().split()[0])}
+          p.joinpath('summary.json').write_text(json.dumps(res,indent=2)+'\n')
+          print(json.dumps(res,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tslab-ingest-${{ matrix.name }}-${{ github.run_id }}
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: warn
