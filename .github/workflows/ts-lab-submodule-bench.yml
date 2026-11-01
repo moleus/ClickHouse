@@ -1,0 +1,138 @@
+name: TimeSeries isolated submodule speed and cache
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-submodule-bench.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tslab-submodules-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  checkout:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        jobs: [4, 12]
+    env:
+      SOURCE_SHA: 52529f0c711566d696917678bf15e7068772fdde
+      JOBS: ${{ matrix.jobs }}
+      GIT_TERMINAL_PROMPT: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Fetch pinned upstream (same source as main CI)
+        run: |
+          set -euo pipefail
+          git remote add upstream https://github.com/ClickHouse/ClickHouse.git
+          /usr/bin/time -v -o "$RUNNER_TEMP/base-fetch-time.txt" \
+            git fetch --no-tags --depth=1 upstream "$SOURCE_SHA"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git submodule sync --recursive
+      - name: Measure shallow checkout
+        id: measure
+        run: |
+          set -euo pipefail
+          mkdir -p results
+          /usr/bin/time -v -o results/submodule-time.txt \
+            git -c submodule.fetchJobs="$JOBS" submodule update \
+              --init --recursive --depth=1 --jobs "$JOBS" \
+              > results/submodule.log 2>&1 || {
+                tail -120 results/submodule.log
+                exit 1
+              }
+          git submodule status --recursive > results/status.txt
+          git submodule status --recursive | wc -l | tee results/submodule-count.txt
+          du -sb contrib .git/modules | tee results/submodule-bytes.txt
+          cp "$RUNNER_TEMP/base-fetch-time.txt" results/base-fetch-time.txt
+          cat results/submodule-time.txt
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path("results")
+          b=p.joinpath("submodule-bytes.txt").read_text().splitlines()
+          sizes={z.split()[1]:int(z.split()[0]) for z in b}
+          total=sum(sizes.values())
+          print(json.dumps({"run":os.environ["GITHUB_RUN_ID"],"head":os.environ["GITHUB_SHA"],"source":os.environ["SOURCE_SHA"],"fetch_jobs":int(os.environ["JOBS"]),"submodules":len(p.joinpath("status.txt").read_text().splitlines()),"sizes_bytes":sizes,"sum_bytes":total}))
+          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
+              f.write(f"cache_ok={'true' if total < 3500000000 and os.environ['JOBS']=='12' else 'false'}\n")
+          PY
+      - name: Save pinned submodules to shared cache (12-job profile only)
+        if: matrix.jobs == 12 && steps.measure.outputs.cache_ok == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            contrib
+            .git/modules
+          key: tslab-submodules-52529f0c711566d696917678bf15e7068772fdde-v1
+      - name: Publish measurement data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-submodules-j${{ matrix.jobs }}-${{ github.run_id }}
+          path: results/
+          if-no-files-found: warn
+          retention-days: 7
+
+  restore_test:
+    needs: checkout
+    if: always() && needs.checkout.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      SOURCE_SHA: 52529f0c711566d696917678bf15e7068772fdde
+      GIT_TERMINAL_PROMPT: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Fetch exact source and prepare submodule metadata
+        run: |
+          set -euo pipefail
+          git remote add upstream https://github.com/ClickHouse/ClickHouse.git
+          git fetch --no-tags --depth=1 upstream "$SOURCE_SHA"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git submodule sync --recursive
+      - name: Restore pinned checkout
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            contrib
+            .git/modules
+          key: tslab-submodules-52529f0c711566d696917678bf15e7068772fdde-v1
+          fail-on-cache-miss: true
+      - name: Verify cached tree and measure update
+        run: |
+          set -euo pipefail
+          mkdir -p results
+          /usr/bin/time -v -o results/cache-checkout-time.txt \
+            git submodule update --init --recursive --depth=1 --jobs 12 \
+              > results/cache-checkout.log 2>&1 || {
+                tail -100 results/cache-checkout.log
+                exit 1
+              }
+          git submodule status --recursive > results/status.txt
+          test -s contrib/sysroot/README.md
+          if grep -E '^[+-U]' results/status.txt; then
+            echo 'Submodule mismatch or missing commit' >&2
+            exit 1
+          fi
+          wc -l results/status.txt
+          cat results/cache-checkout-time.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tslab-submodule-cache-restore-${{ github.run_id }}
+          path: results/
+          if-no-files-found: warn
+          retention-days: 7
