@@ -33,7 +33,7 @@ new = """    // Experimental selective-label fast path: skip the time-ranges tab
     if (skip_time_ranges_for_exact_tag)
         LOG_DEBUG(log, "Experimental exact-label selector: bypassing time-ranges JOIN; samples still filtered by time");
     const TableTimeRange time_range_to_filter_ids = getTimeRangeToFilterIDs(table_time_range, time_ranges_table_id, *time_series_settings);"""
-if body.count(old) != 1 or prefix.count(old) != 1:
+if body.count(old) != 1:
     raise RuntimeError("Unexpected pinned source: missing or extra target block")
 body = body.replace(old, new, 1)
 path.write_text(prefix + body)
