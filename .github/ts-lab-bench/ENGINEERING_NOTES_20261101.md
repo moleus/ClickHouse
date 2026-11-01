@@ -194,3 +194,28 @@ Root `REPORT.md` and `MASTER_V11_REPORT.md` are absent (GitHub contents 404 on t
 ### Automation run caveat
 
 - Re-enabled hourly task `6ae6f0c0fe9081919f499187f801dd8c` with shortened prompt requiring >=2 independent CI experiments each iteration, read this journal, code fixes. Because it previously disabled itself after `requires_user_action=true`, background continuity is still unverified. No long jobs cancelled, only lab branch changes.
+
+
+## 18:12 UTC 2026-11-01 — completed churn semantics, combined index, planner floor
+
+### C++ exact-label fastpath correctness on short-lived series
+
+- `41334674215`, commit `c4f9d234004fc7dead517dd4410a01951a4bbc57`, **SUCCESS**, job `124931853145`. Baseline -> compiled exact-label selector CXX fastpath -> baseline recheck on same 4-series, 2-generation dataset (2 node slots x2 short-lived lifetimes, 720 samples per lifetime, 15s cadence).
+- All **9** native PromQL expressions passed exact tag/timestamp/value comparison (`rel_tol=1e-10, abs_tol=1e-8`): exact old/new instance, ungrouped rate, sum, project label filtering, group by region, nonexistent series, regex, negated matcher and `offset 1h`. Result points vary 0, 179, 180, 184, 355, all identical. Artifact `13095151247`, digest `sha256:729c89856d5a3c1c6940df4d8b548d5c3ea2b3f1713939acbf747a23446e283f`. **Still not a full proof for stale markers, gaps, late/OOO samples, HA 15s dedup, 14d historical churn.**
+
+### Combined C++ fastpath + tags granularity 256
+
+- `41334723686`, commit `7ce5475000318ef9037e075e3bc7baba78077078`, **SUCCESS** both matrix jobs 5k/50k series, same compiled C++ fastpath binary `41333837985`, compared physical TAGS `index_granularity` 8192 vs256 with A/B/A and exact PromQL output validation.
+- 50k exact host: tags granule 8192 => 8,448 read_rows, 858,321B; granule256 => **512 read_rows, 90,108B**. p50 17.782ms baseline ->16.963ms candidate ->17.379ms baseline. **~10x fewer bytes but only ~4.6% faster**. 5k host 5256->512 read_rows, 545498->90074B, p50 12.435->12.284->13.031ms, negligible latency change. This establishes the dominant floor is NOT reading tag granule payload. Index_granularity=256 increases index/metadata footprint; not recommended by default.
+- 50k broad sum(rate()) p50 baseline892.761 -> candidate896.264 -> recheck863.975; grouped by team 978.267->1006.731->974.494 (small regression).
+
+### Detailed query planner and execution latency floor
+
+- `41334957698`, commit `e7e1174cbce042278dd3aa6ab87155dea84dd079`, **SUCCESS** 5000/50000 matrix, 24 interleaved timings after 5 warmups on compiled experimental CXX selector binary and same runner; synthetic input same points, with `system.query_log` and `EXPLAIN PIPELINE/indexes=1` saved in artifacts; no unsupported queries.
+- 50k series, p50 ms: HTTP POST `SELECT 1` **2.213**; direct tags lookup `SELECT count FROM .inner_id.tags WHERE host='h0001'` **4.817**; samples fetched via ID-set `SELECT sum(length(samples)) FROM .inner_id.samples WHERE id IN (...)` **8.002**; `SELECT count FROM timeSeriesSelector(... host='h0001' ...)` **13.460**; native `prometheusQueryRange(sum(rate(host='h0001'[5m])))` **19.483**; missing host PromQL **16.222**; whole 50k sum(rate()) **1052.852**. CXX candidate on a different matched job `41334320903` host p50 9.378ms, so cross-job latency is volatile: compare WITHIN this run only, no simplistic literal subtraction as total component costs (different query shapes).
+- 5k, p50 ms: select1 1.676; direct tags3.791; samples ID 6.323; timeSeriesSelector11.514; full host PromQL16.355; missing13.489; all125.584. Distinct ~5–6ms overhead appears in `timeSeriesSelector` and `prometheusQueryRange` even when <1k rows read. Source review should inspect `StorageTimeSeriesSelector::readImpl`, nested SQL AST/InterpreterSelectQueryAnalyzer, resolver, tag-to-ID execution, PrometheusQueryToSQL conversion caching, and explain query-planning `query_duration_ms`.
+- This is microbenchmark evidence of an expensive query path. The benchmark doesn't distinguish AST creation vs tag join setup vs query executor startup, and captures Python HTTP/network overhead; profile stack/CPU before a C++ redesign.
+
+### Automation is blocked, not repaired
+
+- `6ae6f0c0fe9081919f499187f801dd8c` re-enabled and given active engineer prompt, but **scheduled run 2026-11-01 18:00 UTC**, started17:53:59 and ended17:56:23, again returned `requires_user_action=true` and **task disabled itself**. Existing automation cannot provide guaranteed unattended GitHub writes without user approving/reconnecting the required permission. DO NOT report this as autonomous agent operating. Do not waste effort repeatedly updating `is_enabled=true` without resolving the permission; ask user to approve the task/connection if needed. All CXX and schema runs in current conversation were manually launched by the active assistant, NOT the background automation.
