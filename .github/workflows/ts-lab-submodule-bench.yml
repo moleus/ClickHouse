@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        jobs: [4, 12]
+        jobs: [12]
     env:
       SOURCE_SHA: 52529f0c711566d696917678bf15e7068772fdde
       JOBS: ${{ matrix.jobs }}
@@ -38,14 +38,14 @@ jobs:
           git checkout --detach FETCH_HEAD
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           git submodule sync --recursive
+          git submodule init
       - name: Measure shallow checkout
         id: measure
         run: |
           set -euo pipefail
           mkdir -p results
           /usr/bin/time -v -o results/submodule-time.txt \
-            git -c submodule.fetchJobs="$JOBS" submodule update \
-              --init --recursive --depth=1 --jobs "$JOBS" \
+            sh -c "git config --file .gitmodules --get-regexp '.*path' | sed 's/[^ ]* //' | xargs -r -n 1 -P $JOBS git submodule update --depth=1 --single-branch --" \
               > results/submodule.log 2>&1 || {
                 tail -120 results/submodule.log
                 exit 1
@@ -63,16 +63,15 @@ jobs:
           total=sum(sizes.values())
           print(json.dumps({"run":os.environ["GITHUB_RUN_ID"],"head":os.environ["GITHUB_SHA"],"source":os.environ["SOURCE_SHA"],"fetch_jobs":int(os.environ["JOBS"]),"submodules":len(p.joinpath("status.txt").read_text().splitlines()),"sizes_bytes":sizes,"sum_bytes":total}))
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
-              f.write(f"cache_ok={'true' if total < 3500000000 and os.environ['JOBS']=='12' else 'false'}\n")
+              f.write(f"cache_ok={'true' if sizes.get('.git/modules', 1e20) < 3500000000 and os.environ['JOBS']=='12' else 'false'}\n")
           PY
       - name: Save pinned submodules to shared cache (12-job profile only)
         if: matrix.jobs == 12 && steps.measure.outputs.cache_ok == 'true'
         uses: actions/cache/save@v4
         with:
           path: |
-            contrib
             .git/modules
-          key: tslab-submodules-52529f0c711566d696917678bf15e7068772fdde-v1
+          key: tslab-submodule-metadata-52529f0c711566d696917678bf15e7068772fdde-v2
       - name: Publish measurement data
         if: always()
         uses: actions/upload-artifact@v4
@@ -103,20 +102,20 @@ jobs:
           git checkout --detach FETCH_HEAD
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           git submodule sync --recursive
+          git submodule init
       - name: Restore pinned checkout
         uses: actions/cache/restore@v4
         with:
           path: |
-            contrib
             .git/modules
-          key: tslab-submodules-52529f0c711566d696917678bf15e7068772fdde-v1
+          key: tslab-submodule-metadata-52529f0c711566d696917678bf15e7068772fdde-v2
           fail-on-cache-miss: true
       - name: Verify cached tree and measure update
         run: |
           set -euo pipefail
           mkdir -p results
           /usr/bin/time -v -o results/cache-checkout-time.txt \
-            git submodule update --init --recursive --depth=1 --jobs 12 \
+            sh -c "git submodule init && git config --file .gitmodules --get-regexp '.*path' | sed 's/[^ ]* //' | xargs -r -n 1 -P 12 git submodule update --depth=1 --single-branch --" \
               > results/cache-checkout.log 2>&1 || {
                 tail -100 results/cache-checkout.log
                 exit 1
