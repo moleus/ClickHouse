@@ -1,0 +1,68 @@
+{
+  "created_date": "2026-11-01",
+  "engine": "ClickHouse 26.11.1.974 unpatched",
+  "dataset": "50k synthetic series, 120 counter samples each, 60 eval steps, TimeSeries v11",
+  "source": "system.query_log QueryFinish records from local experiment",
+  "method": "Client calls SELECT ... FORMAT Null, then SYSTEM FLUSH LOGS; one measurement for each selector, not latency distribution",
+  "columns": [
+    "expr",
+    "query_duration_ms",
+    "read_rows",
+    "read_bytes",
+    "memory_usage_bytes",
+    "os_read_bytes",
+    "selected_marks",
+    "selected_rows"
+  ],
+  "results": [
+    [
+      "sum(rate(bench_metric[5m]))",
+      748,
+      550000,
+      122245256,
+      301039090,
+      0,
+      1770,
+      550000
+    ],
+    [
+      "sum(rate(bench_metric{region=\"east\"}[5m]))",
+      447,
+      550000,
+      122295256,
+      149262026,
+      0,
+      1770,
+      550000
+    ],
+    [
+      "sum(rate(bench_metric{team=\"t01\"}[5m]))",
+      153,
+      373104,
+      77567432,
+      13426085,
+      0,
+      1079,
+      373104
+    ],
+    [
+      "sum(rate(bench_metric{host=\"h0001\"}[5m]))",
+      19,
+      58448,
+      3023889,
+      4597785,
+      0,
+      8,
+      58448
+    ]
+  ],
+  "native_pipeline_aggregating_transforms": 3,
+  "observations": [
+    "region=east matches 25k / 50k, but query read_rows is unchanged at 550k. Filtering did not reduce data rows scanned in this plan.",
+    "team=t01 matches 1563 series but still reads 373104 rows (~68% of 550k).",
+    "host=h0001 matches 1 series but reads 58448 rows. This may be due index granularity, mark scanning, and shared inner table reads; examine individual table profile before attributing all reads to samples.",
+    "Three AggregatingTransform nodes in native unpatched PromQL SQL; fast patch intends to remove one due unnecessary metric-name-drop duplicate check.",
+    "No disk reads (OSReadBytes=0) in this warm sample; these are not cold cache tests.",
+    "Only one query per case. Use n>=20 p50/p95 from separate 50k benchmark for latency distribution."
+  ]
+}
