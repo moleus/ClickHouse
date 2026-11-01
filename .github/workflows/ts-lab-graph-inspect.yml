@@ -41,7 +41,12 @@ jobs:
           prefixed=[s for s in lines if re.match(r'^\[\d+/\d+\]',s)]
           quoted=[s for s in lines if 'Building CXX object' in s]
           actions=[s for s in lines if 'clang' in s or 'CXX object' in s or 'Linking' in s]
-          stats={'profile':name,'lines':len(lines),'prefixed_progress':len(prefixed),'CXX_progress':len(quoted),
+          targets=(root/'targets.txt').read_text().splitlines()
+          objects=[x.split(': ',1)[0] for x in targets if '.cpp.o:' in x or '.c.o:' in x]
+          from collections import Counter
+          categories=Counter((x.split('/')[1] if x.startswith('src/') else x.split('/')[0]) for x in objects)
+          print('TARGETS',name,'total',len(targets),'objects',len(objects),'categories',dict(categories.most_common(18)))
+          stats={'ninja_targets':len(targets),'configured_source_objects':len(objects),'directories':dict(categories.most_common(40)),
                  'commands':len(actions),'sample_first':lines[:8],'sample_last':lines[-8:]}
           print(json.dumps(stats,indent=2))
           (root/'diagnostic.json').write_text(json.dumps(stats,indent=2)+'\n')
