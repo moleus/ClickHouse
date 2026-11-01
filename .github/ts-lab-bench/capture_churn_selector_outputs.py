@@ -6,6 +6,7 @@ short-lived series. This is not a full staleness/HA or late-data proof.
 """
 import argparse
 import json
+import math
 import os
 import pathlib
 import statistics
@@ -54,6 +55,21 @@ def main():
         x=(len(values)-1)*pct_value
         i=int(x)
         return round(values[i]+(values[min(i+1,len(values)-1)]-values[i])*(x-i),3)
+    def assert_equal_results(left,right,context):
+        if len(left)!=len(right):
+            raise AssertionError((context,"series_count",len(left),len(right)))
+        for before,after in zip(left,right):
+            if before["tags"]!=after["tags"]:
+                raise AssertionError((context,"label_set",before["tags"],after["tags"]))
+            a,b=before["samples"],after["samples"]
+            if len(a)!=len(b):
+                raise AssertionError((context,"point_count",len(a),len(b)))
+            for (t,v),(u,w) in zip(a,b):
+                if t!=u:
+                    raise AssertionError((context,"timestamp",t,u))
+                equal=(math.isnan(v) and math.isnan(w)) or math.isclose(v,w,rel_tol=1e-10,abs_tol=1e-8)
+                if not equal:
+                    raise AssertionError((context,"value",t,v,w,abs(v-w)))
     for name,exp in q:
         sql=("SELECT * FROM prometheusQueryRange("+p.table+", '"+exp.replace("'","''")+
              "', "+str(start)+", "+str(end)+", 60) FORMAT JSONEachRow")
@@ -76,7 +92,7 @@ def main():
                             "samples":tuple((str(t),float(v)) for t,v in row["samples"])}
                            for row in rows],key=lambda x:x["tags"])
             if results:
-                assert record==results[0],(p.phase,name,iteration,"non-deterministic repeated output")
+                assert_equal_results(results[0],record,(p.phase,name,iteration))
             results.append(record)
             if iteration>=p.warmups:durations.append(elapsed)
         output["cases"][name]=results[-1]
