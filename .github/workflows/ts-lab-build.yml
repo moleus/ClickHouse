@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: ts-lab-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   clickhouse:
@@ -104,6 +104,8 @@ jobs:
             -DCMAKE_CXX_COMPILER="${RUNNER_TEMP}/llvm/bin/clang++" \
             -DCMAKE_LINKER="${RUNNER_TEMP}/llvm/bin/ld.lld" \
             -DENABLE_LIBRARIES=OFF \
+            -DENABLE_ANTLR4_CPP_RUNTIME=ON \
+            -DENABLE_ANTLR4_GRAMMARS=ON \
             -DENABLE_TESTS=OFF \
             -DENABLE_BENCHMARKS=OFF \
             -DENABLE_RUST=OFF \
