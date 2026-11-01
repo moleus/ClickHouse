@@ -11,13 +11,13 @@ import urllib.parse
 import urllib.request
 
 QUERIES = (
-    ('sum_all', 'sum(rate(bench_metric[5m]))'),
-    ('sum_regex', 'sum(rate({__name__=~"bench_metric"}[5m]))'),
-    ('region_east', 'sum(rate(bench_metric{region="east"}[5m]))'),
-    ('team_t00', 'sum(rate(bench_metric{team="t00"}[5m]))'),
-    ('host_h0001', 'sum(rate(bench_metric{host="h0001"}[5m]))'),
-    ('by_region', 'sum by (region) (rate(bench_metric[5m]))'),
-    ('by_team', 'sum by (team) (rate(bench_metric[5m]))'),
+    ('sum_rate_exact', 'sum(rate(bench_metric[5m]))'),
+    ('sum_rate_regex', 'sum(rate({__name__=~"bench_metric"}[5m]))'),
+    ('sum_region_east', 'sum(rate(bench_metric{region="east"}[5m]))'),
+    ('sum_team_t00', 'sum(rate(bench_metric{team="t00"}[5m]))'),
+    ('sum_host_h0001', 'sum(rate(bench_metric{host="h0001"}[5m]))'),
+    ('sum_rate_by_region', 'sum by (region) (rate(bench_metric[5m]))'),
+    ('sum_rate_by_team', 'sum by (team) (rate(bench_metric[5m]))'),
 )
 
 def main():
