@@ -11,6 +11,7 @@ import random
 import statistics
 import time
 import urllib.parse
+import urllib.error
 import urllib.request
 
 
@@ -18,8 +19,12 @@ def sql(host, query, timeout=180):
     req = urllib.request.Request(host.rstrip("/") + "/?wait_end_of_query=1",
                                  data=query.encode("utf-8"), method="POST")
     t0 = time.perf_counter()
-    with urllib.request.urlopen(req, timeout=timeout) as response:
-        text = response.read().decode("utf-8").strip()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            text = response.read().decode("utf-8").strip()
+    except urllib.error.HTTPError as exc:
+        message = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"ClickHouse SQL HTTP {exc.code}: {message[:4000]}; query: {query[:2000]}") from exc
     return (time.perf_counter() - t0) * 1000, text
 
 
