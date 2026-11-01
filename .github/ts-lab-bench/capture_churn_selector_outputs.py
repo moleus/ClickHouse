@@ -51,11 +51,15 @@ def main():
             ("edge_project", 'sum by (region) (rate('+metric+'{project="project-00"}[5m]))')
         ])
     if p.recent_hours:
-        newest=f'node-{m["generations"]-1:03d}-000'
+        shared=int(m.get("shared_instances",0))
+        newest=f'node-shared-000' if shared else f'node-{m["generations"]-1:03d}-000'
         q.extend([
             ("exact_last", 'rate('+metric+'{instance="'+newest+'"}[5m])'),
             ("sum_exact_last", 'sum(rate('+metric+'{instance="'+newest+'"}[5m]))'),
             ("offset_last", 'sum(rate('+metric+'{instance="'+newest+'"}[5m] offset 15m))'),
+            ("exact_instance", 'rate('+metric+'{instance="'+newest+'"}[5m])'),
+            ("count_instance", 'count(rate('+metric+'{instance="'+newest+'"}[5m]))'),
+            ("group_instance", 'sum by (generation) (rate('+metric+'{instance="'+newest+'"}[5m]))'),
         ])
     if p.focus:
         requested=p.focus.split(",")
