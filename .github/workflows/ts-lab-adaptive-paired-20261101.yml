@@ -1,0 +1,294 @@
+name: TimeSeries paired baseline adaptive threshold on SAME runner
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-adaptive-paired-20261101.yml']
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: tslab-adaptive-paired-20261101-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  paired_long14:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: paired-long14
+            slots: 400
+            generations: 112
+    runs-on: ubuntu-24.04
+    timeout-minutes: 355
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      CH_RUN: '41301314345'
+      VM_RUN: '41288854734'
+      SLOTS: ${{ matrix.slots }}
+      GENERATIONS: ${{ matrix.generations }}
+      PROFILE: ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Download and authenticate pinned ClickHouse and VM binaries
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/ch-art" "$RUNNER_TEMP/ch-bin" "$RUNNER_TEMP/vm-art" "$RUNNER_TEMP/vm-bin"
+          gh run download "$CH_RUN" -R "$REPO" --pattern 'tslab-clickhouse-amd64-*' -D "$RUNNER_TEMP/ch-art"
+          ch_archive="$(find "$RUNNER_TEMP/ch-art" -type f -name 'clickhouse-linux-amd64.tar.zst' -print -quit)"
+          test -s "$ch_archive"
+          (cd "$(dirname "$ch_archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/ch-archive-hash.txt
+          zstd -dc "$ch_archive" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
+          (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS) | tee evidence/ch-binary-hash.txt
+          chmod +x "$RUNNER_TEMP/ch-bin/clickhouse"
+          "$RUNNER_TEMP/ch-bin/clickhouse" --version | tee evidence/ch-version.txt
+          gh run download "$VM_RUN" -R "$REPO" -n tslab-victoria-metrics-v1.134.0 -D "$RUNNER_TEMP/vm-art"
+          (cd "$RUNNER_TEMP/vm-art" && sed 's#  output/#  #' SHA256SUMS | sha256sum -c -) | tee evidence/vm-archive-hash.txt
+          tar -xzf "$RUNNER_TEMP/vm-art/victoria-metrics-linux-amd64-v1.134.0.tar.gz" -C "$RUNNER_TEMP/vm-bin"
+          chmod +x "$RUNNER_TEMP/vm-bin/victoria-metrics-prod"
+          "$RUNNER_TEMP/vm-bin/victoria-metrics-prod" --version 2>&1 | head -n 3 | tee evidence/vm-version.txt
+      - name: Launch independent loopback servers
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles" "$RUNNER_TEMP/vm/data"
+          cat > "$RUNNER_TEMP/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path><tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <max_server_memory_usage>4000000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions><log_queries>1</log_queries><max_memory_usage>1200000000</max_memory_usage></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/ch-bin/clickhouse" server --config-file="$RUNNER_TEMP/config.xml" > evidence/ch-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          "$RUNNER_TEMP/vm-bin/victoria-metrics-prod" -storageDataPath="$RUNNER_TEMP/vm/data" \
+            -retentionPeriod=4w -httpListenAddr=127.0.0.1:8430 -search.disableCache \
+            > evidence/vm-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/vm.pid"
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 2 http://127.0.0.1:18191/ping >/dev/null 2>&1 && \
+               curl -fsS --max-time 2 http://127.0.0.1:8430/health >/dev/null 2>&1; then
+              echo READY
+              exit 0
+            fi
+            sleep 2
+          done
+          tail -100 evidence/ch-server.log evidence/vm-server.log
+          exit 1
+      - name: Create TimeSeries and deterministic short-lived nodes dataset
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-pending/generate_sparse_long14.py \
+            --outdir "$RUNNER_TEMP/dataset" --init \
+            --slots "$SLOTS" --generations "$GENERATIONS" \
+            --samples-per-lifetime 720 --sample-step 15 | tee evidence/manifest.json
+          curl -fsS -X POST --data-binary \
+            'CREATE TABLE long_ts ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0,tags_deduplication_cache_size_bytes=16777216' \
+            'http://127.0.0.1:18191/?allow_experimental_time_series_table=1' \
+            -o evidence/create-response.txt || { tail -80 evidence/ch-server.log; exit 1; }
+      - name: Ingest identical 15-second samples into both engines with bounded batches
+        run: |
+          set -euo pipefail
+          printf 'generation\tch_seconds\tvm_seconds\n' > evidence/ingest-stats.tsv
+          for g in $(seq 0 $((GENERATIONS-1))); do
+            python3 .github/ts-lab-pending/generate_sparse_long14.py \
+              --outdir "$RUNNER_TEMP/dataset" --generation "$g" >/dev/null
+            ch_time="$(curl -fsS -X POST --max-time 300 -w '%{time_total}' -o evidence/ch-last-response.txt \
+              --data-binary "@$RUNNER_TEMP/dataset/ch-batch.jsonl" \
+              'http://127.0.0.1:18191/?allow_experimental_time_series_table=1&wait_end_of_query=1&query=INSERT%20INTO%20long_ts%20(metric_name%2Ctags%2Csamples)%20FORMAT%20JSONEachRow')" || {
+                tail -70 evidence/ch-server.log; cat evidence/ch-last-response.txt; exit 1; }
+            vm_time="$(curl -fsS -X POST --max-time 300 -w '%{time_total}' -o evidence/vm-last-response.txt \
+              --data-binary "@$RUNNER_TEMP/dataset/vm-batch.prom" \
+              'http://127.0.0.1:8430/api/v1/import/prometheus')" || {
+                tail -70 evidence/vm-server.log; cat evidence/vm-last-response.txt; exit 1; }
+            printf '%s\t%s\t%s\n' "$g" "$ch_time" "$vm_time" >> evidence/ingest-stats.tsv
+            if [ $((g % 4)) -eq 3 ]; then
+              curl -fsS -X POST --data-binary 'SYSTEM FLUSH ASYNC INSERT QUEUE' \
+                http://127.0.0.1:18191/ >/dev/null
+            fi
+            if [ $((g % 10)) -eq 0 ]; then echo "INGESTED generation=$g/$GENERATIONS"; fi
+          done
+          curl -fsS -X POST --data-binary 'SYSTEM FLUSH ASYNC INSERT QUEUE' http://127.0.0.1:18191/ >/dev/null
+          curl -fsS -X POST --data-binary 'SYSTEM FLUSH LOGS' http://127.0.0.1:18191/ >/dev/null
+          df -h . | tee evidence/disk.txt
+          du -sb "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/vm/data" | tee evidence/storage-bytes.tsv
+      - name: Verify ClickHouse storage and VM query visibility before latency test
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,time,urllib.parse,urllib.request
+          m=json.load(open(os.environ['RUNNER_TEMP']+'/dataset/manifest.json'))
+          url='http://127.0.0.1:18191/'
+          payload='SELECT sum(length(samples)) FROM system.numbers LIMIT 0'
+          def sql(query):
+              with urllib.request.urlopen(urllib.request.Request(url,data=query.encode()),timeout=100) as r:return r.read().decode().strip()
+          table=sql("SELECT name FROM system.tables WHERE database='default' AND name LIKE '.inner_id.samples.%' LIMIT 1 FORMAT TSVRaw")
+          assert table, 'No internal samples table'
+          actual=int(sql('SELECT sum(length(samples)) FROM default.'+chr(96)+table+chr(96)))
+          expected=m['samples']
+          print('CLICKHOUSE_SAMPLES',actual,'expected',expected)
+          assert actual==expected,(actual,expected)
+          ready={}
+          for epoch in [m['start_epoch']+150,m['end_epoch']]:
+              params=urllib.parse.urlencode({'query':'count('+m['metric']+')','time':epoch,'nocache':1})
+              link='http://127.0.0.1:8430/api/v1/query?'+params
+              for attempt in range(120):
+                  with urllib.request.urlopen(link,timeout=100) as response:data=json.load(response)
+                  values=data.get('data',{}).get('result',[])
+                  total=float(values[0]['value'][1]) if values else 0
+                  if total==m['slots']:break
+                  time.sleep(1)
+              else:raise RuntimeError(('VM not ready',epoch,total,m['slots']))
+              ready[str(epoch)]={'count':total,'attempt':attempt+1}
+          print('VM_QUERY_READY',json.dumps(ready))
+          json.dump({'ch_samples':actual,'vm_ready':ready},open('evidence/ingest-validation.json','w'),indent=2)
+          PY
+      - name: Benchmark native long-range PromQL and compare exact output
+        run: |
+          set -euo pipefail
+          /usr/bin/time -v -o evidence/query-bench-time.txt \
+            python3 .github/ts-lab-pending/bench_long14_http.py \
+              --manifest "$RUNNER_TEMP/dataset/manifest.json" \
+              --ch http://127.0.0.1:18191 --vm http://127.0.0.1:8430 \
+              --ch-pid "$(cat "$RUNNER_TEMP/ch.pid")" \
+              --vm-pid "$(cat "$RUNNER_TEMP/vm.pid")" \
+              --label "$PROFILE" --table long_ts --repeats 2 \
+              --output evidence/queries \
+              | tee evidence/query-summary.txt
+          curl -fsS -X POST --data-binary 'SYSTEM FLUSH LOGS' http://127.0.0.1:18191/ >/dev/null || true
+          curl -fsS -X POST --data-binary \
+            "SELECT query_duration_ms, read_rows, read_bytes, memory_usage, exception_code, type FROM system.query_log WHERE query LIKE 'SELECT * FROM prometheusQueryRange%' ORDER BY event_time_microseconds FORMAT JSONEachRow" \
+            http://127.0.0.1:18191/ > evidence/ch-query-log.jsonl || true
+          ps -o pid,rss,%cpu,comm -p "$(cat "$RUNNER_TEMP/ch.pid"),$(cat "$RUNNER_TEMP/vm.pid")" | tee evidence/processes.txt
+      - name: Fetch sparse-grid binary with SHA256 check
+        env:
+          SPARSE_RUN: '41319688851'
+          SPARSE_SHA: 6648c1f0f1a6fbf97c7941c015953efbb2083a16
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/adaptive-art" "$RUNNER_TEMP/adaptive-bin"
+          gh run download "$SPARSE_RUN" -R "$REPO" -n "tslab-adaptive-binary-$SPARSE_SHA" -D "$RUNNER_TEMP/adaptive-art"
+          archive="$(find "$RUNNER_TEMP/adaptive-art" -name clickhouse-adaptive-linux-amd64.tar.zst -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/adaptive-archive-sha.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/adaptive-bin"
+          (cd "$RUNNER_TEMP/adaptive-bin" && sha256sum -c SHA256SUMS) | tee evidence/adaptive-binary-sha.txt
+          chmod +x "$RUNNER_TEMP/adaptive-bin/clickhouse"
+          "$RUNNER_TEMP/adaptive-bin/clickhouse" --version | tee evidence/adaptive-version.txt
+      - name: Restart same TimeSeries data with adaptive binary and measure again
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/restart-clickhouse.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          binary="$1"
+          label="$2"
+          watch_pid="$(cat "$RUNNER_TEMP/ch.pid")"
+          children="$(cat "/proc/$watch_pid/task/$watch_pid/children" 2>/dev/null || true)"
+          for pid in "$watch_pid" $children; do
+            if [ -n "$pid" ]; then kill -TERM "$pid" 2>/dev/null || true; fi
+          done
+          for i in $(seq 1 60); do
+            if ! curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+            echo "Old ClickHouse still has active HTTP listener" >&2
+            exit 1
+          fi
+          "$binary" server --config-file="$RUNNER_TEMP/config.xml" > "evidence/ch-server-$label.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          for i in $(seq 1 120); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "RESTARTED $label at $i"
+              exit 0
+            fi
+            sleep 1
+          done
+          tail -100 "evidence/ch-server-$label.log"
+          exit 1
+          SH
+          chmod +x "$RUNNER_TEMP/restart-clickhouse.sh"
+          "$RUNNER_TEMP/restart-clickhouse.sh" "$RUNNER_TEMP/adaptive-bin/clickhouse" adaptive
+          python3 .github/ts-lab-pending/bench_long14_http.py \
+            --manifest "$RUNNER_TEMP/dataset/manifest.json" \
+            --ch http://127.0.0.1:18191 --vm http://127.0.0.1:8430 \
+            --ch-pid "$(cat "$RUNNER_TEMP/ch.pid")" --vm-pid "$(cat "$RUNNER_TEMP/vm.pid")" \
+            --label adaptive --table long_ts --repeats 2 \
+            --output evidence/adaptive-queries | tee evidence/adaptive-query-summary.log
+      - name: Recheck baseline after adaptive run and compare raw 1m results
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/restart-clickhouse.sh" "$RUNNER_TEMP/ch-bin/clickhouse" baseline-recheck
+          python3 .github/ts-lab-pending/bench_long14_http.py \
+            --manifest "$RUNNER_TEMP/dataset/manifest.json" \
+            --ch http://127.0.0.1:18191 --vm http://127.0.0.1:8430 \
+            --ch-pid "$(cat "$RUNNER_TEMP/ch.pid")" --vm-pid "$(cat "$RUNNER_TEMP/vm.pid")" \
+            --label baseline-recheck --table long_ts --steps 60,300,900 --repeats 2 \
+            --output evidence/recheck-queries | tee evidence/recheck-query-summary.log
+          python3 - <<'PY'
+          import gzip,json,math,pathlib
+          root=pathlib.Path('evidence')
+          def result(sub):
+              return json.loads((root/sub/'summary.json').read_text())
+          baseline=result('queries')
+          sparse=result('adaptive-queries')
+          recheck=result('recheck-queries')
+          def by_step(obj):return {x['step_seconds']:x for x in obj['cases']}
+          ba=by_step(baseline);sa=by_step(sparse);ra=by_step(recheck)
+          def samples(folder,pattern):
+              found=list((root/folder).glob(pattern))
+              assert len(found)==1,found
+              rows=[json.loads(s) for s in gzip.decompress(found[0].read_bytes()).decode().splitlines() if s.strip()]
+              assert len(rows)==1,rows
+              return rows[0]['samples']
+          a=samples('queries','*clickhouse-1m-response.gz')
+          b=samples('adaptive-queries','*clickhouse-1m-response.gz')
+          c=samples('recheck-queries','*clickhouse-1m-response.gz')
+          for candidate in [b,c]:
+              assert len(candidate)==len(a)
+              for (ta,va),(tb,vb) in zip(a,candidate):
+                  assert ta==tb
+                  assert math.isclose(float(va),float(vb),rel_tol=1e-12,abs_tol=1e-9),(ta,va,vb)
+          comparison=[]
+          for step in [900,300,60]:
+              item={'step_seconds':step,'baseline_ch_p50_ms':ba[step]['clickhouse_p50_ms'],
+                    'adaptive_ch_p50_ms':sa[step]['clickhouse_p50_ms'],
+                    'adaptive_speedup':round(ba[step]['clickhouse_p50_ms']/sa[step]['clickhouse_p50_ms'],4),
+                    'adaptive_vs_vm_p50':round(sa[step]['clickhouse_p50_ms']/sa[step]['victoria_p50_ms'],4),
+                    'vm_before_ms':ba[step]['victoria_p50_ms'],
+                    'vm_adaptive_ms':sa[step]['victoria_p50_ms'],
+                    'max_rel_error_adaptive_vs_vm':sa[step]['comparison']['max_rel_error']}
+              if step==60:
+                  item['baseline_recheck_p50_ms']=ra[step]['clickhouse_p50_ms']
+                  item['recheck_vs_baseline_ratio']=round(ra[step]['clickhouse_p50_ms']/ba[step]['clickhouse_p50_ms'],4)
+              comparison.append(item)
+          target={'source_run':41301314345,'adaptive_run':41319688851,
+                  'query':'sum(rate(lab_node_network_receive_bytes_total[5m]))',
+                  'same_runner_data':True,'baseline_adaptive_and_recheck_values_identical_1m':True,
+                  'series':44800,'samples':32256000,'results':comparison}
+          (root/'paired-comparison.json').write_text(json.dumps(target,indent=2)+'\n')
+          print('PAIRED_ADAPTIVE_GRID',json.dumps(target,indent=2),flush=True)
+          PY
+      - name: Preserve 14-day performance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-long14-adaptive-${{ matrix.name }}-${{ github.run_id }}
+          path: evidence/
+          retention-days: 14
+          compression-level: 1
+          if-no-files-found: warn
