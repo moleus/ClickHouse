@@ -1,0 +1,240 @@
+name: TimeSeries direct inner grouped avg semantic corner correctness A/B/A
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-direct-inner-grouped-corner-20261102.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-direct-inner-grouped-corner-20261102-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      CH_RUN: '41301314345'
+      VM_RUN: '41288854734'
+      DAYS: '3'
+      BUILDS_PER_DAY: '2474'
+      STAGE_VARIANTS: '1448'
+      LIMIT_PROBE: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Download verified baseline ClickHouse and VictoriaMetrics binaries
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/ch-art" "$RUNNER_TEMP/ch-bin" "$RUNNER_TEMP/vm-art" "$RUNNER_TEMP/vm-bin"
+          gh run download "$CH_RUN" -R "$REPO" --pattern 'tslab-clickhouse-amd64-*' -D "$RUNNER_TEMP/ch-art"
+          archive="$(find "$RUNNER_TEMP/ch-art" -type f -name 'clickhouse-linux-amd64.tar.zst' -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/ch-archive-hash.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
+          (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS) | tee evidence/ch-binary-hash.txt
+          chmod +x "$RUNNER_TEMP/ch-bin/clickhouse"
+          "$RUNNER_TEMP/ch-bin/clickhouse" --version | tee evidence/ch-version.txt
+          gh run download "$VM_RUN" -R "$REPO" -n tslab-victoria-metrics-v1.134.0 -D "$RUNNER_TEMP/vm-art"
+          (cd "$RUNNER_TEMP/vm-art" && sed 's#  output/#  #' SHA256SUMS | sha256sum -c -) | tee evidence/vm-archive-hash.txt
+          tar -xzf "$RUNNER_TEMP/vm-art/victoria-metrics-linux-amd64-v1.134.0.tar.gz" -C "$RUNNER_TEMP/vm-bin"
+          chmod +x "$RUNNER_TEMP/vm-bin/victoria-metrics-prod"
+          "$RUNNER_TEMP/vm-bin/victoria-metrics-prod" --version 2>&1 | head -n 4 | tee evidence/vm-version.txt
+
+      - name: Launch query-enabled loopback engines with explicit VM unique-series limit
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles" "$RUNNER_TEMP/vm/data"
+          cat > "$RUNNER_TEMP/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path><tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <max_server_memory_usage>6000000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions><log_queries>1</log_queries><max_memory_usage>3000000000</max_memory_usage></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/ch-bin/clickhouse" server --config-file="$RUNNER_TEMP/config.xml" >evidence/ch-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          "$RUNNER_TEMP/vm-bin/victoria-metrics-prod" -storageDataPath="$RUNNER_TEMP/vm/data" \
+            -retentionPeriod=4w -httpListenAddr=127.0.0.1:8430 -search.disableCache \
+            -search.maxUniqueTimeseries=1000000 \
+            >evidence/vm-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/vm.pid"
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 2 http://127.0.0.1:18191/ping >/dev/null 2>&1 && \
+               curl -fsS --max-time 2 http://127.0.0.1:8430/health >/dev/null 2>&1; then exit 0; fi
+            sleep 2
+          done
+          tail -100 evidence/ch-server.log evidence/vm-server.log
+          exit 1
+
+      - name: Download verified fused grouped avg C++ binary only after its independent build succeeds
+        run: |
+          set -euo pipefail
+          run_id=41356013636
+          source_sha=80877a7750d402cd8df909dea4de323437a34205
+          mkdir -p "$RUNNER_TEMP/direct-art" "$RUNNER_TEMP/direct-bin"
+          success=0
+          for attempt in $(seq 1 120); do
+            if gh run download "$run_id" -R "$REPO" \
+                 -n "tslab-direct-inner-grouped-binary-$source_sha" \
+                 -D "$RUNNER_TEMP/direct-art" 2>/dev/null; then
+              success=1
+              echo "FUSED_BINARY_ARTIFACT run=$run_id attempts=$attempt"
+              break
+            fi
+            conclusion="$(gh run view "$run_id" -R "$REPO" --json conclusion --jq .conclusion || true)"
+            if [ "$conclusion" = failure ] || [ "$conclusion" = cancelled ]; then
+              echo "Fused C++ binary did not build successfully ($conclusion)" >&2
+              exit 1
+            fi
+            sleep 15
+          done
+          [ "$success" = 1 ] || { echo "Fused C++ artifact not found" >&2; exit 1; }
+          archive="$(find "$RUNNER_TEMP/direct-art" -type f -name 'clickhouse-direct-inner-grouped-linux-amd64.tar.zst' -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/direct-archive-hash.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/direct-bin"
+          (cd "$RUNNER_TEMP/direct-bin" && sha256sum -c SHA256SUMS) | tee evidence/direct-binary-hash.txt
+          chmod +x "$RUNNER_TEMP/direct-bin/clickhouse"
+          "$RUNNER_TEMP/direct-bin/clickhouse" --version | tee evidence/direct-version.txt
+          cp "$RUNNER_TEMP/direct-bin/BUILD_INFO.txt" evidence/direct-build-info.txt
+
+      - name: Controlled ClickHouse restart helper, preserving the same on-disk datasets
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ch-restart.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          binary="$1"
+          phase="$2"
+          parent="$(cat "$RUNNER_TEMP/ch.pid")"
+          children="$(cat "/proc/$parent/task/$parent/children" 2>/dev/null || true)"
+          for pid in $children "$parent"; do
+            if [ -n "$pid" ]; then kill -TERM "$pid" 2>/dev/null || true; fi
+          done
+          # Do not restart just because a clickhouse watchdog has stopped:
+          # wait for both the old HTTP listener and its actual process.
+          for attempt in $(seq 1 100); do
+            if ! curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "BUCKET_PREVIOUS_SERVER_CLOSED phase=$phase attempt=$attempt"
+              break
+            fi
+            sleep 1
+          done
+          if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+            echo 'Old ClickHouse still listening; refuse unsafe restart' >&2
+            exit 1
+          fi
+          sleep 2
+          "$binary" server --config-file="$RUNNER_TEMP/config.xml" >"evidence/ch-server-$phase.log" 2>&1 &
+          echo "$!" >"$RUNNER_TEMP/ch.pid"
+          for attempt in $(seq 1 120); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "BUCKET_SERVER_STARTED phase=$phase attempt=$attempt"
+              exit 0
+            fi
+            sleep 1
+          done
+          tail -110 "evidence/ch-server-$phase.log"
+          exit 1
+          SH
+          chmod +x "$RUNNER_TEMP/ch-restart.sh"
+
+      - name: Adversarial 10-case original vs C++ fusion vs original, same on-disk data
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-bench/bench_fused_corner_cases.py \
+            --phase baseline --canonical evidence/corner-canonical.json \
+            --output evidence/corner-baseline.json --warmups 1 --repeats 3 \
+            | tee evidence/corner-baseline.log
+          "$RUNNER_TEMP/ch-restart.sh" "$RUNNER_TEMP/direct-bin/clickhouse" candidate
+          python3 .github/ts-lab-bench/bench_fused_corner_cases.py \
+            --phase candidate --canonical evidence/corner-canonical.json \
+            --output evidence/corner-candidate.json --warmups 1 --repeats 3 \
+            | tee evidence/corner-candidate.log
+          "$RUNNER_TEMP/ch-restart.sh" "$RUNNER_TEMP/ch-bin/clickhouse" recheck
+          python3 .github/ts-lab-bench/bench_fused_corner_cases.py \
+            --phase recheck --canonical evidence/corner-canonical.json \
+            --output evidence/corner-recheck.json --warmups 1 --repeats 3 \
+            | tee evidence/corner-recheck.log
+          python3 - <<'PY'
+          import json
+          src=json.load(open('evidence/corner-baseline.json'))
+          cand=json.load(open('evidence/corner-candidate.json'))
+          recheck=json.load(open('evidence/corner-recheck.json'))
+          assert src['cases'].keys()==cand['cases'].keys()==recheck['cases'].keys()
+          for key in src['cases']:
+              assert all(x['cases'][key]['same_values_as_original'] for x in (src,cand,recheck))
+              assert src['cases'][key]['points']==cand['cases'][key]['points']==recheck['cases'][key]['points']
+              print('CORNER_ABA',json.dumps({
+                  'case':key,'points':src['cases'][key]['points'],
+                  'baseline_p50_ms':src['cases'][key]['p50_ms'],
+                  'candidate_p50_ms':cand['cases'][key]['p50_ms'],
+                  'recheck_p50_ms':recheck['cases'][key]['p50_ms']}),flush=True)
+          print('CORNER_ABA_DONE',json.dumps({'cases':len(src['cases']),
+              'all_exact':True}),flush=True)
+          PY
+
+      - name: Measure on-disk data and run capped VictoriaMetrics unique-series diagnostic
+        if: success()
+        run: |
+          set -euo pipefail
+          curl -fsS --data-binary \
+            "SELECT table, sum(bytes_on_disk) AS bytes, sum(rows) AS rows FROM system.parts WHERE database='default' AND active GROUP BY table ORDER BY table FORMAT TSV" \
+            http://127.0.0.1:18191/ | tee evidence/ch-active-parts.tsv
+          du -sb "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/vm/data" 2>evidence/du-errors.txt \
+            | tee evidence/raw-storage-bytes.tsv || true
+          ps -eo pid,ppid,rss,comm | grep -E 'clickhouse|victoria-metrics|PID' \
+            | tee evidence/process-memory.tsv || true
+          if [ "$LIMIT_PROBE" = 1 ]; then
+            kill "$(cat "$RUNNER_TEMP/vm.pid")"
+            for i in $(seq 1 100); do
+              if ! kill -0 "$(cat "$RUNNER_TEMP/vm.pid")" 2>/dev/null; then break; fi
+              sleep 1
+            done
+            "$RUNNER_TEMP/vm-bin/victoria-metrics-prod" -storageDataPath="$RUNNER_TEMP/vm/data" \
+              -retentionPeriod=4w -httpListenAddr=127.0.0.1:8430 -search.disableCache \
+              -search.maxUniqueTimeseries=165000 >evidence/vm-capped-server.log 2>&1 &
+            echo "$!" > "$RUNNER_TEMP/vm-capped.pid"
+            for i in $(seq 1 90); do
+              if curl -fsS --max-time 2 http://127.0.0.1:8430/health >/dev/null 2>&1; then break; fi
+              sleep 2
+            done
+            python3 - <<'PY'
+          import json,urllib.parse,urllib.request,urllib.error
+          m=json.load(open('evidence/manifest.json'))
+          expr='avg by(stage)(avg_over_time(jenkins_avs_build_stage_duration[1d]))'
+          url='http://127.0.0.1:8430/api/v1/query_range?'+urllib.parse.urlencode({
+              'query':expr,'start':m['query_start_epoch'],'end':m['query_end_epoch'],'step':86400,'nocache':1})
+          try:
+              with urllib.request.urlopen(url,timeout=300) as r:
+                  code=r.status;payload=r.read().decode('utf-8','replace')
+          except urllib.error.HTTPError as e:
+              code=e.code;payload=e.read().decode('utf-8','replace')
+          record={'limit':165000,'series':m['total_series'],'status':code,'response_excerpt':payload[:2200]}
+          print('JENKINS_VM_165K_GATE',json.dumps(record,sort_keys=True))
+          with open('evidence/vm-limit-165k.json','w') as f:json.dump(record,f,indent=2)
+          PY
+          fi
+
+      - name: Preserve raw evidence and any errors
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-direct-inner-grouped-corner-20261102-${{ github.run_id }}
+          path: evidence/
+          retention-days: 14
+          compression-level: 1
+          if-no-files-found: warn
