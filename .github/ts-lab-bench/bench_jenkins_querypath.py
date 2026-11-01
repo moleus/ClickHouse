@@ -153,6 +153,7 @@ def main():
         validators={}
         orders=[]
         for i in range(a.warmups+a.repeats):
+            observed={}
             order=["ch_ts","vm","ch_sql"]
             rng.shuffle(order)
             orders.append(order)
@@ -168,25 +169,16 @@ def main():
                     qid=f"{prefix}_{case}_{engine}_{i}"
                     ms,raw=post(a.ch,ch_sql,qid)
                     current=normalized_ch(raw)
-                if engine=="ch_sql" and reference is None:
-                    reference=current
-                elif reference is None:
-                    # SQL is the independent input-derived reference. Delay comparison
-                    # until the SQL result for this iteration is available.
-                    pass
+                observed[engine]=current
                 if i>=a.warmups:
                     metrics[engine].append(ms)
-            # Use SQL for all comparisons; execute once more to avoid order bias.
-            _,raw=post(a.ch,sql)
-            canonical=normalized_events(raw)
+            canonical=observed["ch_sql"]
             if reference is None:reference=canonical
             assert reference==canonical,("SQL changed between trials",case,i)
-            if i==0:
-                # Exercise the same input with all 3 engines immediately.
-                for engine in ["ch_ts","vm"]:
-                    if engine=="vm":_,body=query_vm(a.vm,expr,start,end,step);rows=normalized_vm(body)
-                    else:_,body=post(a.ch,ch_sql);rows=normalized_ch(body)
-                    validators[engine]=compare(canonical,rows,case,engine)
+            # Assert exact stage/timestamp keys and numeric equivalence in
+            # EVERY measured repetition, not just one cold invocation.
+            for engine in ["ch_ts","vm"]:
+                validators[engine]=compare(canonical,observed[engine],case,engine)
             if i>=a.warmups:
                 print("JENKINS_TRIAL",case,i,dict((e,metrics[e][-1]) for e in metrics),flush=True)
         all_results["cases"][case]={"query":expr,"native_sql":sql,
