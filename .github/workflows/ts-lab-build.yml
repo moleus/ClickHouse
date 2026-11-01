@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/ts-lab-build.yml'
       - '.github/ts-lab-patches/**'
+      - '.github/ts-lab-scripts/**'
 
 permissions:
   contents: write
@@ -23,15 +24,18 @@ jobs:
       SOURCE_SHA: 52529f0c711566d696917678bf15e7068772fdde
       LLVM_VERSION: 22.1.8
       LLVM_SHA256: 8d5d1e52a06e1c10e457fd36489047053ac451ddad9c88017b0d0fc6b8e5d4c0
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 2500M
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
           fetch-depth: 1
 
-      - name: Keep lab patch
+      - name: Keep lab patch and tests
         run: |
           cp .github/ts-lab-patches/0001-fast-sum-rate-no-duplicate-grid.patch "${RUNNER_TEMP}/fastpath.patch"
+          cp .github/ts-lab-scripts/validate_promql.py "${RUNNER_TEMP}/validate_promql.py"
 
       - name: Free disk and check capacity
         run: |
@@ -67,6 +71,21 @@ jobs:
           tar -xf "${RUNNER_TEMP}/llvm.tar.xz" -C "${RUNNER_TEMP}/llvm" --strip-components=1
           "${RUNNER_TEMP}/llvm/bin/clang++" --version
 
+      - name: Install ccache
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ccache
+          ccache --version
+          mkdir -p "$CCACHE_DIR"
+
+      - uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: tslab-ccache-${{ runner.os }}-${{ env.SOURCE_SHA }}-${{ github.run_id }}
+          restore-keys: |
+            tslab-ccache-${{ runner.os }}-${{ env.SOURCE_SHA }}-
+
       - name: Configure ClickHouse
         run: |
           set -euo pipefail
@@ -76,6 +95,7 @@ jobs:
           cmake -S . -B build-lab -G Ninja \
             -DLINKER_NAME="${RUNNER_TEMP}/llvm/bin/ld.lld" \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCOMPILER_CACHE=ccache \
             -DCMAKE_C_COMPILER="${RUNNER_TEMP}/llvm/bin/clang" \
             -DCMAKE_CXX_COMPILER="${RUNNER_TEMP}/llvm/bin/clang++" \
             -DCMAKE_LINKER="${RUNNER_TEMP}/llvm/bin/ld.lld" \
@@ -91,7 +111,8 @@ jobs:
       - name: Compile one executable
         run: |
           set -euo pipefail
-          ninja -C build-lab -j2 clickhouse
+          time ninja -C build-lab -j2 clickhouse
+          ccache --show-stats
           test -s build-lab/programs/clickhouse
           build-lab/programs/clickhouse --version
 
@@ -100,11 +121,10 @@ jobs:
           set -euo pipefail
           build-lab/programs/clickhouse local -q 'SELECT 1' | grep -x 1
           build-lab/programs/clickhouse local -q 'SELECT version()'
-          build-lab/programs/clickhouse local --enable_time_series_table=1 -q 'SELECT 1' | grep -x 1
+          build-lab/programs/clickhouse local --allow_experimental_time_series_table=1 -q 'SELECT 1' | grep -x 1
+          python3 "${RUNNER_TEMP}/validate_promql.py" build-lab/programs/clickhouse
 
-      - name: Package and publish lab prerelease
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Package lab binary
         run: |
           set -euo pipefail
           mkdir -p output
@@ -114,9 +134,27 @@ jobs:
           (cd output && sha256sum clickhouse > SHA256SUMS)
           tar -C output -cf - clickhouse SHA256SUMS BUILD_INFO.txt | zstd -T2 -10 -o output/clickhouse-linux-amd64.tar.zst
           (cd output && sha256sum clickhouse-linux-amd64.tar.zst > ARCHIVE_SHA256SUMS)
+
+      - name: Upload CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-clickhouse-amd64-${{ github.sha }}
+          path: |
+            output/clickhouse-linux-amd64.tar.zst
+            output/ARCHIVE_SHA256SUMS
+            output/BUILD_INFO.txt
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      - name: Publish lab prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
           tag="tslab-${GITHUB_SHA:0:12}"
           gh release create "$tag" output/clickhouse-linux-amd64.tar.zst output/ARCHIVE_SHA256SUMS \
             --repo "${GITHUB_REPOSITORY}" --target "$GITHUB_SHA" \
             --title "TimeSeries lab ${GITHUB_SHA:0:12}" \
-            --notes "Experimental ClickHouse build from pinned source $SOURCE_SHA, not production verified." \
+            --notes "Experimental ClickHouse build from pinned source $SOURCE_SHA; five local PromQL regression cases passed. Not production verified." \
             --prerelease --latest=false
