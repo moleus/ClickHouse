@@ -1,0 +1,56 @@
+name: TimeSeries inspect completed Ninja graph artifacts
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-graph-inspect.yml']
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: tslab-artifact-inspection-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - name: Inspect earlier full build graph without any new compilation
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          for profile in current disable-extra-modes; do
+            mkdir -p "output/$profile"
+            gh run download 41301160839 -R "$REPO" \
+              -n "tslab-probe-$profile-41301160839" -D "output/$profile"
+            echo "Profile=$profile"
+            wc -l "output/$profile/dry-run.txt"
+            head -n 8 "output/$profile/dry-run.txt"
+            tail -n 8 "output/$profile/dry-run.txt"
+            PROFILE="$profile" python3 - <<'PY'
+          import collections,json,os,pathlib,re
+          name=os.environ['PROFILE']
+          root=pathlib.Path('output')/name
+          lines=(root/'dry-run.txt').read_text().splitlines()
+          prefixed=[s for s in lines if re.match(r'^\[\d+/\d+\]',s)]
+          quoted=[s for s in lines if 'Building CXX object' in s]
+          actions=[s for s in lines if 'clang' in s or 'CXX object' in s or 'Linking' in s]
+          stats={'profile':name,'lines':len(lines),'prefixed_progress':len(prefixed),'CXX_progress':len(quoted),
+                 'commands':len(actions),'sample_first':lines[:8],'sample_last':lines[-8:]}
+          print(json.dumps(stats,indent=2))
+          (root/'diagnostic.json').write_text(json.dumps(stats,indent=2)+'\n')
+          PY
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tslab-ninja-dryrun-inspection-${{ github.run_id }}
+          path: |
+            output/current/diagnostic.json
+            output/disable-extra-modes/diagnostic.json
+          retention-days: 7
