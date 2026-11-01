@@ -1,0 +1,35 @@
+name: TimeSeries lab VM baseline binary
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths:
+      - '.github/workflows/ts-lab-vm-binary.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  victoria-metrics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Fetch and verify pinned VictoriaMetrics release
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          curl -fL --retry 4 --connect-timeout 20 \
+            'https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v1.134.0/victoria-metrics-linux-amd64-v1.134.0.tar.gz' \
+            -o output/victoria-metrics-linux-amd64-v1.134.0.tar.gz
+          echo 'cd6e109bae85ff7c138d838b32be9a7fe2a6d7a9b3a387a7cf9234f22991da10  output/victoria-metrics-linux-amd64-v1.134.0.tar.gz' | sha256sum -c -
+          sha256sum output/victoria-metrics-linux-amd64-v1.134.0.tar.gz > output/SHA256SUMS
+          tar -tvzf output/victoria-metrics-linux-amd64-v1.134.0.tar.gz | head -n 8
+
+      - name: Upload pinned baseline for benchmark
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-victoria-metrics-v1.134.0
+          path: output/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
