@@ -219,3 +219,21 @@ Root `REPORT.md` and `MASTER_V11_REPORT.md` are absent (GitHub contents 404 on t
 ### Automation is blocked, not repaired
 
 - `6ae6f0c0fe9081919f499187f801dd8c` re-enabled and given active engineer prompt, but **scheduled run 2026-11-01 18:00 UTC**, started17:53:59 and ended17:56:23, again returned `requires_user_action=true` and **task disabled itself**. Existing automation cannot provide guaranteed unattended GitHub writes without user approving/reconnecting the required permission. DO NOT report this as autonomous agent operating. Do not waste effort repeatedly updating `is_enabled=true` without resolving the permission; ask user to approve the task/connection if needed. All CXX and schema runs in current conversation were manually launched by the active assistant, NOT the background automation.
+
+
+## 2026-11-01 ~18:26 UTC — bounded-grid memory and time-range profiling pushes
+
+### Two measurable hypotheses and launched independent experiments
+
+1. **Long14 grid memory hypothesis:** reducing bounded query width from 1440/2880 evaluation points to 60/180 while retaining 360/720 reduces peak `system.query_log.memory_usage` and potentially CPU for sparse 14d churn. Expected direction only, not proven. In workflow `ts-lab-long14-width-sweep-20261101.yml`, bounded widths changed `360,720,1440,2880` -> `60,180,360,720`; keeps native PromQL baseline, exact numerical comparison for all output timestamps, 1 warmup, 3 repeats, p50/p95/p99 and per-query read_rows/read_bytes/memory in exported query log. Commit **df47dc68b86f3c5620b50570582001cad8144ee6**, push-run **41336659441**, status **in_progress at observation**; never claim successful measurements before logs/artifacts. Bounds are evaluated in chunks, total runtime can increase due to extra requests, so RAM alone is not enough for acceptance. This is SQL/workflow algorithmic optimization, not a compiled C++ improvement.
+2. **Time-ranges materialization/RSS hypothesis:** `store_time_ranges=false` reduces expensive selector join scans but might increase sample-table work for inactive series; compare A/B/A on 5k/50k, same generator, 2 warmups + 6 measured repeats, p50/p95, exact output comparison, query_log and RSS after import. Added process RSS evidence and restricted query-log to `QueryFinish` to avoid mixing QueryStart rows. Commit **c80d2b304b5610fca70d9ac7e6035f7c4c131774**, push-run **41336672056**, observed **in_progress**; separate workflow and unique concurrency group, cancel-in-progress=false, path-only push trigger. This is measurement instrumentation and not yet an established memory optimization.
+
+### Existing completed run 41333353318 (source SHA 5594259b1324c1959c4f73fcf20135f6c6e6f89d)
+
+Both 5k/50k A/B/A matrix jobs **SUCCESS**, archive + ClickHouse + VM binary SHA256 checks passed, identical tags/timestamps/values for 5 expressions between two ClickHouse tables. 50k exact `host=h0001` p50 **31.934 -> 17.244 -> 31.938 ms** (store ranges on/off/on), 6 measurements per phase; 5k **17.190 ->13.130 ->17.379 ms**. The 50k all-series exact `sum(rate())` is **861.024 ->884.548 ->853.402 ms**, a small regression with no ranges; no global default-disable recommendation. Time-range JOIN is confirmed in pinned source `StorageTimeSeriesSelector.cpp`, `addTimeRangesTableJoin`, merge join `full_sorting_merge`. These are latency data, not memory measurements.
+
+### Open checks
+
+- Inspect the full completed job logs and artifact ZIP SHA256 on 41336659441 and 41336672056. Until completion no p50/p95 or RSS effect may be claimed. Review accuracy under churn/gaps/late/OOO inputs; these two existing workflows alone DO NOT prove it.
+- CPU, peak memory, data storage, 13.4M live series, 650-800k samples/s, >500 new series/s, 15s HA dedup remain production blockers.
+- No master/upstream change; no PR; no active job cancellation. HTTP403 prerelease not used.
