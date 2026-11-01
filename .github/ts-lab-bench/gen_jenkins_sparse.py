@@ -54,7 +54,7 @@ def main():
     with ch.open("w") as clickhouse,vm.open("w") as victoria,events.open("w") as event_file:
         for build in range(m["builds_per_day"]):
             branch=("main" if build%4==0 else
-                    ("release-"+str(build%12) if build%5==0 else "feature-"+str(build%85)))
+                    ("release-"+str(build%12) if build%5==0 else "feature-"+str(build%72)))
             labels_common={
                 "app":f"app-{build%741:03d}",
                 "app_name":f"appname-{build%430:03d}",
@@ -64,11 +64,10 @@ def main():
                 "job":"jenkins",
                 "project":f"project-{build%68:02d}",
                 "purpose":"ci",
-                "result":("success" if build%11 else "failure"),
+                "result":("success","failure","canceled","unstable","aborted","unknown")[build%6],
             }
             for stage_index in range(m["stages_per_build"]):
-                sid=(stage_index if m["stage_variants"]==38
-                     else (build%38)*38+stage_index)
+                sid=(build*m["stages_per_build"]+stage_index)%m["stage_variants"]
                 stage=f"stage-{sid:04d}"
                 labels={**labels_common,"stage":stage}
                 epoch=start+3600+(build*31+stage_index*7)%79000
