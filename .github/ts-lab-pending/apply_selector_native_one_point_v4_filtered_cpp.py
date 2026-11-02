@@ -25,7 +25,7 @@ def replace_once(path, old, new):
 core_settings = "src/Core/Settings.cpp"
 replace_once(core_settings,
     '    DECLARE(String, promql_database, "", R"(',
-    '''    DECLARE(Bool, promql_enable_native_one_point_lab, false, R"(
+    r'''    DECLARE(Bool, promql_enable_native_one_point_lab, false, R"(
 Explicit laboratory opt-in for native one-point grouped AVG.
 This is not a production setting. Without opt-in the original PromQL plan is used.
 )", PRIVATE_PREVIEW, \
