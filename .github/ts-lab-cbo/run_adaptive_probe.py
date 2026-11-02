@@ -4,7 +4,9 @@ import argparse, datetime, hashlib, json, os, pathlib, statistics, sys, time
 import urllib.request, urllib.parse, urllib.error
 
 sys.path.insert(0, ".github/ts-lab-perf")
+sys.path.insert(0, ".github/ts-lab-bench")
 from bench_granularity_v11 import inner
+from bench_bucket_cxx_abca import normalize_any, assert_same
 
 URL = "http://127.0.0.1:18191"
 BASE = datetime.datetime(2026, 10, 19, tzinfo=datetime.timezone.utc)
@@ -146,14 +148,20 @@ def native(workload,table,out):
     statement=(f"SELECT * FROM prometheusQueryRange({table},{lit(expr)},{start},"
                f"{end},{DAY}) SETTINGS max_threads=4 FORMAT JSONEachRow")
     out["native"]={"promql":expr,"sql":statement,"trials":[]}
+    reference=None
     for k in range(2):
         qid=f"cbo_{workload}_native_{k}_{os.getenv('GITHUB_RUN_ID','local')}"
         ms,body=execute(statement,qid)
-        item=digest(body)
-        out["native"]["trials"].append({"query_id":qid,"wall_ms":ms,**item})
-    a,b=out["native"]["trials"]
-    if a["rows"]<=0 or (a["rows"],a["sha256"])!=(b["rows"],b["sha256"]):
-        raise AssertionError("Empty or unstable native PromQL results")
+        points=normalize_any(body)
+        if not points:
+            raise AssertionError("Empty native PromQL result")
+        if reference is None:
+            reference=points
+            comparison={"points":len(points),"max_abs_error":0.0}
+        else:
+            comparison=assert_same(reference,points,workload,"repeated native")
+        out["native"]["trials"].append({"query_id":qid,"wall_ms":ms,**comparison})
+    out["native"]["parity"]=True
     optional("EXPLAIN PLAN indexes=1 "+statement.split(" FORMAT ")[0],out["native"],"plan",True)
 
 def join_sql(table, cond, days, algorithm, use_statistics=1, semi=False):
