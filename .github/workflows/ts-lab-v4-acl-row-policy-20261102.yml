@@ -1,4 +1,4 @@
-name: TimeSeries v4 invoker TAGS row policy original optin off original
+name: TimeSeries v4 invoker TAGS row policy with temporary-table grant
 on:
   push:
     branches: [lab/timeseries-fastpath-ci]
