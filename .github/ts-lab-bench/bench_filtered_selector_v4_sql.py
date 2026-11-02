@@ -59,6 +59,7 @@ def main():
         start = end - (steps - 1) * 86400
         for name, selector in CASES:
             reference = None
+            reference_set = False
             phases = {}
             for phase in PHASES:
                 sql = (native_filtered(start, end, selector)
@@ -69,8 +70,9 @@ def main():
                     qid = f"{prefix}_{steps}_{name}_{phase}_{trial}"
                     elapsed, raw = post("http://127.0.0.1:18191", sql, qid)
                     observed = normalize_any(raw)
-                    if reference is None:
+                    if not reference_set:
                         reference = observed
+                        reference_set = True
                     else:
                         assert_same(reference, observed, f"{name}_{steps}", phase)
                     if trial >= 2:
