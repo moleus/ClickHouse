@@ -4,7 +4,7 @@
 Verifies default, stage-prefixed, project-prefixed and project/stage-prefixed
 series IDs with identical synthetic samples and native PromQL results.
 """
-import argparse,datetime,hashlib,json,os,pathlib,random,sys,time,urllib.parse,urllib.request
+import argparse,datetime,hashlib,json,os,pathlib,random,sys,time,urllib.parse,urllib.request,urllib.error
 sys.path.insert(0,".github/ts-lab-bench")
 from bench_bucket_cxx_abca import normalize_any,assert_same
 
@@ -20,8 +20,11 @@ SCHEMA={
 }
 def query(q,timeout=120):
     req=urllib.request.Request(URL,data=q.encode(),method="POST")
-    with urllib.request.urlopen(req,timeout=timeout) as r:
-        return r.read().decode(errors="replace")
+    try:
+        with urllib.request.urlopen(req,timeout=timeout) as r:
+            return r.read().decode(errors="replace")
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"ClickHouse HTTP {exc.code}: {exc.read().decode(errors='replace')[:2200]}") from exc
 def insert(table,data):
     req=urllib.request.Request(URL+"?wait_end_of_query=1&query="+urllib.parse.quote(
         "INSERT INTO "+table+" (metric_name,tags,samples) FORMAT JSONEachRow"),
