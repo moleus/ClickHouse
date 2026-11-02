@@ -1,0 +1,71 @@
+name: TimeSeries four-way packed ID evidence digest and versioned results
+on:
+  workflow_dispatch:
+  push:
+    branches: [lab/timeseries-layout-research-20261102]
+    paths: ['.github/workflows/ts-lab-packed-campaign-reduce-20261102.yml']
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: tslab-packed-reduce-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  reduce:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Preflight Python reducer without loading large fixture
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/ts-lab-layout/reduce_packed_campaign.py
+          python3 .github/ts-lab-layout/reduce_packed_campaign.py --help >/dev/null
+      - name: Download four exact evidence artifacts reduce with strict correctness and OOM gates
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-layout/reduce_packed_campaign.py \
+            --run 41509482488 --repo "$REPO" --out "$RUNNER_TEMP/packed-campaign"
+          cat "$RUNNER_TEMP/packed-campaign/packed-campaign.md" >> "$GITHUB_STEP_SUMMARY"
+          mkdir -p evidence/packed-campaign
+          cp "$RUNNER_TEMP/packed-campaign/packed-campaign.json" evidence/packed-campaign/
+          cp "$RUNNER_TEMP/packed-campaign/packed-campaign.md" evidence/packed-campaign/
+          sha256sum evidence/packed-campaign/packed-campaign.json \
+            >evidence/packed-campaign/evidence-hash.txt
+      - name: Publish small verified summary into dedicated research-results branch
+        run: |
+          set -euo pipefail
+          git config user.name "timeseries-lab-bot"
+          git config user.email "timeseries-lab-bot@users.noreply.github.com"
+          git fetch origin lab/timeseries-layout-results
+          git worktree add "$RUNNER_TEMP/results-branch" -B lab/timeseries-layout-results \
+            origin/lab/timeseries-layout-results
+          mkdir -p "$RUNNER_TEMP/results-branch/results"
+          cp evidence/packed-campaign/packed-campaign.json \
+            "$RUNNER_TEMP/results-branch/results/packed-campaign-41509482488.json"
+          cp evidence/packed-campaign/packed-campaign.md \
+            "$RUNNER_TEMP/results-branch/results/packed-campaign-41509482488.md"
+          cd "$RUNNER_TEMP/results-branch"
+          git add results/packed-campaign-41509482488.json \
+            results/packed-campaign-41509482488.md
+          if git diff --cached --quiet; then
+            echo "PACKED_PUBLISH_NO_CHANGE"
+          else
+            git commit -m "lab: publish verified packed ID optimized speedups plus OOM negative controls"
+            git push origin HEAD:refs/heads/lab/timeseries-layout-results
+            echo "PACKED_PUBLISHED $(git rev-parse HEAD)"
+          fi
+      - name: Save reduced results even if branch publishing is blocked
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-packed-campaign-compact-results
+          path: evidence/packed-campaign/
+          retention-days: 60
+          compression-level: 1
