@@ -1,4 +1,4 @@
-name: TimeSeries dense rate query CPU stack sample profiler
+name: TimeSeries dense rate 1ms CPU stack profile against VM 1.134
 on:
   push:
     branches: [lab/timeseries-fastpath-ci]
