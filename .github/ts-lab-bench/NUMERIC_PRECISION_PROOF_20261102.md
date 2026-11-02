@@ -26,3 +26,15 @@ This is a source-level counterexample for **replacing the native per-ID average 
 - Also run SQL arithmetic probes of `avg`, `sumKahan/count` and `sum` as diagnostics, not as proof that sumKahan matches the native Babuška-Neumaier algorithm in every order or for NaN/Inf.
 - If a discrepancy is observed, the v1 path is **incorrect for general multi-sample series**, regardless of its speed on one-sample Jenkins data. Do NOT enable v1 globally. Restricting only by query shape or estimated N cannot fix this semantic issue. The future lowering must preserve the native per-ID summary operation or prove a strict one-sample-per-window invariant.
 - No C++ rebuild is required for this falsification. Do not cancel other jobs or modify upstream.
+
+## Measured falsification: SUCCESS as a test, v1 semantically incorrect
+
+GitHub Actions `41436423717`, job `125247178279`, completed SUCCESS. Original/v1/original ran on the same v11 Float64 TimeSeries data using already built pinned binaries. Both original phases agreed exactly. Four stage outputs were checked; three v1 values differed:
+- `cancel_1e16`: native 0.3333333333333333; v1 0.
+- `cancel_1e18`: native 2; v1 0.4 (SQL avg diagnostic reported 0 on outer table; v1 data path/group order yielded 0.4). This exposes order-dependent floating-point loss.
+- `cancel_micro`: native 5e-7; v1 0.
+- `ordinary`: both 2.
+
+SQL `sumKahan(value)/count()` diagnostic on the same original source returned 0 for the large-cancellation examples. It is not a valid drop-in semantic replacement.
+
+**REJECT v1/v2 as general transformations of multi-sample series.** The small/large crossover curve cannot authorize a production dispatch based only on N: numerical correctness is independent of how many series were selected. A conservative fix must use the native compensated per-series arithmetic (or an exactly equivalent tested implementation). The synthetic one-sample speed result survives only as evidence of opportunity.
