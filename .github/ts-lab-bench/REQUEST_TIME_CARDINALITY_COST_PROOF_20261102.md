@@ -31,3 +31,7 @@ Counts of all-time TAGS are NOT the number of series selected by a query with ti
 - Log p50/p95, raw observations, read_rows and query duration; show 0.8–0.9ms bound explicitly.
 - Do not promote any C++ guard based only on this probe; the v1 source is already numerically wrong for multi-sample series. This is only a feasibility test for a future **semantically correct** fastpath.
 - No new C++ build, no scheduled workflows, no upstream/fork-master writes. If a source estimate is not cheap and conservative, investigate execution-stage adaptive dispatch instead.
+
+## Benchmark completed
+
+Run `41437764684` SUCCESS with 15 timings after two warmups for each probe. The small-query cost budget (~0.8–0.9ms) is exceeded even for TAGS-only `COUNT` (~2.0–2.12ms HTTP p50; ~1ms server time rounded to integer). Outer TimeSeries `COUNT` ~2.9–3.7ms and examined 371496 source rows in this fixture; TAGS `uniqExact(id)` grows to 15.25ms for 67200 IDs. `SELECT 1` floor ~1.0ms HTTP. Synthetic count results equal true fixture cardinality but do not establish time-window or label-selective estimates. **Reject an independent synchronous COUNT gate.** The first two workflow runs failed in VM fixture readiness (missing `--manifest`) before executing probe; repaired without a C++ rebuild.
