@@ -33,7 +33,7 @@ def attempt(q,where,key,plain=False):
 def save(p,j):
     pathlib.Path(p).parent.mkdir(parents=True,exist_ok=True)
     pathlib.Path(p).write_text(json.dumps(j,indent=2,default=str)+"\n")
-def query(table,condition,start,end,kind):
+def query(table,condition,start,end,kind,checksum=False):
     tag=inner(table,"tags"); tim=inner(table,"timeranges")
     filter_tags=f"metric_name={literal(NAME)} {condition}"
     filter_time=f"max_time>=fromUnixTimestamp64Milli({1000*start}) AND min_time<=fromUnixTimestamp64Milli({1000*end})"
@@ -45,10 +45,13 @@ def query(table,condition,start,end,kind):
              f"LEFT JOIN (SELECT id,toUInt8(1) AS matched FROM {tim} WHERE {filter_time}) b USING(id) "
              f"WHERE b.matched=1")
         algorithm=kind
-    return (f"SELECT count() AS n,toString(sum(sipHash64(id))) AS check1,"
-            f"toString(groupBitXor(sipHash64(id))) AS check2 FROM ({ids}) "
+    # The hot path must NOT evaluate expensive checksum hashes per result ID.
+    # Correctness is checked separately once per algorithm before timing.
+    agg=("count() AS n,toString(sum(sipHash64(id))) AS check1,"
+         "toString(groupBitXor(sipHash64(id))) AS check2") if checksum else "count() AS n"
+    return (f"SELECT {agg} FROM ({ids}) "
             f"SETTINGS max_threads=4,max_memory_usage=3500000000,"
-            f"use_statistics=1,join_algorithm={literal(algorithm)}")
+            f"use_statistics=1,join_algorithm={literal(algorithm)},optimize_trivial_count_query=0")
 def capture(qid,out):
     attempt("SELECT query_duration_ms,memory_usage,read_rows,read_bytes,ProfileEvents "
             "FROM system.query_log WHERE type='QueryFinish' AND query_id="+literal(qid),out,"log")
@@ -90,11 +93,24 @@ def main():
             end=meta["end"]
             slot={"days":days,"variants":{},"trials":[],"errors":[]}
             report["windows"][str(days)]=slot
+            reference_checksum=None
             for kind in ("full_sorting_merge","hash","parallel_hash","auto","semi"):
                 q=query("churn_ts",CASES[a.case],start,end,kind)
-                entry={"sql":q}
+                entry={"sql":q,"checksum_sql":query("churn_ts",CASES[a.case],start,end,kind,True)}
                 slot["variants"][kind]=entry
                 attempt("EXPLAIN PLAN indexes=1 "+q,entry,"plan",plain=True)
+                try:
+                    check=json.loads(sql(entry["checksum_sql"]+" FORMAT JSONEachRow")[1].strip())
+                    if int(check["n"])==0:raise AssertionError("empty digest")
+                    if reference_checksum is None:reference_checksum=check
+                    if check!=reference_checksum:raise AssertionError("checksum mismatch across JOIN algorithms")
+                    entry["checksum_verified"]=True
+                except Exception as exc:
+                    slot["errors"].append({"checksum":kind,"error":str(exc)[:800]})
+            # Warm both compared algorithms before A/B/B/A to limit cold-start drift.
+            for warm_kind in ("full_sorting_merge","hash"):
+                for _ in range(2):
+                    sql(slot["variants"][warm_kind]["sql"]+" FORMAT JSONEachRow")
             baseline=None
             order=["full_sorting_merge","hash","hash","full_sorting_merge",
                    "auto","semi","parallel_hash","full_sorting_merge","hash"]
@@ -122,6 +138,9 @@ def main():
                     "hash_ms":statistics.median(b1),
                     "merge_over_hash_speedup":round(statistics.median(b1)/statistics.median(a1),4),
                     "merge_drift":round(abs(a1[0]-a1[-1])/statistics.mean(a1),4)}
+                if slot["comparison"]["merge_drift"] > .30:
+                    slot["errors"].append({"baseline_drift":slot["comparison"]["merge_drift"],
+                                           "reject":"A/B/B/A control drift exceeds 30 percent"})
             for x in slot["trials"][:2]:
                 qid=x["query_id"];slot.setdefault("profiles",{})[qid]={}
                 capture(qid,slot["profiles"][qid])
