@@ -1,0 +1,87 @@
+name: TimeSeries offline native DWARF CPU call chain attribution from frozen perf data
+on:
+  workflow_dispatch:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-callchain-reducer-20261102.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-callchain-reducer-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  frames:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Preflight Python parser and perf availability
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/callchain
+          python3 -m py_compile .github/ts-lab-perf/reduce_perf_callchains.py
+          perf --version | tee evidence/callchain/perf-version.txt
+          cat > "$RUNNER_TEMP/smoke-perf-script.txt" <<'EOF'
+          clickhouse 123 [000] 12.345678: 100000 cpu-clock:
+                  a1 __llvm_libc::memset(void*, int, unsigned long) (/tmp/clickhouse)
+                  a2 DB::ContextTimeSeriesTagsCollector::storeTagsTyped() (/tmp/clickhouse)
+
+          EOF
+          python3 .github/ts-lab-perf/reduce_perf_callchains.py \
+            --script "$RUNNER_TEMP/smoke-perf-script.txt" --expected-min 1 \
+            --output-dir "$RUNNER_TEMP/parser-smoke"
+          python3 - <<'PY'
+          import json,pathlib,os
+          d=json.loads((pathlib.Path(os.environ['RUNNER_TEMP'])/'parser-smoke/callchain-summary.json').read_text())
+          assert d['total_samples']==1 and d['memset_attribution']['memset_with_collector_in_stack']==1,d
+          PY
+      - name: Download frozen O1 projected CPU samples only, no 1.33m input
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pmu-art"
+          gh run download 41492330376 -R "$REPO" -n tslab-hardware-perf-evidence -D "$RUNNER_TEMP/pmu-art"
+          perf_path="$(find "$RUNNER_TEMP/pmu-art" -type f -name 'perf.data' -print -quit)"
+          test -s "$perf_path"
+          cp "$perf_path" evidence/callchain/perf.data
+          sha256sum evidence/callchain/perf.data >evidence/callchain/perf-data.sha256
+          perf buildid-list -i evidence/callchain/perf.data >evidence/callchain/perf-buildids.txt
+          head -n 15 evidence/callchain/perf-buildids.txt
+      - name: Download exact matching projected binary and verify every SHA
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/projected-art" "$RUNNER_TEMP/projected-bin"
+          gh run download 41477923294 -R "$REPO" \
+            -n tslab-v4-stage-proj-o1-binary-a7fb8ead23aea998988f1488abe2ca94f6a381a6 \
+            -D "$RUNNER_TEMP/projected-art"
+          archive="$(find "$RUNNER_TEMP/projected-art" -type f -name 'clickhouse-v4-stage-proj-o1-linux-amd64.tar.zst' -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/callchain/binary-archive-sha256.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/projected-bin"
+          (cd "$RUNNER_TEMP/projected-bin" && sha256sum -c SHA256SUMS) | tee evidence/callchain/binary-sha256.txt
+          "$RUNNER_TEMP/projected-bin/clickhouse" --version | tee evidence/callchain/binary-version.txt
+          cp "$RUNNER_TEMP/projected-bin/BUILD_INFO.txt" evidence/callchain/binary-build-info.txt
+          readelf -n "$RUNNER_TEMP/projected-bin/clickhouse" | grep -m1 'Build ID:' >evidence/callchain/binary-build-id.txt
+      - name: Decode perf script frame stacks and group CPU samples by caller
+        run: |
+          set -euo pipefail
+          perf script -i evidence/callchain/perf.data \
+            >evidence/callchain/perf-script.txt 2>evidence/callchain/perf-script.stderr.txt
+          python3 .github/ts-lab-perf/reduce_perf_callchains.py \
+            --script evidence/callchain/perf-script.txt \
+            --output-dir evidence/callchain --expected-min 400
+          cat evidence/callchain/callchain-summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve raw symbolized frames and compact classification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-native-callchain-attribution-evidence
+          path: evidence/callchain/
+          retention-days: 30
+          compression-level: 1
