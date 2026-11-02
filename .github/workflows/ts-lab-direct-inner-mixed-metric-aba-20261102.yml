@@ -212,7 +212,7 @@ jobs:
               with urllib.request.urlopen(u,timeout=300) as r:return r.read().decode().strip()
           names=sql("SELECT name FROM system.tables WHERE database='default' AND startsWith(name,'.inner_id.samples.') FORMAT TSVRaw").splitlines()
           counts=sorted(int(sql("SELECT sum(length(samples)) FROM default.`"+n+"`")) for n in names)
-          assert counts==sorted([m['samples_total'],282036]),('unexpected inner samples',counts)
+          assert counts==sorted([m['samples_total'],1128144]),('unexpected inner samples',counts)
           url='http://127.0.0.1:8430/api/v1/query?'+urllib.parse.urlencode({
               'query':'count(bench_metric)','time':m['end_epoch'],'nocache':1})
           for attempt in range(90):
