@@ -48,7 +48,7 @@ old_signature = """        Arena * arena,
         ssize_t if_argument_pos) const override"""
 new_signature = """        Arena * /* arena */,
         ssize_t if_argument_pos) const override"""
-if patched.count(old_signature) != 1:
-    raise RuntimeError("Unexpected patched addBatch signature")
+if old_signature not in patched:
+    raise RuntimeError("Missing patched addBatch signature")
 path.write_text(patched.replace(old_signature, new_signature, 1))
 print("LAB_TS_ARRAY_BATCH_RUNS_CPP_APPLIED", path)
