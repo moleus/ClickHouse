@@ -35,7 +35,7 @@ jobs:
                      for x in m['run_refs'])
           print('CAMPAIGN_PREFLIGHT',len(m['run_refs']),'pinned CI runs')
           PY
-      - name: Download selected small raw artifacts and reduce locally
+      - name: Reduce seven pinned performance investigations to one low-context report
         run: |
           set -euo pipefail
           python3 .github/ts-lab-perf/campaign_aggregate.py \
