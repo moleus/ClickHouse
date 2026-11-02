@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: tslab-v4-filtered-preflight-\${{ github.run_id }}
+  group: tslab-v4-filtered-preflight-${{ github.run_id }}
   cancel-in-progress: false
 jobs:
   preflight:
@@ -19,15 +19,15 @@ jobs:
           fetch-depth: 1
       - name: Preserve lab script before exact upstream checkout
         run: |
-          cp .github/ts-lab-pending/apply_selector_native_one_point_v4_filtered_cpp.py "\${RUNNER_TEMP}/v4_patch.py"
-          python3 -m py_compile "\${RUNNER_TEMP}/v4_patch.py"
+          cp .github/ts-lab-pending/apply_selector_native_one_point_v4_filtered_cpp.py "${RUNNER_TEMP}/v4_patch.py"
+          python3 -m py_compile "${RUNNER_TEMP}/v4_patch.py"
       - name: Apply v4 patch to exact pinned source without compiling
         run: |
           set -euo pipefail
           git remote add upstream https://github.com/ClickHouse/ClickHouse.git
           git fetch --no-tags --depth=1 upstream 52529f0c711566d696917678bf15e7068772fdde
           git checkout --detach FETCH_HEAD
-          python3 "\${RUNNER_TEMP}/v4_patch.py"
+          python3 "${RUNNER_TEMP}/v4_patch.py"
           git diff --check
           git diff --stat
           python3 - <<'PY'
