@@ -84,6 +84,23 @@ def translated_query(start,end,step,table='precision_ts',metric='tslab_numeric_p
     FROM per_stage GROUP BY stage_group FORMAT JSONEachRow
     """
 
+
+def translated_query_no_sql_dedup(start,end,step,table='precision_ts',metric='tslab_numeric_precision'):
+    """Keep native timestamp dedup inside timeSeriesAvgToGrid; remove SQL argMax GROUP BY."""
+    q=translated_query(start,end,step,table=table,metric=metric)
+    a=q.index("    ), dedup AS (")
+    b=q.index("    ), per_series AS (",a)
+    start_ms=start*1000
+    step_ms=step*1000
+    replacement=f"""    ), indexed AS (
+      SELECT series_id,sample_ms,sample_v AS value,
+             intDiv(sample_ms-{start_ms}+{step_ms}-1,{step_ms}) AS gi
+      FROM flat
+      WHERE reinterpretAsUInt64(sample_v)!=9218868437227405314
+"""
+    return q[:a]+replacement+q[b:]
+
+
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--manifest",required=True)
