@@ -173,7 +173,7 @@ jobs:
       - name: Benchmark metric-specific count probes against low-latency budget
         run: |
           set -euo pipefail
-          python3 .github/ts-lab-bench/bench_metric_count_probe.py             --manifest evidence/manifest.json             --output evidence/metric-count-probe.json | tee evidence/metric-count-probe.log
+          python3 .github/ts-lab-bench/bench_metric_count_probe.py             --output evidence/metric-count-probe.json | tee evidence/metric-count-probe.log
 
       - name: Preserve raw evidence and any errors
         if: always()
