@@ -31,7 +31,7 @@ def run(typ,k,empty,n,report):
          "fixture_query":cmd,"source_sha256":hashlib.sha256(cmd.encode()).hexdigest()}
     report["cases"][name]=row
     sql(schema)
-    _,row["insert_ms"]=sql(cmd)
+    row["insert_ms"],_ = sql(cmd)
     _,row["optimize_response"]=sql(f"OPTIMIZE TABLE {name} FINAL SETTINGS optimize_throw_if_noop=0")
     _,row["materialize_response"]=sql(f"ALTER TABLE {name} MATERIALIZE STATISTICS ALL SETTINGS mutations_sync=2")
     actual=fetch(f"SELECT count() AS rows,uniqExact(label) AS exact,uniqCombined64(label) AS combined,countIf(label='') AS empty_rows FROM {name}")[0]
