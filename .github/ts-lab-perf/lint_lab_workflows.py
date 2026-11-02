@@ -64,6 +64,9 @@ def validate(path):
         warnings.append("Missing bounded job timeout")
     commands=workflow_commands(content)
     for c in commands:
+        # argparse --help intentionally exits before required argument validation.
+        if "--help" in c["flags"]:
+            continue
         target=ROOT/c["script"]
         if not target.exists():
             errors.append(f"line {c['line']}: missing Python target {c['script']}")
