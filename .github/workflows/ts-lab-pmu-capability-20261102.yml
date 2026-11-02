@@ -80,7 +80,16 @@ jobs:
           r={k:int((p/(k+'-rc.txt')).read_text().strip()) for k in checks}
           r['perf_event_paranoid_before']=(p/'paranoid-before.txt').read_text().strip()
           r['perf_event_paranoid_after']=(p/'paranoid-after.txt').read_text().strip()
-          r['hardware_available']=any(r[k]==0 for k in ('unprivileged','sudo','after-sysctl'))
+          def available_event(path,name):
+              for line in path.read_text(errors='replace').splitlines():
+                  items=line.split(',')
+                  if len(items)>=3 and items[2].strip()==name:
+                      try:float(items[0]);return True
+                      except ValueError:return False
+              return False
+          sudo_csv=p/'sudo.csv'
+          r['hardware_available']=available_event(sudo_csv,'cycles') and available_event(sudo_csv,'instructions')
+          r['hardware_unavailable_reason']='cycles/instructions not supported by hosted VM' if not r['hardware_available'] else None
           r['stack_profile_available']=r['record']==0 and r['report']==0
           r['software_stack_available']=r['software-clock']==0 and r['software-clock-report']==0
           (p/'summary.json').write_text(json.dumps(r,indent=2)+'\n')
