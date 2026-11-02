@@ -36,7 +36,7 @@ def compare(reference,actual):
             result["changed"].append({"tags":list(key[0]),"timestamp":key[1],"reference":a,"actual":b})
     return result
 
-def translated_query(start,end,step):
+def translated_query(start,end,step,table='precision_ts',metric='tslab_numeric_precision'):
     start_ms=start*1000
     end_ms=end*1000
     step_ms=step*1000
@@ -47,7 +47,7 @@ def translated_query(start,end,step):
     WITH
     src AS (
       SELECT id AS series_id, arrayJoin(samples) AS sample
-      FROM timeSeriesSelector('default','precision_ts','tslab_numeric_precision',
+      FROM timeSeriesSelector('default','{table}','{metric}',
                              fromUnixTimestamp64Milli({start_ms-window_ms+1}),
                              fromUnixTimestamp64Milli({last_ms}),'samples')
     ), flat AS (
