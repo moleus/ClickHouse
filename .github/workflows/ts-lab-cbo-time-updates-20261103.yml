@@ -1,4 +1,5 @@
 name: TimeSeries incremental TimeRanges projection correctness
+# Follow-up: 1024 IDs and COUNT-only projection match; inspect all incremental merges.
 # 2026-11-03 launch: verify LC cardinality estimator on one fixed synthetic value
 on:
   push:
