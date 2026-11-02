@@ -35,3 +35,11 @@ In sparse one-sample metrics `Q≈P≈N`, so removing most per-series empty grid
 2. If correct, test sparse selected N=210,4200,16800,67200 and 3/14/40 evaluation steps against unchanged ClickHouse TimeSeries and VictoriaMetrics where semantics are aligned. Include high-density and multiple samples per series; test 14–90d, NaN, stale markers, duplicate timestamp, late arrivals and access policy.
 3. Reject if it loses correctness, if there is no reliable measured speed gain, if query memory is unbounded, or if the selector's id->tags collector semantics differ.
 4. Existing originals and binaries remain unchanged. No new C++ compile. Fork lab-only workflow with `cancel-in-progress: false` and SHA-verified baseline binary.
+
+## First numerical A/B/A completed, protocol for scaled cost test (before implementation)
+
+Run **41437063380** SUCCESS. Original/native-one-point/original queries ran using exactly the same pinned baseline binary and four adversarial stage samples; the candidate reproduced all original values exactly, including `1/3`, `2`, `5e-7` from cancellation cases. Original recheck matched as well. Small p50 original before 19.648ms, one-point 22.269ms, original after 19.145ms. Correct on these inputs, slower at N=4. This is NOT yet a general semantic proof.
+
+Next controlled A/B/A on existing synthetic mixed metric fixture: true selected series N=4200 or 67200, same one-sample values across 3 days, vary output range `E=3,14,40` while holding the physical set of selected samples fixed (extend only query start back in time). Predictions: native per-series grid allocation grows with E; translated candidate emits only Q nonempty (series,window) values, so candidate relative gain may grow with E. Use 2 warmups+5 measured repetitions per case, original SQL/native-one-point SQL/original SQL on identical unmodified pinned binary and data. Capture read_rows/read_bytes/memory, labels/timestamps/values, before/after drift. No extra C++ build.
+
+**Reject** if numerical mismatches, significant regressions at E=40, or memory increases without bounded benefit. Even a successful sparse result does not permit production use without mixed dense, NaN, duplicates, time-zone/access, -O2 and concurrency tests. Existing v1/v2 remain rejected for general multi-sample arithmetic.
