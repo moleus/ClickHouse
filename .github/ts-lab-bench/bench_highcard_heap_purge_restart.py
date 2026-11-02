@@ -23,7 +23,7 @@ def sql(statement, query_id=None, timeout=240):
         return {"ok":False,"ms":round((time.perf_counter()-t0)*1000,3),
                 "error":msg[:2800],"oom":"MEMORY_LIMIT_EXCEEDED" in msg}
 
-def proc_tree(pid):
+def proc_tree(pid, detailed=True):
     out=[];pending=[pid];seen=set()
     while pending:
         current=pending.pop()
@@ -36,10 +36,11 @@ def proc_tree(pid):
                 for k in ("VmRSS","VmHWM","RssAnon","RssFile","VmSize","VmSwap","Threads"):
                     if line.startswith(k+":"):
                         row[k]=int(line.split()[1])
-            for line in pathlib.Path(f"/proc/{current}/smaps_rollup").read_text().splitlines():
-                if line.startswith(("Pss:","Private_Dirty:","Private_Clean:","Shared_Dirty:","Anonymous:")):
-                    k,v=line.split(":",1)
-                    row["smaps_"+k]=int(v.strip().split()[0])
+            if detailed:
+                for line in pathlib.Path(f"/proc/{current}/smaps_rollup").read_text().splitlines():
+                    if line.startswith(("Pss:","Private_Dirty:","Private_Clean:","Shared_Dirty:","Anonymous:")):
+                        k,v=line.split(":",1)
+                        row["smaps_"+k]=int(v.strip().split()[0])
             out.append(row)
             children=pathlib.Path(f"/proc/{current}/task/{current}/children")
             pending.extend(int(x) for x in children.read_text().split())
@@ -93,7 +94,7 @@ def monitored(statement,pid,qid,interval=0.2):
     stop=threading.Event();measure=[]
     def sampler():
         while not stop.is_set():
-            procs=proc_tree(pid)
+            procs=proc_tree(pid, detailed=False)
             measure.append({"ms":round(time.monotonic()*1000,1),
                "rss_kib":sum(x.get("VmRSS",0) for x in procs),
                "anon_kib":sum(x.get("RssAnon",0) for x in procs)})
