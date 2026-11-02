@@ -124,3 +124,12 @@ Links: https://github.com/moleus/ClickHouse/actions/runs/41418972822 and https:/
 - Created experimental `.github/ts-lab-bench/bench_selector_scalar_grouped_avg.py` commit `2fd86cebc580dbf767886d5785cdb0801b22c6c5` with five selectors and native-original/native-recheck correctness, per-query memory/read_rows. **This is SQL only**, not a new C++ engine patch.
 - Workflow `.github/workflows/ts-lab-selector-scalar-grouped-avg-20261102.yml` commit `f46c8ef9dbc84ae0ca2b74f41fcf726ae9e6787b`; run **41419685211** started. If SQL fails, inspect the first error and fix it; otherwise record exact A/B/A p50/p95, memory and read rows and only then decide if C++ integration is justified.
 - The query passes `timeSeriesSelector` instead of direct inner targets; this is *structurally better for authorization*, but still requires explicit access-policy tests before production claims.
+
+## Secure selector-based scalar grouped AVG SQL: SUCCESS (run 41419685211)
+
+- The SQL proof `.github/ts-lab-bench/bench_selector_scalar_grouped_avg.py` reads via `timeSeriesSelector` and resolves stage grouping using `timeSeriesIdToGroup` and `timeSeriesRemoveAllTagsExcept`, not via direct internal TAGS/SAMPLES access. Its normal table-function query retains the existing ID selection and tag collector. Stored source data is unchanged.
+- **41419685211 SUCCESS**. Five selector cases, native before / scalar selector / native after, all labels/timestamps/values exactly equal original ClickHouse in the script's tolerance.
+- p50 milliseconds candidate vs native after: Jenkins broad **633.703 vs777.992** (~18.5% faster), branch_main **257.021 vs303.124** (~15.2% faster), project00 **130.037 vs124.296** (~4.6% slower), exact stage **85.972 vs88.314** (~2.7% faster; likely noise), regex stage10 **120.324 vs106.128** (~13.4% slower).
+- Therefore use a **narrow query-shape guard** if integrating this into the C++ PromQL converter: exact single metric selector, `avg by(stage)(avg_over_time(metric[1d]))`, disjoint evaluation windows, version 11, DateTime64(3) Float64 schema, no offset/subqueries/binary, no extra filters (for the first safe experiment). Others must use unchanged original path. Do not make a hard-coded optimization for branch naming.
+- Sample values were checked against original CH; additional adversarial NaN / staleness / shifted times, 14–90d backdelta and access-policy checks remain required. This is not production-ready.
+- Link: https://github.com/moleus/ClickHouse/actions/runs/41419685211 .
