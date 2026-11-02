@@ -1,0 +1,76 @@
+name: TimeSeries wide micro experiment hash registry and CPU locality
+on:
+  workflow_dispatch:
+    inputs:
+      preset:
+        description: Microbenchmark breadth
+        required: true
+        default: broad
+        type: choice
+        options: [quick, broad]
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-micro-wide-20261102.yml']
+permissions:
+  contents: read
+concurrency:
+  group: tslab-micro-wide-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  proxy-micro:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Preflight CPU PMU and disk
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/proxy-micro
+          python3 -m py_compile .github/ts-lab-perf/bench_micro_collector.py
+          printf '%s\n' "source=$(git rev-parse HEAD)" "compiler=$(g++ --version | head -1)" >evidence/proxy-micro/environment.txt
+          printf '%s\n' "kernel=$(uname -r)" "cpu=$(grep -m1 'model name' /proc/cpuinfo || true)" >>evidence/proxy-micro/environment.txt
+          printf '%s\n' "governor=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo unavailable)" >>evidence/proxy-micro/environment.txt
+          printf '%s\n' "perf_event_paranoid=$(cat /proc/sys/kernel/perf_event_paranoid 2>/dev/null || echo unavailable)" >>evidence/proxy-micro/environment.txt
+          df -h . >evidence/proxy-micro/df-before.txt
+          df -i . >evidence/proxy-micro/inodes-before.txt
+          python3 - <<'PY'
+          import shutil
+          usage=shutil.disk_usage('.')
+          if usage.free / usage.total < .20:raise SystemExit("REFUSE: low disk")
+          PY
+      - name: Compile only small standalone C++ proxy in seconds, no ClickHouse recompilation
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O3 -g -fno-omit-frame-pointer -Wall -Wextra \
+             -o "$RUNNER_TEMP/tslab-proxy" .github/ts-lab-perf/micro_collector_proxy.cpp
+          sha256sum "$RUNNER_TEMP/tslab-proxy" >evidence/proxy-micro/BINARY_SHA256.txt
+          "$RUNNER_TEMP/tslab-proxy" --n 210 --groups 38 --variant full_hash >evidence/proxy-micro/smoke-full.json
+          "$RUNNER_TEMP/tslab-proxy" --n 210 --groups 38 --variant stage_hash >evidence/proxy-micro/smoke-stage.json
+          "$RUNNER_TEMP/tslab-proxy" --n 210 --groups 38 --variant stage_flat >evidence/proxy-micro/smoke-flat.json
+          python3 - <<'PY'
+          import json,pathlib
+          outputs=[json.loads(pathlib.Path('evidence/proxy-micro/smoke-'+s+'.json').read_text())
+                    for s in ('full','stage','flat')]
+          assert len({r['output_checksum'] for r in outputs})==1
+          assert all(r['id_count']==210 for r in outputs)
+          print('PERF_MICRO_SMOKE_PARITY',outputs[0]['output_checksum'])
+          PY
+      - name: Execute randomized bounded 90-run algorithm and cache-locality campaign
+        run: |
+          set -euo pipefail
+          preset="${{ inputs.preset || 'broad' }}"
+          python3 .github/ts-lab-perf/bench_micro_collector.py \
+            --binary "$RUNNER_TEMP/tslab-proxy" --output evidence/proxy-micro \
+            --preset "$preset" --repeats 3 --max-trials 96
+          cat evidence/proxy-micro/micro_summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve all individual timings and diagnostic PMU availability
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-proxy-micro-evidence
+          path: evidence/
+          retention-days: 30
+          compression-level: 1
