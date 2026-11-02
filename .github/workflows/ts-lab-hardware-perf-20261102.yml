@@ -1,4 +1,4 @@
-name: TimeSeries isolated CPU PMU and DWARF call stacks for native query
+name: TimeSeries software CPU-clock DWARF stacks and PMU support probe on native query
 on:
   push:
     branches: [lab/timeseries-fastpath-ci]
@@ -207,7 +207,7 @@ jobs:
               pathlib.Path('evidence/hardware/'+name+'.sql').write_text(sql)
           print('HARDWARE_FIXTURE',m['sha256'],start,m['end'],flush=True)
           PY
-      - name: Hardware counters on fresh-process full and projected whole/stage queries
+      - name: Software CPU counters with hardware PMU explicitly marked unavailable
         run: |
           set -euo pipefail
           helper="$RUNNER_TEMP/ch-restart.sh"
@@ -232,7 +232,7 @@ jobs:
             --kind stat --case projected_stage --expected-points 14 \
             --out evidence/hardware/projected_stage_stat
 
-      - name: Separate DWARF call stack profiler on same projected whole workload
+      - name: Separate software CPU-clock DWARF stack profiler on projected whole
         run: |
           set -euo pipefail
           "$RUNNER_TEMP/ch-restart.sh" "$RUNNER_TEMP/projected-bin/clickhouse" perf_projected_record
