@@ -205,3 +205,25 @@ to the 30% rejection guard; these wall-time differences need independent
 confirmation. The 3d/7d baseline drift was 4.44%/4.26%, respectively.
 This is a direct COUNT diagnostic; full native PromQL benefit is unproved.
 The JOIN matrix of the same run must be checked separately.
+
+## 8. Cost-mode projection JOIN result
+
+Run: https://github.com/moleus/ClickHouse/actions/runs/41538293956
+(full 2-job matrix PASS). The JOIN matrix used 1.33m TimeSeries IDs, 5 warmups
+and 4 measured queries per A/B/B/A phase. Query-log count results matched in
+all eight conditions. Cost selection was compared to `optimize_use_projections=0`.
+
+| Range | Base time | Cost-based time | Speedup | Drift | Selected physical TimeRanges read |
+| --- | ---: | ---: | ---: | ---: | --- |
+| 1d | 177.75 ms | 98.5 ms | 1.80x | 5.91% | time_by_max |
+| 3d | 228.75 ms | 185.25 ms | 1.23x | 4.59% | time_by_max |
+| 7d | 340.25 ms | 304.75 ms | 1.12x | 14.55% | time_by_max |
+| 14d | 407.25 ms | 406.0 ms | 1.00x | 0.86% | base table |
+
+Unlike the forced-projection 14d test (which regressed), the natural
+optimizer chooses the base table at 14d, as verified in full EXPLAIN.
+All four paired drift checks passed. The 1d and 3d results are strongest;
+7d has more variance and a smaller gain. The direct SQL test does not
+establish a full native PromQL gain. All physical plans, CPU/read metrics,
+marks, QueryFinish entries and original ZIP evidence remain attached to
+the run. Two original C++ native JOIN builds are still active.
