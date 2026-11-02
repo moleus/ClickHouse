@@ -149,3 +149,10 @@ Links: https://github.com/moleus/ClickHouse/actions/runs/41418972822 and https:/
 
 - Added workflow `.github/workflows/ts-lab-selector-scalar-cpp-corner-20261102.yml`, commit `887f577245f0ebabf403c3702c450a9aeeb5206b`, run **41420683218**, reuses `.github/ts-lab-bench/bench_fused_corner_cases.py` for original/candidate/original on one on-disk 210-series synthetic dataset with duplicate timestamps, multiple samples, missing/empty stage, regex, offset, absent metric, out-of-order.
 - It downloads verified binary artifact from build **41420384277** and compares value equality for all cases. Do not confuse an unused fastpath fallback correctness test with actual speed: current main C++ guard optimizes the exact-metric broad `avg by(stage)(avg_over_time(...[1d]))` only; all other filters must stay native.
+
+## Guarded selector scalar C++ source correctness results (2026-11-02, latest)
+
+- C++ build **41420384277 SUCCESS**: generated binary based on `52529f0c...` with `apply_selector_scalar_grouped_avg_cpp.py`, pinned LLVM22 and ccache; PromQL smoke passed.
+- Synthetic adversarial original/C++/original run **41420683218 SUCCESS**: ten cases passed exact values/labels/timestamps (duplicate timestamps, multiple samples per series per day, missing labels, regex, day offset, overlapping windows, 6h/36h windows, absent metric). Only the exact root one-day/stage case activates the new planner; others test fallback. Small 210-series `by_stage_1d` candidate p50 18.192ms vs original recheck 16.026ms, so a cost-based minimum table-size guard may be needed.
+- Main same-data 282036-series Jenkins and 20K dense A/B/A **41420507321** still active at this checkpoint. **Do not promote without finished large result**. Directly optimized small queries may regress due extra SQL stages, and even exact small queries need fallback.
+- Detailed storage/index and plan diagrams at `.github/ts-lab-bench/SELECTOR_SCALAR_GROUPED_AVG_EXECUTION_20261102.md`, commit `6fe3275e9b7405dfb9b21c95b1ef0a0204f3a569`.
