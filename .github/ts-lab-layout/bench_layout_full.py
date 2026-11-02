@@ -70,16 +70,16 @@ def log_for(qid):
             "file_open":events.get("FileOpen"),
             "read_compressed_bytes":events.get("ReadCompressedBytes"),
             "text_index_microseconds":events.get("TextIndexReaderTotalMicroseconds")}
-def control_case(table,selector,start,end):
+def control_case(table,selector,start,end,fastpath):
     expr=f"avg by(stage)(avg_over_time({METRIC}{QUERY_SELECTORS[selector]}[1d]))"
     return (f"SELECT * FROM prometheusQueryRange({table},{sql_string(expr)},"
-            f"{start},{end},{DAY}) SETTINGS max_threads=4 FORMAT JSONEachRow")
-def run_phase(table,case,phase,bin_path,restart_helper,reference,meta,output):
+            f"{start},{end},{DAY}) SETTINGS max_threads=4,promql_enable_native_one_point_lab={fastpath} FORMAT JSONEachRow")
+def run_phase(table,case,phase,bin_path,restart_helper,reference,meta,output,fastpath):
     name=f"layout_{os.environ.get('GITHUB_RUN_ID','manual')}_{case}_{phase}"
     pid=server_restart(restart_helper,bin_path,name)
     wait_no_merges()
     start=int(meta["end"])-13*DAY;end=int(meta["end"])
-    query=control_case(table,case,start,end)
+    query=control_case(table,case,start,end,fastpath)
     snap_before=system_snapshot("baseline" if table=="churn_ts" else table.removeprefix("churn_"))
     if not snap_before["disk"]["passed"] or snap_before["active_merges"]:
         raise RuntimeError("Invalid environment before query, disk/merges: "+str(snap_before))
@@ -142,6 +142,8 @@ def main():
     p=argparse.ArgumentParser()
     for key in ("manifest","fixture","binary","restart-helper","variant","output-dir"):
         p.add_argument("--"+key,required=True)
+    p.add_argument("--fastpath",type=int,choices=(0,1),default=0)
+    p.add_argument("--selective-only",action="store_true")
     a=p.parse_args()
     if a.variant not in ("stage","project","project_stage"):raise SystemExit("invalid prefix variant")
     meta=json.loads(pathlib.Path(a.manifest).read_text())
@@ -151,6 +153,7 @@ def main():
     report={"schema":1,"variant":a.variant,"canonical_sha256":meta["sha256"],
             "binary_sha256":_sha_file(a.binary),
             "source_type":"synthetic CI stage 14d, 1.33m unique series",
+            "fastpath":a.fastpath,"selective_only":a.selective_only,
             "cases":{},"physical":{},"errors":[],"checks":{"fixture":True}}
     save(out/"report.json",report)
     # Base table is created by the pinned 95k fixture generator before this script.
@@ -172,7 +175,11 @@ def main():
         save(out/"report.json",report)
         # Same data; baseline initial and final control; randomize selector order.
         rng=random.Random(92199)
-        cases=list(QUERY_SELECTORS);rng.shuffle(cases)
+        cases=list(QUERY_SELECTORS)
+        if a.selective_only:cases=[x for x in cases if x!="whole"]
+        rng.shuffle(cases)
+        if not a.selective_only:
+            cases=[x for x in cases if x!="whole"]+["whole"]
         for case in cases:
             print("LAYOUT_FULL_START",json.dumps({"variant":a.variant,"case":case}),flush=True)
             variants=["A","B","B","A"]
@@ -181,7 +188,7 @@ def main():
                 selected="churn_ts" if part=="A" else table
                 phase=f"{part}{ix}"
                 fname=out/(f"{case}-{phase}.json")
-                ref,r=run_phase(selected,case,phase,a.binary,a.restart_helper,ref,meta,fname)
+                ref,r=run_phase(selected,case,phase,a.binary,a.restart_helper,ref,meta,fname,a.fastpath)
                 responses.append({k:v for k,v in r.items() if k not in ("trials","before","after")})
                 report["cases"][case]={"phases":responses,"numerical":True}
                 save(out/"report.json",report)
@@ -211,7 +218,7 @@ def main():
         report["errors"].append({"fatal":str(exc)[:2500]})
         save(out/"report.json",report)
         raise
-    report["passed"]=not report["errors"] and len(report["cases"])==5
+    report["passed"]=not report["errors"] and len(report["cases"])==(4 if a.selective_only else 5)
     save(out/"report.json",report)
     print("LAYOUT_FULL_DONE",json.dumps({"variant":a.variant,"passed":report["passed"],
           "cases":{k:v.get("compared") for k,v in report["cases"].items()},
