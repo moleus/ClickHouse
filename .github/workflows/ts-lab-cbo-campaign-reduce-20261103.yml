@@ -1,0 +1,48 @@
+name: TimeSeries CBO verified JOIN evidence digest
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-cbo-campaign-reduce-20261103.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-cbo-reduce-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  reduce:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Static preflight
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/ts-lab-cbo/reduce_campaign.py
+          python3 .github/ts-lab-cbo/reduce_campaign.py --help
+      - name: Download completed evidence from source runs
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/raw/corrected-6k evidence/raw/scale evidence/reduced
+          gh run download 41531461979 -R moleus/ClickHouse --pattern 'tslab-cbo-*-evidence' -D evidence/raw/corrected-6k
+          gh run download 41531500328 -R moleus/ClickHouse --pattern 'tslab-cbo-*-evidence' -D evidence/raw/scale
+          find evidence/raw -type f -name report.json -print | sort | tee evidence/report-file-index.txt
+      - name: Reduce only valid nonempty comparisons and publish
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-cbo/reduce_campaign.py --root evidence/raw --out evidence/reduced/verified.json | tee evidence/reducer.log
+          cat evidence/reduced/verified.md >> "$GITHUB_STEP_SUMMARY"
+          sha256sum evidence/reduced/* > evidence/reduced/SHA256SUMS
+      - name: Keep raw, rejected and accepted data for audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-cbo-verified-20261103
+          path: evidence/
+          compression-level: 1
+          retention-days: 60
