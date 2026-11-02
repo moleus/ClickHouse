@@ -38,10 +38,10 @@ def child_pid(root):
 
 def perf_command(kind,pid,out):
     if kind=="stat":
-        events="cycles,instructions,cache-misses,branch-misses,branches,task-clock,context-switches,page-faults"
+        events="task-clock,cpu-clock,context-switches,page-faults,cycles,instructions,cache-misses,branch-misses,branches"
         return ["sudo","-n","perf","stat","-x,","-e",events,"-p",str(pid),
                 "-o",str(out/"perf-stat.csv")]
-    return ["sudo","-n","perf","record","-F","99","-g",
+    return ["sudo","-n","perf","record","-e","cpu-clock","-F","99","-g",
             "--call-graph","dwarf,4096","-p",str(pid),
             "-o",str(out/"perf.data")]
 
@@ -70,6 +70,8 @@ def perf_stat_summary(raw):
     instructions=counters.get("instructions") or 0
     cycles=counters.get("cycles") or 0
     if instructions and cycles:counters["IPC"]=round(instructions/cycles,4)
+    counters["hardware_pmu_supported"]=any(counters.get(k) is not None for k in ("cycles","instructions","cache-misses"))
+    counters["software_clock_supported"]=bool(counters.get("task-clock"))
     return counters
 
 def main():
@@ -148,7 +150,15 @@ def main():
         "perf_exit":profile["perf_returncode"],"IPC":profile.get("perf_counters",{}).get("IPC"),
         "rss_kib":profile["sampled_rss_peak_kib"],
         "error":profile.get("error") or profile.get("perf_start_error")},separators=(",",":")),flush=True)
-    if not profile["ok"] or profile["perf_returncode"] not in (0,130):
+    if not profile["ok"]:
         raise SystemExit(1)
+    # perf exits -SIGINT (-2) when attached sampling is stopped after the query.
+    # A signal exit is acceptable only when actual counter/profile bytes exist.
+    if profile["perf_returncode"] not in (0,130,-2):
+        raise SystemExit(1)
+    if a.kind=="stat" and not profile.get("perf_counters",{}).get("software_clock_supported"):
+        raise SystemExit("Missing software task-clock counters")
+    if a.kind=="record" and (not (out/"perf.data").exists() or (out/"perf.data").stat().st_size<4096):
+        raise SystemExit("Missing perf sample data")
 
 if __name__=="__main__":main()
