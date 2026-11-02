@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "repo": "moleus/ClickHouse",
+  "branch": "lab/timeseries-perf-results",
+  "max_runs": 8,
+  "artifact_download_limit_mib": 50,
+  "run_refs": [
+    {
+      "kind": "fresh",
+      "id": 41486787371,
+      "artifact": "tslab-95k-stage-projection-fresh-41486787371",
+      "required": true
+    },
+    {
+      "kind": "micro",
+      "id": 41489511997,
+      "artifact": "tslab-proxy-micro-evidence",
+      "required": true
+    },
+    {
+      "kind": "profiler",
+      "id": 41489366871,
+      "artifact": "tslab-perf-lens-evidence",
+      "required": true
+    },
+    {
+      "kind": "index",
+      "id": 41489795764,
+      "artifact": "tslab-physical-index-evidence",
+      "required": true
+    },
+    {
+      "kind": "pmu",
+      "id": 41490537656,
+      "artifact": "tslab-pmu-capability",
+      "required": true
+    },
+    {
+      "kind": "hardware",
+      "id": 41490797988,
+      "artifact": "tslab-hardware-perf-evidence",
+      "required": false
+    }
+  ]
+}
