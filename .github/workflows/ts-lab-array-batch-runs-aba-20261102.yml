@@ -268,7 +268,7 @@ jobs:
               base_after) "$RUNNER_TEMP/ch-restart.sh" "$RUNNER_TEMP/ch-bin/clickhouse" base_after ;;
             esac
             echo "ARRAY_BATCH_PHASE_BEGIN=$phase"
-            python3 .github/ts-lab-bench/bench_array-batch_hint_aba.py \
+            python3 .github/ts-lab-bench/bench_postings_hint_aba.py \
               --phase "$phase" --jenkins-manifest evidence/manifest.json \
               --dense-manifest evidence/dense-manifest.json \
               --canonical evidence/array-batch-canonical.json \
@@ -291,8 +291,8 @@ jobs:
                   row[phase]={k:x[k] for k in [
                       'p50_ms','p95_ms','p99_ms','read_rows_p50','read_bytes_p50',
                       'tracked_memory_p95_bytes','tracked_memory_peak_bytes']}
-              row['array-batch_speedup_vs_recheck']=round(row['base_after']['p50_ms']/row['array_batch']['p50_ms'],4)
-              row['array-batch_memory_ratio_vs_recheck']=round(
+              row['array_batch_speedup_vs_recheck']=round(row['base_after']['p50_ms']/row['array_batch']['p50_ms'],4)
+              row['array_batch_memory_ratio_vs_recheck']=round(
                   row['array_batch']['tracked_memory_p95_bytes']/
                   max(1,row['base_after']['tracked_memory_p95_bytes']),4)
               print('ARRAY_BATCH_ABA_CASE',json.dumps(row,separators=(',',':')),flush=True)
