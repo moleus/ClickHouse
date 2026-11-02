@@ -1,0 +1,46 @@
+name: TimeSeries v4 filtered selector C++ patch preflight without build
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-v4-filtered-preflight-20261102.yml']
+permissions:
+  contents: read
+concurrency:
+  group: tslab-v4-filtered-preflight-\${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Preserve lab script before exact upstream checkout
+        run: |
+          cp .github/ts-lab-pending/apply_selector_native_one_point_v4_filtered_cpp.py "\${RUNNER_TEMP}/v4_patch.py"
+          python3 -m py_compile "\${RUNNER_TEMP}/v4_patch.py"
+      - name: Apply v4 patch to exact pinned source without compiling
+        run: |
+          set -euo pipefail
+          git remote add upstream https://github.com/ClickHouse/ClickHouse.git
+          git fetch --no-tags --depth=1 upstream 52529f0c711566d696917678bf15e7068772fdde
+          git checkout --detach FETCH_HEAD
+          python3 "\${RUNNER_TEMP}/v4_patch.py"
+          git diff --check
+          git diff --stat
+          python3 - <<'PY'
+          from pathlib import Path
+          core=Path('src/Core/Settings.cpp').read_text()
+          storage=Path('src/Storages/StoragePrometheusQuery.cpp').read_text()
+          conv=Path('src/Storages/TimeSeries/PrometheusQueryToSQL/Converter.cpp').read_text()
+          assert 'DECLARE(Bool, promql_enable_native_one_point_lab, false' in core
+          assert 'context->getSettingsRef()[Setting::promql_enable_native_one_point_lab]' in storage
+          assert 'quoteString(selector_text)' in conv
+          assert 'has_exact_metric_name' in conv
+          assert 'timeSeriesAvgToGrid(' in conv
+          assert "timeSeriesSelector(" in conv
+          assert 'avg(series_avg)' in conv
+          print('V4_FILTERED_CPP_PREFLIGHT',len(core),len(storage),len(conv))
+          PY
