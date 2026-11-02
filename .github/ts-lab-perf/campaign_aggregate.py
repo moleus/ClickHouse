@@ -4,7 +4,7 @@
 Only <=250KiB of compact JSON and Markdown is intended for Git commits;
 raw evidence remains in the original run artifacts.
 """
-import argparse,hashlib,json,pathlib,subprocess,sys
+import argparse,hashlib,json,pathlib,subprocess,sys,re
 
 def load(p,default=None):
     try:return json.loads(p.read_text())
@@ -71,12 +71,41 @@ def mini_pmu(p):
             "software-clock","software-clock-report","software-stat")}
 def mini_hardware(p):
     d=load(uniq(p,"summary.json"),[])
+    report=uniq(p,"perf-report.txt")
+    symbols=[]
+    samples=None
+    if report:
+        raw=report.read_text(errors="replace")
+        count=re.search(r"# Samples:\s*(\d+)",raw)
+        samples=int(count.group(1)) if count else None
+        for line in raw.splitlines():
+            found=re.match(r"^\s*(\d+(?:\.\d+)?)%\s+\[\.\]\s+(.+?)(?:\s{3,}|$)",line)
+            if found:
+                symbols.append({"share_pct":float(found.group(1)),
+                                "symbol":found.group(2)[:180].strip()})
     return {"cases":[{"case":x.get("case"),"ok":x.get("ok"),"kind":x.get("kind"),
                       "instrumented_wall_ms":x.get("wall_ms_instrumented"),
                       "perf_exit":x.get("perf_exit"),"counters":x.get("cpu_counters")}
-                      for x in d],"warning":"A valid perf exit does not mean PMU hardware events are available"}
+                      for x in d],
+            "cpu_clock_samples":samples,"top_leaf_symbols":symbols[:12],
+            "warning":"Software CPU sample share is not a wall-time share; hardware PMU may be unsupported"}
+def mini_stage(p):
+    d=load(uniq(p,"stage-path-summary.json"),{})
+    diag=load(uniq(p,"discovery.json"),{})
+    lines=[]
+    for x in d.get("records",[]):
+        lines.append({"case":x.get("case"),"wall_ms_instrumented":x.get("process",{}).get("wall_ms"),
+                      "query_read_rows":x.get("query",{}).get("read_rows"),
+                      "query_read_bytes":x.get("query",{}).get("read_bytes"),
+                      "cpu_ms":x.get("process",{}).get("cpu_ms"),
+                      "top_processors":x.get("processors",[])[:4],
+                      "flags":x.get("flags")})
+    return {"fixture_sha256":diag.get("fixture_sha256"),
+            "valid_controls":len([x for x in diag.get("cases",[]) if x.get("valid")]),
+            "errors":diag.get("failures",[]),"cases":lines,
+            "warning":"Diagnostic admin SQL stages are not additive native critical path"}
 REDUCERS={"fresh":mini_fresh,"micro":mini_micro,"profiler":mini_profile,
-          "index":mini_index,"pmu":mini_pmu,"hardware":mini_hardware}
+          "index":mini_index,"pmu":mini_pmu,"hardware":mini_hardware,"stage":mini_stage}
 
 def main():
     ap=argparse.ArgumentParser()
