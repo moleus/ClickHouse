@@ -35,8 +35,7 @@ def main():
         raise AssertionError(("small metric cardinality invalid", count))
 
     _, total_raw = post("http://127.0.0.1:18191",
-        "SELECT sum(rows) FROM system.parts WHERE active=1 "
-        "AND database='default' AND startsWith(table,'.inner_id.jenkins_ts.samples.') FORMAT TSV")
+        "SELECT count() FROM jenkins_ts FORMAT TSV")
     total = int(total_raw.decode().strip() or 0)
     if total < 32768:
         raise AssertionError(("large table guard does not apply",total))
@@ -90,7 +89,7 @@ def main():
     selected=[logs[qid] for qid in qids]
     report={
         "phase":a.phase,"selected_metric_series":count,
-        "total_samples_table_rows":total,
+        "total_time_series_rows":total,
         "input_metric":"lab_small_metric",
         "points":len(observed_first),
         "all_exact":True,"p50_ms":pct(timings,.5),
