@@ -1,4 +1,4 @@
-name: TimeSeries v5 native one-point plus streaming KBN stage aggregate build
+name: TimeSeries v5 native one-point KBN stage build with prototype fix
 
 on:
   push:
