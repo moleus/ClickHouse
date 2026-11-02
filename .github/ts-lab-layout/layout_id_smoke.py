@@ -105,7 +105,7 @@ def main():
                 else:
                     assert_same(baseline[name],normalized,name,variant)
                 case["outputs"][name]={"points":len(normalized),"sha256":hashlib.sha256(
-                    json.dumps(normalized,sort_keys=True,default=str).encode()).hexdigest()}
+                    repr(sorted(normalized.items(),key=lambda x:repr(x[0]))).encode()).hexdigest()}
                 print("LAYOUT_SMOKE_QUERY",json.dumps({"variant":variant,"query":name,
                     "points":len(normalized),"match":True},separators=(",",":")),flush=True)
             result["cases"][variant]=case
