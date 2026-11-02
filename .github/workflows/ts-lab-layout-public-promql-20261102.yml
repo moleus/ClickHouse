@@ -1,0 +1,50 @@
+name: TimeSeries layout public Grafana PromQL label workload frequency research
+on:
+  workflow_dispatch:
+  push:
+    branches: [lab/timeseries-layout-research-20261102]
+    paths: ['.github/workflows/ts-lab-layout-public-promql-20261102.yml']
+permissions:
+  contents: read
+concurrency:
+  group: tslab-layout-public-promql-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  public-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify exact pinned PUBLIC dashboard source and parser
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/public-promql "$RUNNER_TEMP/open-dashboards"
+          python3 -m py_compile .github/ts-lab-layout/analyze_public_promql_corpus.py
+          echo "repo=dotdc/grafana-dashboards-kubernetes" > evidence/public-promql/source.txt
+          echo "commit=ad7c41e8f967ba788c9f090de537519bd376fd4e" >> evidence/public-promql/source.txt
+          git -C "$RUNNER_TEMP/open-dashboards" init -q
+          git -C "$RUNNER_TEMP/open-dashboards" remote add origin https://github.com/dotdc/grafana-dashboards-kubernetes.git
+          git -C "$RUNNER_TEMP/open-dashboards" fetch --no-tags --depth=1 origin ad7c41e8f967ba788c9f090de537519bd376fd4e
+          git -C "$RUNNER_TEMP/open-dashboards" checkout -q FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/open-dashboards" rev-parse HEAD)" = "ad7c41e8f967ba788c9f090de537519bd376fd4e"
+      - name: Extract public dashboard panel matcher patterns, never user-specific usage
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-layout/analyze_public_promql_corpus.py \
+            --dashboards "$RUNNER_TEMP/open-dashboards/dashboards" \
+            --source-repo dotdc/grafana-dashboards-kubernetes \
+            --source-commit ad7c41e8f967ba788c9f090de537519bd376fd4e \
+            --out evidence/public-promql/corpus-summary.json
+          cat evidence/public-promql/corpus-summary.md >> "$GITHUB_STEP_SUMMARY"
+          sha256sum evidence/public-promql/* >evidence/public-promql/hash-summary.txt
+      - name: Preserve public dashboard matcher evidence without private content
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-public-promql-corpus
+          path: evidence/public-promql/
+          retention-days: 60
+          compression-level: 1
