@@ -1,0 +1,87 @@
+name: TimeSeries second-stage automatic O2 allocator collector regression performance digest
+on:
+  workflow_dispatch:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-campaign-v2-publish-20261102.yml']
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: tslab-campaign-v2-publish-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify reducer and pinned immutable manifest
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/ts-lab-perf/campaign_aggregate.py
+          python3 - <<'PY'
+          import json,pathlib
+          m=json.loads(pathlib.Path('.github/ts-lab-perf/campaign_manifest_v2.json').read_text())
+          assert m['repo']=='moleus/ClickHouse'
+          assert m['branch']=='lab/timeseries-perf-results'
+          assert len(m['run_refs'])<=m['max_runs']<=8
+          assert all(int(x['id'])>0 and x['kind'] in ('fresh','micro','profiler','index','stage','pmu','hardware','granularity','compiler','allocator','collector','callchain','lint')
+                     for x in m['run_refs'])
+          print('CAMPAIGN_PREFLIGHT',len(m['run_refs']),'pinned CI runs')
+          PY
+      - name: Reduce seven pinned performance investigations to one low-context report
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-perf/campaign_aggregate.py \
+            --manifest .github/ts-lab-perf/campaign_manifest_v2.json \
+            --output-dir evidence/campaign
+          cat evidence/campaign/campaign-summary.md >> "$GITHUB_STEP_SUMMARY"
+          sha256sum evidence/campaign/campaign-summary.json evidence/campaign/campaign-summary.md \
+            > evidence/campaign/compact-sha256.txt
+      - name: Publish only compact summaries to isolated results branch
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib,os,json,base64
+          root=pathlib.Path('evidence/campaign')
+          for ext in ('json','md'):
+              data=(root/('campaign-summary.'+ext)).read_bytes()
+              path='results/campaign-v2-'+os.environ['GITHUB_RUN_ID']+'.'+ext
+              payload={'message':'perf: publish bounded campaign '+os.environ['GITHUB_RUN_ID']+' '+ext,
+                       'content':base64.b64encode(data).decode(),
+                       'branch':'lab/timeseries-perf-results'}
+              (root/('payload-'+ext+'.json')).write_text(json.dumps(payload))
+              (root/('target-'+ext+'.txt')).write_text(path+'\n')
+          PY
+          for ext in json md; do
+            path="$(cat "evidence/campaign/target-$ext.txt")"
+            gh api -X PUT -H "Accept: application/vnd.github+json" \
+              "repos/$GITHUB_REPOSITORY/contents/$path" \
+              --input "evidence/campaign/payload-$ext.json" >"evidence/campaign/published-$ext.json"
+          done
+          python3 - <<'PY'
+          import json,pathlib
+          r=pathlib.Path('evidence/campaign')
+          for x in ('json','md'):
+              data=json.loads((r/('published-'+x+'.json')).read_text())
+              print('CAMPAIGN_PUBLISHED',x,data['commit']['sha'])
+          PY
+      - name: Preserve compact report without raw duplication
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-campaign-compact-report-v2
+          path: |
+            evidence/campaign/campaign-summary.json
+            evidence/campaign/campaign-summary.md
+            evidence/campaign/compact-sha256.txt
+            evidence/campaign/published-json.json
+            evidence/campaign/published-md.json
+          retention-days: 90
+          compression-level: 1
