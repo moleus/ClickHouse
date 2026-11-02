@@ -72,3 +72,19 @@ Public corpus pinned dotdc/grafana-dashboards-kubernetes commit ad7c41e8f967ba78
 - To isolate useful small-filter behavior on 1.33m high-cardinality without broad OOM, 41505253205 started **6 parallel GitHub jobs** matrix: 3 ID orders (stage,project,project_stage) x 2 opt-in fastpath settings (promql_enable_native_one_point_lab 0 or1). Four selective query types, A/B/B/A fresh server with 2 warmups+4 measurements per phase and stable physical parts. This is separate from broad-query clearance: even if selective benefits, OOM makes candidate unready until memory is solved. No private data, no cron, no source compiler rebuild.
 - Repo branch lab/timeseries-layout-research-20261102 for scripts/checkpoints, branch lab/timeseries-layout-results for short results; source benchmark .github/ts-lab-layout/bench_layout_full.py now has --selective-only and --fastpath. The earlier full-matrix error from QueryLog delayed ingestion was corrected with phase-end logging and bounded retries; OOM is independent.
 - Next research: get real SAMPLES EXPLAIN mark savings from 6 sparse experiments, measure long tuple ID overhead in registry and hash sets, compare to no-identity-change secondary physical ordering in separate target (can require C++ or schema custom sort), then profile ingest/merge on 15s arrival. Do not optimize arbitrary small matcher cost without measured high-leverage.
+
+
+## 2026-11-02 19:08 UTC — six matched selective jobs passed, broad still fails without fastpath
+
+- GitHub Actions run 41505253205 SUCCESS: all six jobs passed, three ID layouts (stage, project, project_stage) x experimental native one-point fastpath OFF/ON. Identical 1.33m source hash, same verified O2 binary, fixed physical parts and full output equality with standard ID for four filtered queries. Each case had phases A/B/B/A with fresh server per phase, two warmups and four measurements per phase.
+- Per-job speedups (baseline over candidate), filters in order stage, project, stage+project, branch regex:
+  - stage OFF: 2.577x, 1.204x, 3.314x, 0.982x; maximum baseline drift 6.83%.
+  - stage ON: 2.939x, 1.180x, 3.898x, 0.958x; drift 20.70%.
+  - project OFF: 1.312x, 1.357x, 2.555x, 0.991x; drift 22.22%.
+  - project ON: 1.609x, 1.767x, 2.614x, 0.985x; drift 8.24%.
+  - project_stage OFF: 2.836x, 1.487x, 2.973x, 0.970x; drift 22.81%.
+  - project_stage ON: 2.530x, 1.494x, 3.056x, 0.907x; drift 20.78%.
+- All six selective cases completed without OOM; this does not clear the earlier 41504309748 high-cardinality metric-wide OOM at the 4.66GiB cap. Regex sometimes regresses by up to 9.3%, so no universal improvement. Comparing fastpath ON vs OFF from different runners is not a controlled comparison by itself.
+- 41506270694 compact aggregator initiated: obtains six pinned raw artifacts and also dense 41504786378, mark model 41503557195, public corpus 41502908657, and publishes summary JSON and Markdown to lab/timeseries-layout-results. Must check run conclusion before citing as published. Raw data stays in original GitHub Actions.
+- Separate 41506112971 started three broad metric-name query cases with opt-in fastpath ON, maximum two jobs concurrently. Measures whether broad OOM persists under the optimized one-point C++ path. Do not mix results with default OFF.
+- Even with 3.90x observed filtered-query win, longer tuple ID has not met broad query memory and general PromQL/ACL requirements. Consider an opt-in physical sort key separate from logical ID and a query-plan filter on that key; no production or upstream patch yet.
