@@ -56,15 +56,27 @@ def wait_vm(meta):
     raise AssertionError(("VictoriaMetrics imported values not visible",actual,target))
 
 def rss_kib(pid):
+    """Account for the ClickHouse watchdog child server, not only its parent."""
     if not pid:return None
-    try:
-        with open(f"/proc/{pid}/status") as f:
-            for line in f:
-                if line.startswith("VmRSS:"):
-                    return int(line.split()[1])
-    except (OSError,ValueError):
-        return None
-    return None
+    pending=[pid]
+    visited=set()
+    total=0
+    while pending:
+        current=pending.pop()
+        if current in visited:continue
+        visited.add(current)
+        try:
+            with open(f"/proc/{current}/status") as f:
+                for line in f:
+                    if line.startswith("VmRSS:"):
+                        total+=int(line.split()[1])
+                        break
+            children=f"/proc/{current}/task/{current}/children"
+            with open(children) as f:
+                pending.extend(int(x) for x in f.read().split())
+        except (OSError,ValueError):
+            continue
+    return total
 
 def vm_metrics():
     try:
