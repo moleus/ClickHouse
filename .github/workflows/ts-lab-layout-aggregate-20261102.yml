@@ -1,0 +1,84 @@
+name: TimeSeries layout compact six-way synthetic results and raw failures reduction
+on:
+  workflow_dispatch:
+  push:
+    branches: [lab/timeseries-layout-research-20261102]
+    paths: ['.github/ts-lab-layout/AGGREGATE_NOW_20261102.txt']
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: tslab-layout-aggregate-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  reduce:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Validate reducer and source run has completed before downloading
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/layout-campaign
+          python3 -m py_compile .github/ts-lab-layout/aggregate_sparse_dense_results.py
+          python3 .github/ts-lab-layout/aggregate_sparse_dense_results.py --help >/dev/null
+          status="$(gh run view 41505253205 -R moleus/ClickHouse --json status --jq .status)"
+          if [ "$status" != completed ]; then
+            echo "Cannot aggregate while six-way experiment still running" >&2
+            exit 1
+          fi
+      - name: Reduce six independent cases and dense baseline with source checks
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-layout/aggregate_sparse_dense_results.py \
+            --repo moleus/ClickHouse \
+            --sparse-run 41505253205 \
+            --dense-run 41504786378 \
+            --mark-run 41503557195 \
+            --public-run 41502908657 \
+            --out evidence/layout-campaign
+          cat evidence/layout-campaign/layout-results.md >> "$GITHUB_STEP_SUMMARY"
+          sha256sum evidence/layout-campaign/layout-results.json \
+            evidence/layout-campaign/layout-results.md \
+            > evidence/layout-campaign/compact.sha256
+      - name: Persist compact report only to separate public results branch
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64,json,os,pathlib
+          root=pathlib.Path('evidence/layout-campaign')
+          for ext in ('json','md'):
+              path=root/('layout-results.'+ext)
+              content=path.read_bytes()
+              if len(content)>250000:
+                  raise SystemExit('Refuse publish oversized report '+str(len(content)))
+              payload={'message':'layout: six-way O2 evidence '+os.environ['GITHUB_RUN_ID']+' '+ext,
+                       'content':base64.b64encode(content).decode(),
+                       'branch':'lab/timeseries-layout-results'}
+              (root/('payload-'+ext+'.json')).write_text(json.dumps(payload))
+          PY
+          for ext in json md; do
+            gh api -X PUT -H "Accept: application/vnd.github+json" \
+              "repos/$GITHUB_REPOSITORY/contents/results/layout-campaign-$GITHUB_RUN_ID.$ext" \
+              --input "evidence/layout-campaign/payload-$ext.json" \
+              > "evidence/layout-campaign/published-$ext.json"
+          done
+          echo "Results branch stores only small reports; original runs retain full raw data."
+      - name: Preserve compact summary, errors and publish confirmation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-layout-campaign-compact
+          path: |
+            evidence/layout-campaign/layout-results.json
+            evidence/layout-campaign/layout-results.md
+            evidence/layout-campaign/compact.sha256
+            evidence/layout-campaign/published-json.json
+            evidence/layout-campaign/published-md.json
+          retention-days: 90
+          compression-level: 1
