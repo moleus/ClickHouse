@@ -19,7 +19,7 @@ def main():
         item={"type":typ}
         report["cases"][suffix]=item
         try:
-            sql(f"CREATE TABLE {t} (m {typ}, value UInt32) ENGINE=MergeTree ORDER BY m")
+            sql(f"CREATE TABLE {t} (m {typ}, value UInt32) ENGINE=MergeTree ORDER BY value")
             sql(f"INSERT INTO {t} SELECT CAST('same-value',{repr(typ)}),toUInt32(number) FROM numbers(150000)")
             sql(f"OPTIMIZE TABLE {t} FINAL")
             sql(f"ALTER TABLE {t} MATERIALIZE STATISTICS ALL SETTINGS mutations_sync=2")
