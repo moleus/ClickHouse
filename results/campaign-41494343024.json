@@ -1,0 +1,889 @@
+{
+  "schema": 1,
+  "repo": "moleus/ClickHouse",
+  "branch": "lab/timeseries-perf-results",
+  "valid_required": true,
+  "runs": [
+    {
+      "id": 41486787371,
+      "kind": "fresh",
+      "artifact": "tslab-95k-stage-projection-fresh-41486787371",
+      "required": true,
+      "run": {
+        "conclusion": "success",
+        "headSha": "c2eb06c4ccbd1efad9875900a37c2d4eca062a2e",
+        "name": "TimeSeries 1.33m stage projection fresh-process A/B/B/A versus VM",
+        "status": "completed"
+      },
+      "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41486787371",
+      "summary": {
+        "passed": true,
+        "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+        "cases": {
+          "whole_e14": {
+            "original_ms": 2868.11,
+            "projected_ms": 1589.869,
+            "vm_ms": 2491.231,
+            "speedup": 1.804,
+            "rss_kib_original": 1383696.0,
+            "rss_kib_projected": 847034.0,
+            "trials_original": 4,
+            "trials_projected": 4
+          },
+          "stage_e14": {
+            "original_ms": 511.446,
+            "projected_ms": 483.933,
+            "vm_ms": 77.504,
+            "speedup": 1.0569,
+            "rss_kib_original": 468250.0,
+            "rss_kib_projected": 478294.0,
+            "trials_original": 4,
+            "trials_projected": 4
+          },
+          "regex_e14": {
+            "original_ms": 634.173,
+            "projected_ms": 531.893,
+            "vm_ms": 342.888,
+            "speedup": 1.1923,
+            "rss_kib_original": 590302.0,
+            "rss_kib_projected": 570122.0,
+            "trials_original": 4,
+            "trials_projected": 4
+          }
+        },
+        "errors": []
+      }
+    },
+    {
+      "id": 41489511997,
+      "kind": "micro",
+      "artifact": "tslab-proxy-micro-evidence",
+      "required": true,
+      "run": {
+        "conclusion": "success",
+        "headSha": "ccfcc254c734df7f6a959a8cfe46312e31fd88b4",
+        "name": "TimeSeries wide micro experiment hash registry and CPU locality",
+        "status": "completed"
+      },
+      "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41489511997",
+      "summary": {
+        "proxy_only": true,
+        "N": 1330000,
+        "G": 38,
+        "rows": [
+          {
+            "n": 1330000,
+            "groups": 38,
+            "order": "random",
+            "variant": "full_hash",
+            "trials": 3,
+            "register_ms": 1192.9944,
+            "lookup_ms": 179.224,
+            "peak_rss_kib": 222076
+          },
+          {
+            "n": 1330000,
+            "groups": 38,
+            "order": "random",
+            "variant": "stage_flat",
+            "trials": 3,
+            "register_ms": 154.441,
+            "lookup_ms": 58.0503,
+            "peak_rss_kib": 78592
+          },
+          {
+            "n": 1330000,
+            "groups": 38,
+            "order": "random",
+            "variant": "stage_hash",
+            "trials": 3,
+            "register_ms": 345.1427,
+            "lookup_ms": 102.5579,
+            "peak_rss_kib": 60928
+          }
+        ],
+        "hardware_available_in_proxy_run": false,
+        "total_matrix_cells": 30
+      }
+    },
+    {
+      "id": 41489366871,
+      "kind": "profiler",
+      "artifact": "tslab-perf-lens-evidence",
+      "required": true,
+      "run": {
+        "conclusion": "success",
+        "headSha": "0567bb32aa27fd8e83eb3befea87e34dc04a10a0",
+        "name": "TimeSeries 1.33m CH and VM automatic query resource profiler",
+        "status": "completed"
+      },
+      "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41489366871",
+      "summary": {
+        "rows": [
+          {
+            "case": "fulltags_whole14",
+            "engine": "ch",
+            "wall_ms_instrumented": 6235.305,
+            "cpu_ms": 14520.0,
+            "physical_read_mib": 0.0,
+            "rss_peak_mib": 1377.87,
+            "read_rows": 3990000,
+            "flags": [
+              "PARTS_LAYOUT_CHANGED"
+            ],
+            "hotspot_hypotheses": [
+              {
+                "family": "hash_and_sets",
+                "observed_cpu_sample_share": 0.57,
+                "hypothesis": "requires isolated test and matched A/B/A; no wall-time inference",
+                "max_cpu_speedup_if_removed": 2.32
+              },
+              {
+                "family": "tag_registry",
+                "observed_cpu_sample_share": 0.112,
+                "hypothesis": "requires isolated test and matched A/B/A; no wall-time inference",
+                "max_cpu_speedup_if_removed": 1.13
+              },
+              {
+                "family": "memory_copy_alloc",
+                "observed_cpu_sample_share": 0.105,
+                "hypothesis": "requires isolated test and matched A/B/A; no wall-time inference",
+                "max_cpu_speedup_if_removed": 1.12
+              }
+            ]
+          },
+          {
+            "case": "projected_stage14",
+            "engine": "ch",
+            "wall_ms_instrumented": 1191.182,
+            "cpu_ms": 2750.0,
+            "physical_read_mib": 0.0,
+            "rss_peak_mib": 479.18,
+            "read_rows": 3990000,
+            "flags": [
+              "PARTS_LAYOUT_CHANGED"
+            ],
+            "hotspot_hypotheses": [
+              {
+                "family": "hash_and_sets",
+                "observed_cpu_sample_share": 0.608,
+                "hypothesis": "requires isolated test and matched A/B/A; no wall-time inference",
+                "max_cpu_speedup_if_removed": 2.55
+              },
+              {
+                "family": "memory_copy_alloc",
+                "observed_cpu_sample_share": 0.12,
+                "hypothesis": "requires isolated test and matched A/B/A; no wall-time inference",
+                "max_cpu_speedup_if_removed": 1.14
+              },
+              {
+                "family": "sample_rollup",
+                "observed_cpu_sample_share": 0.008,
+                "hypothesis": "requires isolated test and matched A/B/A; no wall-time inference",
+                "max_cpu_speedup_if_removed": 1.01
+              }
+            ]
+          },
+          {
+            "case": "projected_whole14",
+            "engine": "ch",
+            "wall_ms_instrumented": 4461.037,
+            "cpu_ms": 10480.0,
+            "physical_read_mib": 0.0,
+            "rss_peak_mib": 892.29,
+            "read_rows": 3990000,
+            "flags": [
+              "PARTS_LAYOUT_CHANGED"
+            ],
+            "hotspot_hypotheses": [
+              {
+                "family": "hash_and_sets",
+                "observed_cpu_sample_share": 0.72,
+                "hypothesis": "requires isolated test and matched A/B/A; no wall-time inference",
+                "max_cpu_speedup_if_removed": 3.58
+              },
+              {
+                "family": "tag_registry",
+                "observed_cpu_sample_share": 0.055,
+                "hypothesis": "requires isolated test and matched A/B/A; no wall-time inference",
+                "max_cpu_speedup_if_removed": 1.06
+              },
+              {
+                "family": "memory_copy_alloc",
+                "observed_cpu_sample_share": 0.048,
+                "hypothesis": "requires isolated test and matched A/B/A; no wall-time inference",
+                "max_cpu_speedup_if_removed": 1.05
+              }
+            ]
+          },
+          {
+            "case": "vm_stage14",
+            "engine": "vm",
+            "wall_ms_instrumented": 86.038,
+            "cpu_ms": 130.0,
+            "physical_read_mib": 0.0,
+            "rss_peak_mib": 1529.97,
+            "read_rows": null,
+            "flags": [],
+            "hotspot_hypotheses": []
+          },
+          {
+            "case": "vm_whole14",
+            "engine": "vm",
+            "wall_ms_instrumented": 3169.86,
+            "cpu_ms": 5450.0,
+            "physical_read_mib": 0.0,
+            "rss_peak_mib": 1470.14,
+            "read_rows": null,
+            "flags": [],
+            "hotspot_hypotheses": []
+          }
+        ],
+        "numerical_parity": {
+          "fulltags_vs_vm": {
+            "points": 532,
+            "max_abs_error": 3.694822225952521e-13
+          },
+          "projected_vs_vm": {
+            "points": 532,
+            "max_abs_error": 3.836930773104541e-13
+          },
+          "stage_vs_vm": {
+            "points": 14,
+            "max_abs_error": 2.4158453015843406e-13
+          }
+        },
+        "warning": "Instrumented times. Old parts flags can include system log changes."
+      }
+    },
+    {
+      "id": 41489795764,
+      "kind": "index",
+      "artifact": "tslab-physical-index-evidence",
+      "required": true,
+      "run": {
+        "conclusion": "success",
+        "headSha": "8f33da7b80718926f85205edddd0943efa70e347",
+        "name": "TimeSeries physical TAGS indexing and label selectivity profiler",
+        "status": "completed"
+      },
+      "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41489795764",
+      "summary": {
+        "tags_rows": 1330000,
+        "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+        "rows": [
+          {
+            "case": "tags_branch_regex",
+            "wall_ms_instrumented": 103.622,
+            "read_rows": 1330000,
+            "matched_rows": 190008,
+            "flags": [
+              "BACKGROUND_MERGES_NONEMPTY"
+            ]
+          },
+          {
+            "case": "tags_metric_only",
+            "wall_ms_instrumented": 4.286,
+            "read_rows": 1,
+            "matched_rows": 1330000,
+            "flags": [
+              "BACKGROUND_MERGES_NONEMPTY"
+            ]
+          },
+          {
+            "case": "tags_project_exact",
+            "wall_ms_instrumented": 15.217,
+            "read_rows": 1330000,
+            "matched_rows": 166250,
+            "flags": [
+              "BACKGROUND_MERGES_NONEMPTY"
+            ]
+          },
+          {
+            "case": "tags_stage_exact",
+            "wall_ms_instrumented": 22.622,
+            "read_rows": 1330000,
+            "matched_rows": 35000,
+            "flags": [
+              "BACKGROUND_MERGES_NONEMPTY"
+            ]
+          }
+        ],
+        "warning": "Direct inner target admin-only. Active merges possible."
+      }
+    },
+    {
+      "id": 41492609952,
+      "kind": "stage",
+      "artifact": "tslab-stage-path-evidence",
+      "required": true,
+      "run": {
+        "conclusion": "success",
+        "headSha": "ea81ec61c9a6ccb0d64628a68e2845c353eb9ad2",
+        "name": "TimeSeries exact-stage TAGS TimeRanges SAMPLES component diagnosis",
+        "status": "completed"
+      },
+      "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41492609952",
+      "summary": {
+        "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+        "valid_controls": 7,
+        "errors": [],
+        "cases": [
+          {
+            "case": "native_stage",
+            "wall_ms_instrumented": 1092.904,
+            "query_read_rows": 3990000,
+            "query_read_bytes": 348376907,
+            "cpu_ms": 2520.0,
+            "top_processors": [
+              {
+                "name": "MergeTreeSelect(pool: ReadPool, algorithm: Thread)",
+                "active_us": 715545,
+                "input_wait_us": 0,
+                "output_wait_us": 64313,
+                "in_rows": 0,
+                "out_rows": 35000,
+                "in_bytes": 0,
+                "out_bytes": 8322832,
+                "instances": 3
+              },
+              {
+                "name": "MergeTreeSelect(pool: ReadPoolInOrder, algorithm: InOrder)",
+                "active_us": 673969,
+                "input_wait_us": 0,
+                "output_wait_us": 1796,
+                "in_rows": 0,
+                "out_rows": 1365000,
+                "in_bytes": 0,
+                "out_bytes": 60579047,
+                "instances": 13
+              },
+              {
+                "name": "MergingSortedTransform",
+                "active_us": 461499,
+                "input_wait_us": 529370,
+                "output_wait_us": 3368,
+                "in_rows": 1365001,
+                "out_rows": 1365001,
+                "in_bytes": 60579916,
+                "out_bytes": 40015867,
+                "instances": 3
+              },
+              {
+                "name": "ExpressionTransform",
+                "active_us": 286224,
+                "input_wait_us": 13777084,
+                "output_wait_us": 985654,
+                "in_rows": 4270002,
+                "out_rows": 4270002,
+                "in_bytes": 192870197,
+                "out_bytes": 181350061,
+                "instances": 57
+              }
+            ],
+            "flags": []
+          },
+          {
+            "case": "sample_id_set",
+            "wall_ms_instrumented": 524.084,
+            "query_read_rows": 2660000,
+            "query_read_bytes": 83830572,
+            "cpu_ms": 1920.0,
+            "top_processors": [
+              {
+                "name": "MergeTreeSelect(pool: ReadPool, algorithm: Thread)",
+                "active_us": 1306583,
+                "input_wait_us": 0,
+                "output_wait_us": 38607,
+                "in_rows": 0,
+                "out_rows": 70000,
+                "in_bytes": 0,
+                "out_bytes": 21576106,
+                "instances": 6
+              },
+              {
+                "name": "CreatingSetsTransform",
+                "active_us": 37525,
+                "input_wait_us": 74253,
+                "output_wait_us": 0,
+                "in_rows": 35000,
+                "out_rows": 0,
+                "in_bytes": 21296106,
+                "out_bytes": 0,
+                "instances": 1
+              },
+              {
+                "name": "ExpressionTransform",
+                "active_us": 393,
+                "input_wait_us": 2983728,
+                "output_wait_us": 75667,
+                "in_rows": 140001,
+                "out_rows": 140001,
+                "in_bytes": 43152220,
+                "out_bytes": 43152220,
+                "instances": 13
+              },
+              {
+                "name": "AggregatingTransform",
+                "active_us": 322,
+                "input_wait_us": 1051240,
+                "output_wait_us": 2,
+                "in_rows": 35001,
+                "out_rows": 1,
+                "in_bytes": 280008,
+                "out_bytes": 8,
+                "instances": 3
+              }
+            ],
+            "flags": [
+              "BACKGROUND_MERGES_NONEMPTY"
+            ]
+          },
+          {
+            "case": "sample_id_time",
+            "wall_ms_instrumented": 619.615,
+            "query_read_rows": 2660000,
+            "query_read_bytes": 115944908,
+            "cpu_ms": 2280.0,
+            "top_processors": [
+              {
+                "name": "MergeTreeSelect(pool: ReadPool, algorithm: Thread)",
+                "active_us": 1555817,
+                "input_wait_us": 0,
+                "output_wait_us": 40203,
+                "in_rows": 0,
+                "out_rows": 70000,
+                "in_bytes": 0,
+                "out_bytes": 21576106,
+                "instances": 6
+              },
+              {
+                "name": "CreatingSetsTransform",
+                "active_us": 35800,
+                "input_wait_us": 69720,
+                "output_wait_us": 0,
+                "in_rows": 35000,
+                "out_rows": 0,
+                "in_bytes": 21296106,
+                "out_bytes": 0,
+                "instances": 1
+              },
+              {
+                "name": "ExpressionTransform",
+                "active_us": 424,
+                "input_wait_us": 3571947,
+                "output_wait_us": 78796,
+                "in_rows": 140001,
+                "out_rows": 140001,
+                "in_bytes": 43152220,
+                "out_bytes": 43152220,
+                "instances": 13
+              },
+              {
+                "name": "AggregatingTransform",
+                "active_us": 382,
+                "input_wait_us": 1299154,
+                "output_wait_us": 3,
+                "in_rows": 35001,
+                "out_rows": 1,
+                "in_bytes": 280008,
+                "out_bytes": 8,
+                "instances": 3
+              }
+            ],
+            "flags": [
+              "BACKGROUND_MERGES_NONEMPTY"
+            ]
+          },
+          {
+            "case": "sample_joined_ids",
+            "wall_ms_instrumented": 717.447,
+            "query_read_rows": 3990000,
+            "query_read_bytes": 150376188,
+            "cpu_ms": 2390.0,
+            "top_processors": [
+              {
+                "name": "MergeTreeSelect(pool: ReadPool, algorithm: Thread)",
+                "active_us": 1632077,
+                "input_wait_us": 0,
+                "output_wait_us": 88591,
+                "in_rows": 0,
+                "out_rows": 1400000,
+                "in_bytes": 0,
+                "out_bytes": 56070618,
+                "instances": 9
+              },
+              {
+                "name": "JoiningTransform",
+                "active_us": 134703,
+                "input_wait_us": 902843,
+                "output_wait_us": 42573,
+                "in_rows": 1330000,
+                "out_rows": 35000,
+                "in_bytes": 34494464,
+                "out_bytes": 21544464,
+                "instances": 4
+              },
+              {
+                "name": "SimpleSquashingTransform",
+                "active_us": 102722,
+                "input_wait_us": 1538345,
+                "output_wait_us": 498391,
+                "in_rows": 1400000,
+                "out_rows": 1400000,
+                "in_bytes": 77335082,
+                "out_bytes": 64617968,
+                "instances": 12
+              },
+              {
+                "name": "CreatingSetsTransform",
+                "active_us": 35837,
+                "input_wait_us": 262846,
+                "output_wait_us": 0,
+                "in_rows": 35000,
+                "out_rows": 0,
+                "in_bytes": 21357504,
+                "out_bytes": 0,
+                "instances": 1
+              }
+            ],
+            "flags": [
+              "BACKGROUND_MERGES_NONEMPTY",
+              "PARTS_LAYOUT_CHANGED"
+            ]
+          },
+          {
+            "case": "tags_ids",
+            "wall_ms_instrumented": 182.404,
+            "query_read_rows": 1330000,
+            "query_read_bytes": 36906124,
+            "cpu_ms": 550.0,
+            "top_processors": [
+              {
+                "name": "MergeTreeSelect(pool: ReadPool, algorithm: Thread)",
+                "active_us": 281969,
+                "input_wait_us": 0,
+                "output_wait_us": 30459,
+                "in_rows": 0,
+                "out_rows": 35000,
+                "in_bytes": 0,
+                "out_bytes": 21296106,
+                "instances": 3
+              },
+              {
+                "name": "ConvertingAggregatedToChunksTransform",
+                "active_us": 29765,
+                "input_wait_us": 0,
+                "output_wait_us": 3,
+                "in_rows": 0,
+                "out_rows": 1,
+                "in_bytes": 0,
+                "out_bytes": 8,
+                "instances": 1
+              },
+              {
+                "name": "AggregatingTransform",
+                "active_us": 29595,
+                "input_wait_us": 313425,
+                "output_wait_us": 5,
+                "in_rows": 35001,
+                "out_rows": 1,
+                "in_bytes": 21296114,
+                "out_bytes": 8,
+                "instances": 3
+              },
+              {
+                "name": "ParallelFormattingOutputFormat",
+                "active_us": 469,
+                "input_wait_us": 173204,
+                "output_wait_us": 0,
+                "in_rows": 1,
+                "out_rows": 0,
+                "in_bytes": 8,
+                "out_bytes": 0,
+                "instances": 1
+              }
+            ],
+            "flags": [
+              "BACKGROUND_MERGES_NONEMPTY"
+            ]
+          },
+          {
+            "case": "tags_time_join",
+            "wall_ms_instrumented": 371.7,
+            "query_read_rows": 2660000,
+            "query_read_bytes": 92680636,
+            "cpu_ms": 1380.0,
+            "top_processors": [
+              {
+                "name": "MergeTreeSelect(pool: ReadPool, algorithm: Thread)",
+                "active_us": 589515,
+                "input_wait_us": 0,
+                "output_wait_us": 97727,
+                "in_rows": 0,
+                "out_rows": 1365000,
+                "in_bytes": 0,
+                "out_bytes": 55790618,
+                "instances": 6
+              },
+              {
+                "name": "JoiningTransform",
+                "active_us": 146640,
+                "input_wait_us": 930699,
+                "output_wait_us": 33346,
+                "in_rows": 1330000,
+                "out_rows": 35000,
+                "in_bytes": 34494448,
+                "out_bytes": 21544448,
+                "instances": 4
+              },
+              {
+                "name": "SimpleSquashingTransform",
+                "active_us": 111548,
+                "input_wait_us": 1689473,
+                "output_wait_us": 543120,
+                "in_rows": 1400000,
+                "out_rows": 1400000,
+                "in_bytes": 77335066,
+                "out_bytes": 64903824,
+                "instances": 12
+              },
+              {
+                "name": "FillingRightJoinSide",
+                "active_us": 38638,
+                "input_wait_us": 523868,
+                "output_wait_us": 0,
+                "in_rows": 35000,
+                "out_rows": 0,
+                "in_bytes": 8864928,
+                "out_bytes": 0,
+                "instances": 4
+              }
+            ],
+            "flags": [
+              "BACKGROUND_MERGES_NONEMPTY"
+            ]
+          },
+          {
+            "case": "time_ranges_cover",
+            "wall_ms_instrumented": 20.365,
+            "query_read_rows": 1330000,
+            "query_read_bytes": 21280000,
+            "cpu_ms": 80.0,
+            "top_processors": [
+              {
+                "name": "MergeTreeSelect(pool: ReadPool, algorithm: Thread)",
+                "active_us": 39267,
+                "input_wait_us": 0,
+                "output_wait_us": 212,
+                "in_rows": 0,
+                "out_rows": 1330000,
+                "in_bytes": 0,
+                "out_bytes": 0,
+                "instances": 3
+              },
+              {
+                "name": "AggregatingTransform",
+                "active_us": 184,
+                "input_wait_us": 40165,
+                "output_wait_us": 2,
+                "in_rows": 1330001,
+                "out_rows": 1,
+                "in_bytes": 8,
+                "out_bytes": 8,
+                "instances": 3
+              },
+              {
+                "name": "ParallelFormattingOutputFormat",
+                "active_us": 22,
+                "input_wait_us": 14057,
+                "output_wait_us": 0,
+                "in_rows": 1,
+                "out_rows": 0,
+                "in_bytes": 8,
+                "out_bytes": 0,
+                "instances": 1
+              },
+              {
+                "name": "ExpressionTransform",
+                "active_us": 20,
+                "input_wait_us": 94170,
+                "output_wait_us": 263,
+                "in_rows": 2660001,
+                "out_rows": 2660001,
+                "in_bytes": 8,
+                "out_bytes": 8,
+                "instances": 7
+              }
+            ],
+            "flags": [
+              "BACKGROUND_MERGES_NONEMPTY"
+            ]
+          }
+        ],
+        "warning": "Diagnostic admin SQL stages are not additive native critical path"
+      }
+    },
+    {
+      "id": 41492116498,
+      "kind": "pmu",
+      "artifact": "tslab-pmu-capability",
+      "required": true,
+      "run": {
+        "conclusion": "success",
+        "headSha": "22b5dd496318932c842d88dac640406bc03bdadf",
+        "name": "TimeSeries Linux perf, PMU and syscall profiler capability check",
+        "status": "completed"
+      },
+      "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41492116498",
+      "summary": {
+        "hardware_available": false,
+        "stack_profile_available": true,
+        "software_stack_available": true,
+        "perf_event_paranoid_before": "4",
+        "perf_event_paranoid_after": "1",
+        "software-clock": 0,
+        "software-clock-report": 0,
+        "software-stat": 0
+      }
+    },
+    {
+      "id": 41492330376,
+      "kind": "hardware",
+      "artifact": "tslab-hardware-perf-evidence",
+      "required": true,
+      "run": {
+        "conclusion": "success",
+        "headSha": "665efe86519dbdb21caac59e6000abf015f25886",
+        "name": "TimeSeries software CPU-clock DWARF stacks and PMU support probe on native query",
+        "status": "completed"
+      },
+      "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41492330376",
+      "summary": {
+        "cases": [
+          {
+            "case": "fulltags_whole",
+            "ok": true,
+            "kind": "stat",
+            "instrumented_wall_ms": 5575.67,
+            "perf_exit": -2,
+            "counters": {
+              "task-clock": 13567.33,
+              "cpu-clock": 13549.97,
+              "context-switches": 18854.0,
+              "page-faults": 297262.0,
+              "cycles": null,
+              "instructions": null,
+              "cache-misses": null,
+              "branch-misses": null,
+              "branches": null,
+              "hardware_pmu_supported": false,
+              "software_clock_supported": true
+            }
+          },
+          {
+            "case": "projected_stage",
+            "ok": true,
+            "kind": "stat",
+            "instrumented_wall_ms": 1136.78,
+            "perf_exit": -2,
+            "counters": {
+              "task-clock": 2737.67,
+              "cpu-clock": 2733.57,
+              "context-switches": 4632.0,
+              "page-faults": 39666.0,
+              "cycles": null,
+              "instructions": null,
+              "cache-misses": null,
+              "branch-misses": null,
+              "branches": null,
+              "hardware_pmu_supported": false,
+              "software_clock_supported": true
+            }
+          },
+          {
+            "case": "projected_whole",
+            "ok": true,
+            "kind": "record",
+            "instrumented_wall_ms": 3803.63,
+            "perf_exit": -2,
+            "counters": null
+          },
+          {
+            "case": "projected_whole",
+            "ok": true,
+            "kind": "stat",
+            "instrumented_wall_ms": 3976.08,
+            "perf_exit": -2,
+            "counters": {
+              "task-clock": 10581.92,
+              "cpu-clock": 10569.83,
+              "context-switches": 14465.0,
+              "page-faults": 185700.0,
+              "cycles": null,
+              "instructions": null,
+              "cache-misses": null,
+              "branch-misses": null,
+              "branches": null,
+              "hardware_pmu_supported": false,
+              "software_clock_supported": true
+            }
+          }
+        ],
+        "cpu_clock_samples": 616,
+        "top_leaf_symbols": [
+          {
+            "share_pct": 45.62,
+            "symbol": "__llvm_libc::memset_gt128_baseline(__llvm_libc::cpp::byte*, unsigned char, unsigned long)"
+          },
+          {
+            "share_pct": 2.6,
+            "symbol": "void DB::ContextTimeSeriesTagsCollector::storeTagsTyped<DB::(anonymous namespace)::TwoComponentID<DB::(anonymous namespace)::OneComponentID<unsigned long>, DB::(anonymous namespace"
+          },
+          {
+            "share_pct": 2.27,
+            "symbol": "void DB::Set::executeImplCase<DB::SetMethodHashed<HashSetTable<wide::integer<128ul, unsigned int>, HashTableCell<wide::integer<128ul, unsigned int>, UInt128TrivialHash, HashTableNo"
+          },
+          {
+            "share_pct": 2.11,
+            "symbol": "void DB::(anonymous namespace)::reverseTransposeImpl<long, false>(char const*, char*, unsigned int, long, long, long, unsigned int)"
+          },
+          {
+            "share_pct": 1.95,
+            "symbol": "DB::AggregateFunctionTimeseriesBase<DB::AggregateFunctionTimeseriesCompensatedSum<DB::DateTime64, double, true>, DB::AggregateFunctionTimeseriesCompensatedSumTraits<DB::DateTime64,"
+          },
+          {
+            "share_pct": 1.95,
+            "symbol": "void DB::Set::insertFromBlockImplCase<DB::SetMethodHashed<HashSetTable<wide::integer<128ul, unsigned int>, HashTableCell<wide::integer<128ul, unsigned int>, UInt128TrivialHash, Has"
+          },
+          {
+            "share_pct": 1.79,
+            "symbol": "DB::ReverseIndex<unsigned long, DB::ColumnVector<StrongTypedef<wide::integer<128ul, unsigned int>, DB::UUIDTag> > >::insert(std::__1::basic_string_view<char, std::__1::char_traits<"
+          },
+          {
+            "share_pct": 1.46,
+            "symbol": "HashTable<unsigned long, HashMapCell<unsigned long, DB::AggregateFunctionTimeseriesSamples<DB::DateTime64, double>, TrivialHash, HashTableNoState, PairNoInit<unsigned long, DB::Agg"
+          },
+          {
+            "share_pct": 1.3,
+            "symbol": "CurrentMemoryTracker::free(long)"
+          },
+          {
+            "share_pct": 0.97,
+            "symbol": "CurrentMemoryTracker::allocImpl(long, bool)"
+          },
+          {
+            "share_pct": 0.97,
+            "symbol": "DB::AggregateFunctionTimeseriesBase<DB::AggregateFunctionTimeseriesCompensatedSum<DB::DateTime64, double, true>, DB::AggregateFunctionTimeseriesCompensatedSumTraits<DB::DateTime64,"
+          },
+          {
+            "share_pct": 0.97,
+            "symbol": "HashTable<unsigned long, DB::ReverseIndexHashTableCell<unsigned long, DB::ReverseIndexHash, DB::ReverseIndexNumberHashTable<unsigned long, DB::ColumnVector<StrongTypedef<wide::inte"
+          }
+        ],
+        "warning": "Software CPU sample share is not a wall-time share; hardware PMU may be unsupported"
+      }
+    }
+  ],
+  "readme": "Raw files remain in their original GitHub Actions artifacts"
+}
