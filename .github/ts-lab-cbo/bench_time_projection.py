@@ -56,7 +56,7 @@ def fix_schema(table,report):
     raw=tr.split(chr(96))[1]
     report["after"]={}
     report["after"]["parts"]=[json.loads(x) for x in sql("SELECT name,rows,marks,bytes_on_disk FROM system.parts WHERE active AND database='default' AND table="+sq(raw)+" FORMAT JSONEachRow").splitlines() if x.strip()]
-    report["after"]["projections"]=[json.loads(x) for x in sql("SELECT name,projection_name,rows,marks,bytes_on_disk FROM system.projection_parts WHERE active AND database='default' AND table="+sq(raw)+" FORMAT JSONEachRow").splitlines() if x.strip()]
+    report["after"]["projections"]=[json.loads(x) for x in sql("SELECT name,parent_name,rows,marks,bytes_on_disk FROM system.projection_parts WHERE active AND database='default' AND table="+sq(raw)+" FORMAT JSONEachRow").splitlines() if x.strip()]
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--case",choices=("read","join"),required=True)
