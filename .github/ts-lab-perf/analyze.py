@@ -41,8 +41,8 @@ def check_environment(rec):
         bef=get(rec,"ch_before","merges",default=[])
         aft=get(rec,"ch_after","merges",default=[])
         if bef or aft:flags.append("BACKGROUND_MERGES_NONEMPTY")
-        bparts={ (z["database"],z["table"]):z for z in get(rec,"ch_before","parts",default=[]) }
-        aparts={ (z["database"],z["table"]):z for z in get(rec,"ch_after","parts",default=[]) }
+        bparts={ (z["database"],z["table"]):z for z in get(rec,"ch_before","parts",default=[]) if z.get("database")!="system" }
+        aparts={ (z["database"],z["table"]):z for z in get(rec,"ch_after","parts",default=[]) if z.get("database")!="system" }
         if any((key in aparts and (value["parts"],value["rows"],value["bytes"]) !=
                 tuple(aparts[key].get(k) for k in ("parts","rows","bytes")))
                for key,value in bparts.items()):flags.append("PARTS_LAYOUT_CHANGED")
