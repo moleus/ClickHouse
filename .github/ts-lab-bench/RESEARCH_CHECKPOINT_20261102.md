@@ -83,3 +83,19 @@ Links: https://github.com/moleus/ClickHouse/actions/runs/41416547876 ; https://g
    - system.trace_log: rate sum 8,564 stack samples; 5,556 include `AdaptiveBucketMergingSource::generate` and 5,549 include `Aggregator::mergeAndConvertAdaptiveBucket`. Team 11,460 total; 7,117 and 7,105 include these frames. **These are inclusive stack frames, not exclusive CPU attribution**. The adaptive merge looks important; inspect its leaf frames and test alternatives.
    - Source `src/Core/Settings.cpp`: `enable_adaptive_aggregator` true by default; default freeze at 16,384 keys or 4MiB. `src/Interpreters/AdaptiveAggregation/AdaptiveAggregation.h` documents staged partitioned merge.
 4. A/B/C/D/A SQL benchmark script `.github/ts-lab-bench/bench_adaptive_aggregation_sweep.py` commit `466dabcfcf6a88520144680a240fe14494910583`, workflow `.github/workflows/ts-lab-adaptive-aggregation-sweep-20261102.yml` commit `e70601f7f2f28ea3e63c00842a3a58861850063b`. Run **41418262715** started. Five variants: default-before, disabled, early-freeze (512/1MiB), late-freeze (65536/0B), default-after. Six workloads: broad & selective Jenkins, dense rate sum/team/region and exact host. Exact output checks + p50/p95 + memory/read_rows/read_bytes + AdaptiveAggregationDrainedRecords from query log. Check completed result before interpreting. Never blindly change `enable_adaptive_aggregator` globally.
+
+## Completed adaptive GROUP BY sweep (run 41418262715, SUCCESS)
+
+Script: `.github/ts-lab-bench/bench_adaptive_aggregation_sweep.py`; same pinned baseline binary, identical datasets, same-run default-before/disabled/early-freeze/late-freeze/default-after; six workloads all produced exact same original ClickHouse labels/timestamps/values (5 repeats after warmup).
+
+p50 milliseconds (default recheck -> best candidate):
+- Jenkins 282,036 short series broad avg: 1778.997 -> 1668.994 with early freeze (512 keys, 1MiB), ~6.2% faster. Disabled 2106.327 (~18% slower).
+- Dense sum(rate): 526.195 -> 510.754 with adaptive disabled, ~2.9% faster.
+- Dense sum by(team)(rate): 587.746 -> 559.819 disabled, ~4.8% faster.
+- Dense sum by(region)(rate): 590.817 -> 554.6 disabled, ~6.1% faster.
+- Exact stage and host were insensitive to these changes.
+- Original-before/after p50 close in each case. Thus adaptive merge has an inclusive CPU cost but globally disabling it regresses broad highcard. **Do not change global settings**. Selectivity/cost and exact semantic guard would be required before a query-specific plan.
+
+Source: `src/Interpreters/AdaptiveAggregation/Merge.cpp` function `Aggregator::mergeAndConvertAdaptiveBucketImpl` partitions staged records and merges source cells; `src/Processors/QueryPlan/AggregatingStep.cpp` requires multistream, grouping keys and no ordered-rows property. It is not solely extra overhead: it performs actual aggregation work, explaining why inclusive CPU stack sampling overstated its optimization opportunity.
+
+Link: https://github.com/moleus/ClickHouse/actions/runs/41418262715 .
