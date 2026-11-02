@@ -76,3 +76,19 @@ TimeSeries v11 TAGS already has a `tags_idx` text index. Its postings contain lo
 **Counter rate must be per series.** For two counters with a reset, A(t0)=100, A(t1)=1 and B(t0)=0, B(t1)=100, their per-series reset-corrected increments total 1+100=101 over the interval. The summed raw counter goes from 100 to 101, with increment 1. Therefore `rate(A+B) != rate(A)+rate(B)` by a factor of 101 in this case. A group-rate fusion may eliminate intermediate nullable grids, but must retain *independent per-ID reset and extrapolation state* before summation. A plan that sums samples first is invalid regardless of benchmark speed.
 
 **Next falsification test started:** v2 original/candidate/original on a mixed-metric TimeSeries table. A 210-series `lab_small_metric` is inserted into `jenkins_ts`, which contains 282,036 series of another metric. The candidate's `totalRows>=32768` gate will activate even when selected metric cardinality is 210. The test is designed to refute a global size gate and determine its regression cost; not to validate it as production-ready. Fixed C++ build run `41431984680`, A/B/A run `41432240947`. The v2 namespace compile correction does not change its algorithm or output semantics.
+
+## Measured falsification of the total-table-row guard: run 41433029087 (SUCCESS)
+
+Same on-disk TimeSeries table contains 282,036 series of `jenkins_avs_build_stage_duration` plus 210 series of `lab_small_metric`. All query results (labels/timestamps/values) matched original ClickHouse. Three phases: original before, v2 candidate, original after.
+
+| Query | Original before p50 | v2 candidate p50 | Original recheck p50 | Decision |
+| --- | ---: | ---: | ---: | --- |
+| `lab_small_metric`, 210 selected of 282,246 table rows | 16.241 ms | 18.773 ms | 16.205 ms | **15.8% slowdown**, false positive |
+| Jenkins all, 282,036 selected | 887.321 ms | 716.099 ms | 1028.608 ms | useful broad speedup, but original drift makes exact ratio uncertain |
+| Dense `sum by(region)(rate())` | 201.304 ms | 224.077 ms | 201.765 ms | **11.1% slowdown despite guard inactive**; likely codegen/runner effects, needs replicated tests |
+
+Small-metric query memory p95 9.26MB original vs 9.27MB candidate; read_rows p50 equal (630). Broad query memory p95 547.9MB original recheck vs 416.6MB candidate (~24% saving), read_rows both 846108. The v2 guard's use of all SAMPLES target rows therefore **fails its performance-safety requirement** even with a strictly matched query shape. Do not ship v2 unchanged; this is a substantive negative result.
+
+A safe cost gate needs some information proportional to *selected* metric series count (and window/output shape), not a global table count. A new `SELECT count(*)` from TAGS may defeat the win if its probe cost is comparable to the saved work. Before implementation, derive an upper bound on estimator overhead for short queries: to limit a 16ms query to at most 5% regression, estimator overhead must be under 0.8ms. A full independent SQL query with planner and storage read is unlikely to meet that without proof. Prefer low-cost per-metric statistics, existing primary-key mark estimates or runtime dispatch after selected IDs are known, but first inspect source and measure correctness/overhead. An approximate estimate must be conservative; falsely treating 210 as >32768 is unacceptable.
+
+Run: https://github.com/moleus/ClickHouse/actions/runs/41433029087
