@@ -206,6 +206,8 @@ jobs:
           set -euo pipefail
           python3 .github/ts-lab-bench/import_95k_churn_to_vm.py             --fixture "$RUNNER_TEMP/95k-churn.jsonl"             --manifest evidence/95k-manifest.json             --output evidence/95k-vm-import.json | tee evidence/95k-vm-import.log
 
+      # The Python benchmark blocks until all 14 VM daily windows contain 95k samples;
+      # the import endpoint may return before all label indexes are searchable.
       - name: Paired v4 original stage projected and VM 1.134.0 across 1.33m series
         run: |
           set -euo pipefail
