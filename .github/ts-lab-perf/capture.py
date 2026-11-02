@@ -47,6 +47,11 @@ def named_kib(pid):
                 result[parts[0].rstrip(":")+"_kib"] = int(parts[1])
             except (ValueError, IndexError):
                 pass
+    for line in read(f"/proc/{pid}/status").splitlines():
+        if line.startswith(("voluntary_ctxt_switches:", "nonvoluntary_ctxt_switches:")):
+            k,v=line.split(":",1)
+            try:result[k]=int(v.strip())
+            except ValueError:pass
     return result
 
 def proc_io(pid):
@@ -139,6 +144,8 @@ def environment(paths, pid):
     return {"timestamp_utc":datetime.now(timezone.utc).isoformat(),
             "platform":platform.platform(),"machine":platform.machine(),
             "kernel":platform.release(),"cpu_model":model,"logical_cpus":os.cpu_count(),
+            "clock_ticks_per_second":os.sysconf("SC_CLK_TCK"),
+            "perf_event_paranoid":read("/proc/sys/kernel/perf_event_paranoid").strip(),
             "governors":sorted(governors),"uptime":read("/proc/uptime").strip(),
             "meminfo":{a.split(":")[0]:a.split(":")[1].strip()
                        for a in read("/proc/meminfo").splitlines()[:7] if ":" in a},
