@@ -1,0 +1,48 @@
+name: TimeSeries exact query logs and read amplification from metric ID range runs
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-metric-range-audit-20261102.yml']
+permissions:
+  actions: read
+  contents: read
+concurrency:
+  group: tslab-metric-range-audit-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download exact immutable SQL benchmark artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p metric selector
+          gh run download 41411008407 -R moleus/ClickHouse \
+            -n tslab-jenkins-inner-sql-3d-2474builds-1448stage-41411008407 -D metric
+          gh run download 41409851008 -R moleus/ClickHouse \
+            -n tslab-jenkins-inner-sql-3d-2474builds-1448stage-41409851008 -D selector
+          find metric selector -maxdepth 3 -type f | sort
+      - name: Report per-case read rows bytes and tracked memory
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,pathlib
+          for root in ("metric","selector"):
+              files=list(pathlib.Path(root).rglob("jenkins-*-sql.json"))
+              assert len(files)==1,(root,list(pathlib.Path(root).rglob("*.json")))
+              doc=json.loads(files[0].read_text())
+              for case,entry in doc["cases"].items():
+                  for mode,stat in entry["cases"].items():
+                      log=stat.get("query_log")
+                      if not log:continue
+                      payload={"run":root,"case":case,"mode":mode,
+                          "p50_ms":stat["p50_ms"],"p95_ms":stat["p95_ms"],
+                          **log}
+                      print("TS_RANGE_AUDIT",json.dumps(payload,separators=(',',':')),flush=True)
+          PY
