@@ -78,7 +78,8 @@ namespace
 {
     /// Experimental native compensated one-point grouped average; lab only.
     /// It keeps the normal selector (the tags collector and permissions)
-    /// but avoids a nullable grid for every short-lived series, and preserves\n    /// native per-ID compensated sums and duplicate timestamp selection.
+    /// but avoids a nullable grid for every short-lived series, and preserves
+    /// native per-ID compensated sums and duplicate timestamp selection.
     ASTPtr trySelectorScalarGroupedAvg(
         const Node * root, const ConverterContext & context, const PrometheusQueryEvaluationSettings & settings)
     {
