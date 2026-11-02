@@ -23,7 +23,7 @@ from bench_bucket_cxx_abca import normalize_any, assert_same
 
 URL = "http://127.0.0.1:18191/"
 METRIC = "tslab_incremental_time_range"
-COUNT = 32
+COUNT = 1024
 FILTERS = {
     "recent": "max_time >= toDateTime64('2026-10-31 00:00:00',3,'UTC')",
     "old": "min_time <= toDateTime64('2026-10-19 23:59:59',3,'UTC')",
@@ -80,7 +80,7 @@ def ingest(table, text):
 
 def diagnostic(table, use_projection, qcondition):
     target=inner(table,"timeranges")
-    statement=(f"SELECT count() AS n,uniqExact(id) AS ids FROM {target} "
+    statement=(f"SELECT count() AS n FROM {target} "
                f"WHERE {FILTERS[qcondition]} "
                f"SETTINGS {SETTINGS[use_projection]},optimize_trivial_count_query=0")
     plan=sql("EXPLAIN PLAN indexes=1,projections=1 "+statement)
@@ -113,6 +113,11 @@ def phase_control(stage, report):
                 raise AssertionError(f"Projection changed results: {stage} {filter_name} {mode} {got['count']} != {b['count']}")
             controls[mode]=got
         out["queries"][filter_name]=controls
+        # Cardinality is checked independently; keep the timed projection
+        # query identical to the verified COUNT-only projection smoke.
+        tr=inner("update_indexed","timeranges")
+        out.setdefault("distinct_ids",{})[filter_name]=json_rows(
+            f"SELECT uniqExact(id) AS ids FROM {tr} WHERE {FILTERS[filter_name]}")[0]["ids"]
     a=prometheus("update_plain")
     b=prometheus("update_indexed")
     out["promql"]={"points":len(a),"precision":assert_same(a,b,stage,"indexed")}
@@ -135,6 +140,12 @@ def main():
         sql(f"ALTER TABLE {tr} MODIFY SETTING deduplicate_merge_projection_mode='rebuild'")
         sql(f"ALTER TABLE {tr} ADD PROJECTION time_by_max (SELECT id,min_time,max_time ORDER BY max_time,id)")
         sql(f"ALTER TABLE {tr} MATERIALIZE PROJECTION time_by_max SETTINGS mutations_sync=2")
+        projected=inner("update_indexed","timeranges").split(chr(96))[1]
+        report["projection_parts_initial"]=json_rows(
+            "SELECT name,parent_name,rows,marks,bytes_on_disk FROM system.projection_parts "
+            "WHERE active AND database='default' AND table="+lit(projected))
+        if not report["projection_parts_initial"]:
+            raise AssertionError("Projection was not materialized before incremental updates")
         phase_control("first_insert_and_materialize",report)
         for k in (2,3):
             data=input_for(k)
@@ -144,10 +155,10 @@ def main():
             for table in ("update_plain","update_indexed"):
                 sql("OPTIMIZE TABLE "+inner(table,"timeranges")+" FINAL SETTINGS optimize_throw_if_noop=0")
             phase_control(f"insert_{k}_after_merge",report)
-        recent=report["phases"][-1]["queries"]["recent"]["none"]["count"]["ids"]
-        old=report["phases"][-1]["queries"]["old"]["none"]["count"]["ids"]
-        if (recent,old)!=(8,16):
-            raise AssertionError(f"Wrong final update ranges: recent={recent} old={old}, expected 8 and 16")
+        recent=report["phases"][-1]["distinct_ids"]["recent"]
+        old=report["phases"][-1]["distinct_ids"]["old"]
+        if (recent,old)!=(COUNT//4,COUNT//2):
+            raise AssertionError(f"Wrong final update ranges: recent={recent} old={old}, expected {COUNT//4} and {COUNT//2}")
         report["passed"]=True
     except Exception as e:
         report["passed"]=False
