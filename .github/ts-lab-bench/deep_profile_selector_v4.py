@@ -160,6 +160,7 @@ def profiler(name,sql,run,available,outdir):
        ("query_profiler_real_time_period_ns","10000000")]:
        if key in available:settings.append(f"{key}={val}")
     settings.append("max_threads=4")
+    settings.append("promql_enable_native_one_point_lab="+("1" if name.endswith("_on") else "0"))
     # sql is a SELECT without FORMAT, optional SETTINGS may be appended.
     q=sql+" SETTINGS "+",".join(settings)+" FORMAT JSONEachRow"
     results=[]
@@ -168,12 +169,12 @@ def profiler(name,sql,run,available,outdir):
         elapsed,raw=call(q,qid)
         results.append({"qid":qid,"ms":elapsed,"result_points":len(normalize_any(raw.encode()))})
     try:
-        _,text=call("EXPLAIN PIPELINE "+sql+" SETTINGS max_threads=4")
+        _,text=call("EXPLAIN PIPELINE "+sql+" SETTINGS max_threads=4,promql_enable_native_one_point_lab="+("1" if name.endswith("_on") else "0"))
         pathlib.Path(outdir,f"pipeline-{name}.txt").write_text(text)
     except Exception as e:
         pathlib.Path(outdir,f"pipeline-{name}-error.txt").write_text(str(e))
     try:
-        _,text=call("EXPLAIN indexes=1 "+sql+" SETTINGS max_threads=4")
+        _,text=call("EXPLAIN indexes=1 "+sql+" SETTINGS max_threads=4,promql_enable_native_one_point_lab="+("1" if name.endswith("_on") else "0"))
         pathlib.Path(outdir,f"plan-{name}.txt").write_text(text)
     except Exception as e:
         pathlib.Path(outdir,f"plan-{name}-error.txt").write_text(str(e))
@@ -224,8 +225,7 @@ def main():
     for name,base in candidates:
         for mode in ("off","on"):
             sample_name=name+"_"+mode
-            sampled[sample_name]=profiler(sample_name,base+
-                 f" SETTINGS promql_enable_native_one_point_lab={1 if mode=='on' else 0}".replace(" SETTINGS ",""),run,available,outdir)
+            sampled[sample_name]=profiler(sample_name,base,run,available,outdir)
     logs=querylog(f"deep_{run}_")
     logs.update(querylog(f"layer_{run}_"))
     logs.update(querylog(f"trace_{run}_"))
