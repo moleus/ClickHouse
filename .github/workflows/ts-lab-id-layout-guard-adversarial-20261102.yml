@@ -1,0 +1,73 @@
+name: TimeSeries v11 default shifted and UInt64 ID exact C++ correctness
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-id-layout-guard-adversarial-20261102.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-id-layout-adversarial-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download and validate pinned original ClickHouse binary
+        run: |
+          set -euo pipefail
+          mkdir -p base-art base-bin candidate-art candidate-bin
+          gh run download 41301314345 -R moleus/ClickHouse \
+            --pattern 'tslab-clickhouse-amd64-*' -D base-art
+          archive="$(find base-art -type f -name 'clickhouse-linux-amd64.tar.zst' -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS)
+          zstd -dc "$archive" | tar -xf - -C base-bin
+          (cd base-bin && sha256sum -c SHA256SUMS)
+          chmod +x base-bin/clickhouse
+          base-bin/clickhouse --version
+      - name: Download guarded C++ candidate after successful independent build
+        run: |
+          set -euo pipefail
+          run_id=41412903481
+          artifact=tslab-direct-inner-safe-id-type-binary-eb2d50ebb86e616c3130f09625e56078978eccdc
+          for attempt in $(seq 1 100); do
+            if gh run download "$run_id" -R moleus/ClickHouse \
+                 -n "$artifact" -D candidate-art 2>/dev/null; then
+              echo "ID_GUARD_ARTIFACT_READY attempt=$attempt"
+              break
+            fi
+            conclusion="$(gh run view "$run_id" -R moleus/ClickHouse --json conclusion --jq .conclusion || true)"
+            if [ "$conclusion" = failure ] || [ "$conclusion" = cancelled ]; then
+              echo "Guarded C++ build failed: $conclusion" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          archive="$(find candidate-art -type f -name 'clickhouse-direct-inner-safe-id-type-linux-amd64.tar.zst' -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS)
+          zstd -dc "$archive" | tar -xf - -C candidate-bin
+          (cd candidate-bin && sha256sum -c SHA256SUMS)
+          chmod +x candidate-bin/clickhouse
+          candidate-bin/clickhouse --version
+      - name: Verify exact PromQL output across ID layouts
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-bench/validate_metric_id_layouts.py \
+            base-bin/clickhouse candidate-bin/clickhouse \
+            | tee metric-id-layout-equality.log
+      - name: Save verification record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-id-layout-guard-verified-${{ github.run_id }}
+          path: metric-id-layout-equality.log
+          if-no-files-found: warn
+          retention-days: 14
