@@ -127,6 +127,34 @@ def main():
             "candidate_ms":round(candidate,3),"speedup":round(baseline/candidate,3),
             "baseline_drift":round(drift,3)}
         save(out/"report.json",report)
+    # Collect query-log CPU after all trials. QueryFinish is eventually flushed;
+    # do not stop the timed loop or block on logging after each individual query.
+    try:
+        sql("SYSTEM FLUSH LOGS")
+        records=sql("SELECT query_id,type,query_duration_ms,memory_usage,read_rows,read_bytes,ProfileEvents "
+                    "FROM system.query_log WHERE startsWith(query_id,'dense_"+run_id+
+                    "_') FORMAT JSONEachRow")
+        entries=[json.loads(line) for line in records.splitlines() if line.strip()]
+        logmap={e["query_id"]:e for e in entries if e.get("type")=="QueryFinish"}
+        found=0;expected=0
+        for c in report["cases"].values():
+            for phase in c["measurements"]:
+                for trial in phase["trials"]:
+                    key=f"dense_{run_id}_{phase['case']}_{phase['phase']}_{trial['k']}"
+                    if key in logmap:
+                        e=logmap[key];found+=1
+                        trial["cpu_ms"]=((e.get("ProfileEvents") or {}).get("OSCPUVirtualTimeMicroseconds") or 0)/1000
+                        trial["read_rows"]=e.get("read_rows")
+                        trial["memory_bytes"]=e.get("memory_usage")
+                    expected+=1
+        report["query_log_coverage"]={"found":found,"expected":expected,
+              "fraction":round(found/max(expected,1),4)}
+        if found<expected*.75:
+            report.setdefault("warnings",[]).append(
+              "Too many native QueryFinish entries missing; do not derive CPU percentiles")
+    except Exception as exc:
+        report.setdefault("warnings",[]).append("QueryLog CPU unavailable: "+str(exc)[:800])
+    save(out/"report.json",report)
     for name,table in TABLES.items():
         report["controls"][name]["sample_plans"]={}
         for selector in ("cluster","namespace","both"):
