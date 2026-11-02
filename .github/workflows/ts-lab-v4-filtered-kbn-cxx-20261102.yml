@@ -207,9 +207,9 @@ jobs:
           build-lab/programs/clickhouse local -q "SELECT avgKBNLab(x) FROM (SELECT arrayJoin([toFloat64(1e18),toFloat64(1),-toFloat64(1e18)]) AS x) SETTINGS max_threads=1" | tee evidence/kbn-smoke.txt
           grep -q '^0.333333333333' evidence/kbn-smoke.txt
           build-lab/programs/clickhouse local -q "SELECT getSetting('promql_enable_native_one_point_lab')" | tee evidence/optin-default.txt
-          grep -x 0 evidence/optin-default.txt
+          grep -x false evidence/optin-default.txt
           build-lab/programs/clickhouse local -q "SELECT getSetting('promql_enable_native_one_point_lab') SETTINGS promql_enable_native_one_point_lab=1" | tee evidence/optin-enabled.txt
-          grep -x 1 evidence/optin-enabled.txt
+          grep -x true evidence/optin-enabled.txt
           python3 "${RUNNER_TEMP}/validate_promql.py" build-lab/programs/clickhouse
           python3 "${RUNNER_TEMP}/validate_promql_extra.py" build-lab/programs/clickhouse
 
