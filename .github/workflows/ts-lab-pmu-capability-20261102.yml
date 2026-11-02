@@ -73,6 +73,10 @@ jobs:
           (p/'summary.json').write_text(json.dumps(r,indent=2)+'\n')
           print('PERF_PMU_CAPABILITY',json.dumps(r,separators=(',',':')),flush=True)
           PY
+      - name: Restore artifact ownership after sudo perf record
+        if: always()
+        run: |
+          sudo -n chown -R "$(id -u):$(id -g)" evidence/pmu || true
       - name: Preserve PMU access test and full stderr
         if: always()
         uses: actions/upload-artifact@v4
