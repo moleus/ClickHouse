@@ -44,9 +44,21 @@ def smoke_candidate(table,variant):
     # this test does not allow the previous compound-ID memory regression.
     name=inner(table,"tags")
     txt=actual_sql("SHOW CREATE TABLE "+name+" FORMAT TSVRaw")
-    if "Tuple(UInt64, LowCardinality(UUID))" not in txt:
-        raise RuntimeError("TAGS ID type changed; invalid metadata-only comparison")
-    return {"ddl":ddl,"tags_ddl":txt[:9000]}
+    baseline=inner("churn_ts","tags")
+    # Compare ACTUAL catalog type against the same fixture's baseline,
+    # not a string fragment in SHOW CREATE TABLE output. Some output formats
+    # escape commas/parentheses and source defaults can evolve.
+    def id_type(qualified):
+        rawname=qualified.split(chr(96))[1]
+        q=("SELECT type FROM system.columns WHERE database='default' "
+           "AND table="+repr(rawname)+" AND name='id' FORMAT TSV")
+        return actual_sql(q).strip()
+    reference_type=id_type(baseline)
+    candidate_type=id_type(name)
+    if not reference_type or reference_type != candidate_type:
+        raise RuntimeError(f"TAGS ID type diverged: baseline={reference_type}, candidate={candidate_type}")
+    return {"ddl":ddl,"tags_ddl":txt[:9000],"id_type_baseline":reference_type,
+            "id_type_candidate":candidate_type}
 def digest_case(phase):
     return {k:v for k,v in phase.items() if k not in ("trials","before","after")}
 def main():
