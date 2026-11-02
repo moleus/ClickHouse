@@ -1,4 +1,4 @@
-name: TimeSeries TAGS _part_offset stage lightweight secondary projection native smoke
+name: TimeSeries TAGS stage lightweight projection safe dedup rebuild native smoke
 on:
   workflow_dispatch:
   push:
