@@ -55,7 +55,6 @@ def log_for(qid):
     # Retry with a bounded backoff instead of treating missing data as zero.
     rows=[];done=None
     for attempt in range(8):
-        actual_sql("SYSTEM FLUSH LOGS")
         rows=querylogs(qid)
         done=next((x for x in reversed(rows)
                    if x.get("type")=="QueryFinish" and x.get("query_id")==qid),None)
@@ -94,9 +93,13 @@ def run_phase(table,case,phase,bin_path,restart_helper,reference,meta,output):
             raise RuntimeError(f"wrong output count {len(got)} vs {OUTPUT_POINTS[case]} {case}")
         if reference is None:reference=got
         else:assert_same(reference,got,case,phase)
-        res["query_log"]=log_for(qid)
         res["warmup"]=i<2
         trials.append(res)
+    # Read the query log AFTER all trials. Flushing after each query adds
+    # blocking extra work between observations and can race log ingestion.
+    actual_sql("SYSTEM FLUSH LOGS")
+    for item in trials:
+        item["query_log"]=log_for(item["query_id"])
     snap_after=system_snapshot("baseline" if table=="churn_ts" else table.removeprefix("churn_"))
     if not snap_after["disk"]["passed"] or snap_after["active_merges"]:
         raise RuntimeError("Invalid environment after query")
