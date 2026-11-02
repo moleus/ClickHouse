@@ -1,4 +1,4 @@
-name: TimeSeries layout native compound ID 4 variants 20 PromQL correctness smoke
+name: TimeSeries layout compound ID smoke tuple-key digest and query parity
 on:
   workflow_dispatch:
   push:
