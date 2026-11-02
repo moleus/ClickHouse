@@ -28,15 +28,14 @@ def main():
     prefix="v4cpp_"+os.environ.get("GITHUB_RUN_ID","local")+"_"+a.phase
     report={}
     url="http://127.0.0.1:18191"
-    if a.phase=="v4_on":
-        url+="/?promql_enable_native_one_point_lab=1"
-    else:
-        url+="/"
     for steps in STEPS:
         start=end-(steps-1)*86400
         for name,selector in CASES:
             case=f"{name}_e{steps}"
             sql=native_filtered(start,end,selector)
+            if a.phase=="v4_on":
+                sql=sql.replace(" FORMAT JSONEachRow",
+                                " SETTINGS promql_enable_native_one_point_lab=1 FORMAT JSONEachRow")
             first=None
             first_set=False
             times=[]
