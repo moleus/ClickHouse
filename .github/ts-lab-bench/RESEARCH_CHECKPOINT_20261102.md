@@ -70,3 +70,16 @@ Source insight:
 - Important next step: inspect completed benchmark/profile raw evidence. Reject the ring if it regresses normal rate or grouped queries; do not hide A/B/A drift. Then select a source-level fix based on observed CPU symbols.
 
 Links: https://github.com/moleus/ClickHouse/actions/runs/41416547876 ; https://github.com/moleus/ClickHouse/actions/runs/41417443992 ; https://github.com/moleus/ClickHouse/actions/runs/41417490871 .
+
+## Completed findings and new adaptive experiment (2026-11-02 ~09:05 UTC)
+
+1. Inline rate queue C++ build **41416547876 SUCCESS**, 5 original + 8 extended PromQL smoke tests PASS.
+2. Corrected A/B/A **41417443992 SUCCESS** (script bug in first failed run 41416918067 fixed):
+   - All 10 Jenkins/dense query outputs equal original ClickHouse; all eight 5m/30m/1h, 15s/60s/300s and increase/delta variants passed value checks.
+   - Jenkins all: baseline repeat 791.637ms versus inline 931.188ms; tracked memory p95 ~544MB versus 550MB. The query does not use rate; this regression suggests code layout/runner noise and invalidates global improvement claims.
+   - Dense sum(rate) baseline recheck 100.645ms versus inline 105.709ms; by team 127.982 versus 135.376ms; by region 128.98 versus 136.848ms. **REJECT inline queue as default**. Keep lab script for evidence.
+3. Original ClickHouse CPU sampling run **41417490871 SUCCESS** (24 repeats) on 20,000 dense series:
+   - rate_sum p50 111.508ms, team grouped 148.008ms, exact host rate 14.078ms; do not compare across different runner conditions.
+   - system.trace_log: rate sum 8,564 stack samples; 5,556 include `AdaptiveBucketMergingSource::generate` and 5,549 include `Aggregator::mergeAndConvertAdaptiveBucket`. Team 11,460 total; 7,117 and 7,105 include these frames. **These are inclusive stack frames, not exclusive CPU attribution**. The adaptive merge looks important; inspect its leaf frames and test alternatives.
+   - Source `src/Core/Settings.cpp`: `enable_adaptive_aggregator` true by default; default freeze at 16,384 keys or 4MiB. `src/Interpreters/AdaptiveAggregation/AdaptiveAggregation.h` documents staged partitioned merge.
+4. A/B/C/D/A SQL benchmark script `.github/ts-lab-bench/bench_adaptive_aggregation_sweep.py` commit `466dabcfcf6a88520144680a240fe14494910583`, workflow `.github/workflows/ts-lab-adaptive-aggregation-sweep-20261102.yml` commit `e70601f7f2f28ea3e63c00842a3a58861850063b`. Run **41418262715** started. Five variants: default-before, disabled, early-freeze (512/1MiB), late-freeze (65536/0B), default-after. Six workloads: broad & selective Jenkins, dense rate sum/team/region and exact host. Exact output checks + p50/p95 + memory/read_rows/read_bytes + AdaptiveAggregationDrainedRecords from query log. Check completed result before interpreting. Never blindly change `enable_adaptive_aggregator` globally.
