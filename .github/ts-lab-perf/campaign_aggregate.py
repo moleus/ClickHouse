@@ -104,8 +104,74 @@ def mini_stage(p):
             "valid_controls":len([x for x in diag.get("cases",[]) if x.get("valid")]),
             "errors":diag.get("failures",[]),"cases":lines,
             "warning":"Diagnostic admin SQL stages are not additive native critical path"}
+def mini_granularity(root):
+    p=uniq(root,"report.json")
+    # Evidence includes other manifest files; only this basename is unique.
+    if p is None:
+        return {"error":"granularity report.json unavailable"}
+    d=load(p,{})
+    assert d.get("pass") is True and len(d.get("data",[]))==8, "Granularity evidence incomplete"
+    assert d.get("source_hash")=="8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858"
+    table_stats={}
+    for k,t in d["tables"].items():
+        assert t["counts"]["series"]==1330000 and t["counts"]["stage"]==35000
+        rows={}
+        for physical_kind in ("samples","tags","timeranges"):
+            obj=t["physical"][physical_kind]
+            rows[physical_kind]={n:obj[n] for n in ("parts","rows","marks","bytes")}
+        table_stats[k]=rows
+    cases={}
+    for case in ("stage","whole"):
+        entries=[x for x in d["data"] if x["case"]==case]
+        assert len(entries)==4,("missing or extra",case)
+        baseline=[x for x in entries if x["phase"].startswith("g256_")]
+        assert len(baseline)==2 and entries[0]["phase"]=="g256_0" and entries[3]["phase"]=="g256_3"
+        baseline_ms=sum(x["p50_ms"] for x in baseline)/2
+        baseline_cpu=sum(x["cpu_us_p50"] for x in baseline)/2
+        baseline_drift=abs(baseline[0]["p50_ms"]-baseline[1]["p50_ms"])/baseline_ms
+        cases[case]={"baseline_interpolated_p50_ms":round(baseline_ms,3),
+                     "baseline_p50_start_end":[x["p50_ms"] for x in baseline],
+                     "baseline_drift_fraction":round(baseline_drift,4),
+                     "baseline_cpu_ms":round(baseline_cpu/1000,3),
+                     "variants":[]}
+        for item in entries:
+            g=item["phase"].split("_")[0]
+            cases[case]["variants"].append({
+                "variant":g,"phase":item["phase"],"median_wall_ms":item["p50_ms"],
+                "median_cpu_ms":round(item["cpu_us_p50"]/1000,3),
+                "median_read_rows":item["read_rows_p50"],
+                "median_logical_read_bytes":item["read_bytes_p50"],
+                "vs_control_wall_ratio":round(item["p50_ms"]/baseline_ms,4),
+                "vs_control_cpu_ratio":round(item["cpu_us_p50"]/baseline_cpu,4),
+                "all_measured_wall_ms":[x["wall_ms"] for x in item.get("timings",[]) if not x.get("warmup")]})
+    # These are observations on one short isolated GitHub runner fixture.
+    # Do not turn them into general production performance claims.
+    N=1330000;p=35000/N
+    model={}
+    for granule in (16,64,256):
+        g=str(granule)
+        part=table_stats["g"+g]["samples"]
+        prob=1-(1-p)**granule
+        physical=uniq(root,"physical-g"+g+".json")
+        plan=load(physical,{}) if physical else {}
+        import re
+        marks=[(int(a),int(b)) for a,b in re.findall(r"Granules:\s*(\d+)/(\d+)",plan.get("explain",""))]
+        model[g]={"samples_parts":part["parts"],"samples_marks":part["marks"],
+                 "samples_disk_bytes":part["bytes"],
+                 "expected_granule_fraction_uniform":round(prob,6),
+                 "expected_touched_granules":round(N/granule*prob),
+                 "physical_marks_explain":marks[-4:],
+                 "sample_probe_count":plan.get("sum_samples")}
+    accepted=(cases["stage"]["baseline_drift_fraction"]<.25 and
+              cases["whole"]["baseline_drift_fraction"]<.25 and
+              not d.get("errors"))
+    return {"fixture_sha256":d["source_hash"],"passed_fixture_and_result_checks":d["pass"],
+            "environment_baseline_drift_gate":accepted,
+            "cases":cases,"physical_sample_model":model,
+            "warning":"One-run O1 on isolated fixture; baseline drift checked. Separate SQL variants have different selectivity and data layout. No general optimal-granularity claim."}
+
 REDUCERS={"fresh":mini_fresh,"micro":mini_micro,"profiler":mini_profile,
-          "index":mini_index,"pmu":mini_pmu,"hardware":mini_hardware,"stage":mini_stage}
+          "index":mini_index,"pmu":mini_pmu,"hardware":mini_hardware,"stage":mini_stage,"granularity":mini_granularity}
 
 def main():
     ap=argparse.ArgumentParser()
