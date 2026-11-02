@@ -129,14 +129,16 @@ def main():
              "oom":rec.get("oom",False),"error":rec.get("error","")[:450]},
              separators=(",",":")),flush=True)
     query("SYSTEM FLUSH LOGS")
-    log=query("SELECT query_id,type,exception_code,substring(exception,1,500) AS err,"
-              "query_duration_ms,read_rows,read_bytes,memory_usage,ProfileEvents "
-              "FROM system.query_log WHERE startsWith(query_id,"
-              f"{sql_string('mem95_'+run+'_')}) FORMAT JSONEachRow")
-    if log["ok"]:
-        results["query_log"]=[json.loads(l) for l in log["body"].splitlines()
-            if l.strip() and l.startswith("{")]
-    else:results["query_log_error"]=log
+    try:
+        _,full_log=post(CH,"SELECT query_id,type,exception_code,"
+           "substring(exception,1,500) AS err,query_duration_ms,"
+           "read_rows,read_bytes,memory_usage,ProfileEvents "
+           "FROM system.query_log WHERE startsWith(query_id,"
+           f"{sql_string('mem95_'+run+'_')}) FORMAT JSONEachRow")
+        results["query_log"]=[json.loads(l) for l in full_log.splitlines()
+            if l.strip()]
+    except Exception as exc:
+        results["query_log_error"]=str(exc)[:3000]
     try:
         result=query("EXPLAIN PIPELINE SELECT count() FROM "
                      "prometheusQueryRange(churn_ts,"
