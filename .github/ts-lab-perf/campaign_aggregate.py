@@ -170,8 +170,62 @@ def mini_granularity(root):
             "cases":cases,"physical_sample_model":model,
             "warning":"One-run O1 on isolated fixture; baseline drift checked. Separate SQL variants have different selectivity and data layout. No general optimal-granularity claim."}
 
+def mini_variant_ab(root,filename,left,right):
+    path=uniq(root,filename)
+    if path is None:return {"error":filename+" unavailable"}
+    data=load(path,{})
+    result={"passed":data.get("passed"),"fixture_sha256":data.get("source_sha256"),
+            "errors":data.get("errors",[]),"selectors":{}}
+    for selector,case in data.get("cases",{}).items():
+        a=case.get("summary",{}).get(left,{})
+        b=case.get("summary",{}).get(right,{})
+        t=a.get("p50_ms");u=b.get("p50_ms")
+        before=a.get("cpu_us_p50");after=b.get("cpu_us_p50")
+        result["selectors"][selector]={"baseline":left,"candidate":right,
+            "baseline_ms":t,"candidate_ms":u,"candidate_speedup":round(t/u,4) if t and u else None,
+            "baseline_cpu_ms":round(before/1000,3) if before else None,
+            "candidate_cpu_ms":round(after/1000,3) if after else None,
+            "baseline_rss_kib":a.get("rss_peak_p50_kib"),
+            "candidate_rss_kib":b.get("rss_peak_p50_kib"),
+            "baseline_query_memory_bytes":a.get("query_mem_p50_bytes"),
+            "candidate_query_memory_bytes":b.get("query_mem_p50_bytes"),
+            "baseline_success":a.get("success"),"candidate_success":b.get("success"),
+            "vm_ms":case.get("vm_p50_ms")}
+        if a.get("success")!=4 or b.get("success")!=4:result["passed"]=False
+    if len(result["selectors"])!=4:result["passed"]=False
+    result["warning"]="Fresh-process O1/O2 and allocator effect are separate; 4 trials per variant, no production-wide confidence interval."
+    return result
+def mini_compiler(root):
+    return mini_variant_ab(root,"o1-o2-ab.json","o1","o2")
+def mini_allocator(root):
+    return mini_variant_ab(root,"allocator-ab.json","system","jemalloc")
+def mini_collector(root):
+    p=uniq(root,"collector-repeat-summary.json")
+    if p is None:p=uniq(root,"collector-repeat.json")
+    if p is None:return {"error":"native collector repeat report missing"}
+    d=load(p,{})
+    summary=d.get("cases") if isinstance(d.get("cases"),dict) else d.get("summary",{})
+    base={"passed":d.get("passed"),"errors":d.get("errors",[]),
+          "cases":len(summary),"observations":len(d.get("trials",[])),
+          "results":summary,"warning":"Native SQL timeSeriesStoreTags with only consistent UInt64 IDs; not full PromQL/ACL"}
+    return base
+def mini_callchain(root):
+    p=uniq(root,"callchain-summary.json")
+    if p is None:return {"error":"no parsed perf callchain report"}
+    d=load(p,{})
+    return {"valid":d.get("valid"),"total_samples":d.get("total_samples"),
+            "symbolized_samples":d.get("symbolized_samples"),
+            "symbolized_coverage":d.get("symbolized_coverage"),
+            "memset_attribution":d.get("memset_attribution"),
+            "top_leaves":d.get("top_leaves",[])[:10],
+            "warning":"If symbolized coverage below 80%, CPU call-stack fractions cannot be generalized."}
+def mini_lint(root):
+    a=load(uniq(root,"active.json"),{})
+    d=load(uniq(root,"all-lab.json"),{})
+    return {"active_workflows":a.get("workflow_count"),"active_errors":a.get("errors_total"),
+            "all_workflows":d.get("workflow_count"),"all_errors":d.get("errors_total")}
 REDUCERS={"fresh":mini_fresh,"micro":mini_micro,"profiler":mini_profile,
-          "index":mini_index,"pmu":mini_pmu,"hardware":mini_hardware,"stage":mini_stage,"granularity":mini_granularity}
+          "index":mini_index,"pmu":mini_pmu,"hardware":mini_hardware,"stage":mini_stage,"granularity":mini_granularity,"compiler":mini_compiler,"allocator":mini_allocator,"collector":mini_collector,"callchain":mini_callchain,"lint":mini_lint}
 
 def main():
     ap=argparse.ArgumentParser()
