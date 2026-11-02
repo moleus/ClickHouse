@@ -43,3 +43,11 @@ Let V(s,t) be the valid samples in the window (t-1d,t]. For each nonempty series
 ## Subsequent independent hypothesis
 
 Inspect whether the original `StorageTimeSeriesSelector` and existing query collector expose a metric-specific *already-computed* selected ID count before query lowering. If no such field is available at C++ converter time, a correct dispatch may require moving selection to an execution-stage adaptive operator or reusing planner cardinality estimates. Avoid doing a second label lookup merely to select the fastpath.
+
+## Measured result from the declared A/B/A protocol
+
+Run `41435248918` SUCCESS. Full output comparisons passed. Seven measured repetitions per phase after two warmups, original/v1/original on a single mixed table and five metrics. Original-after vs candidate p50 in ms:
+`N=210:18.167/18.613; N=1050:18.344/20.709; N=4200:30.816/30.498; N=16800:46.823/37.904; N=67200:134.206/102.744`.
+Memory p95 at N=16800 native 38.51MB vs v1 30.29MB; at N=67200 native 114.71MB vs v1 101.43MB. Original-before/after drift is visible at small N. A threshold on the *true selected N* is still not directly executable at converter stage; count-probe latency not yet measured.
+
+**Important later finding:** run `41436423717` proved v1 numerical differences for valid multi-sample data; series count alone is NOT a correct promotion condition. See `NUMERIC_PRECISION_PROOF_20261102.md`.
