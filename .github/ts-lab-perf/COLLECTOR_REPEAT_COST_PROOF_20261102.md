@@ -12,8 +12,10 @@ Mathematical work hypothesis: let N=input rows, f=unique IDs fraction, H=shared 
 
 Use native stateful SQL functions, not a surrogate hash model:
 timeSeriesIdToGroup(timeSeriesStoreTags(UInt64_ID,NULL,'stage',stage_tag))
-where UInt64_ID=number modulo D, stage=UInt64_ID modulo38, D=1330000,665000,133000,13300. Repeated IDs always have identical stage labels. Check N output rows and group max37, no exceptions. Compare thread counts 1/4, max_block_size 8192/65536, 3 independent fresh-process trials per case. Save raw timings, tracked memory, process RSS, query-log CPU, disk bytes, CPU identity, case order and evidence of missing metrics. Add no-collector control with the same generated modulo/string work.
+where UInt64_ID=number modulo D, stage=UInt64_ID modulo38, D=1330000,665000,133000,13300. Repeated IDs always have identical stage labels. Check N output rows and group max38, no exceptions. Compare thread counts 1/4, max_block_size 8192/65536, 3 independent fresh-process trials per case. Save raw timings, tracked memory, process RSS, query-log CPU, disk bytes, CPU identity, case order and evidence of missing metrics. Add no-collector control with the same generated modulo/string work.
 
 H1: at f=100% collector memory/CPU grow with N and map resize. H2: at f=1%, shared lookup might dominate; exclusive one-pass might regress. H3: adaptive strategy is required only if both regimes actually differ. If optimizer suppresses the stateful side effect, group max, memory and query plan must expose it; reject the run.
 
 Native isolated registration is NOT full PromQL performance, does not prove authorization, duplicate conflicting tags, other ID types or dense/long query safety. Later patch must pass end-to-end A/B/A and VM numerical semantics.
+
+Observed smoke on O2: count=3800, max_group=38. Collector reserves group0 for empty tags; stage groups use indices1..38. Fixed benchmark oracle accordingly; previous 41498825170 failure was incorrect test assertion, not O2 bug.
