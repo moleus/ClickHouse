@@ -1,0 +1,134 @@
+name: TimeSeries TAGS _part_offset stage lightweight secondary projection native smoke
+on:
+  workflow_dispatch:
+  push:
+    branches: [lab/timeseries-layout-research-20261102]
+    paths: ['.github/workflows/ts-lab-tags-light-projection-20261102.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-tags-light-projection-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  collector:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify known O2 binary and custom ID smoke script without C++ recompilation
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/o2-art" "$RUNNER_TEMP/ch-bin"
+          gh run download 41467151457 -R "$REPO" \
+            -n tslab-v4-filtered-kbn-o2-lab-binary-0dec1dbeca0586c3782bff457d6b6890a43723f4 \
+            -D "$RUNNER_TEMP/o2-art"
+          archive="$(find "$RUNNER_TEMP/o2-art" -type f -name "clickhouse-v4-filtered-kbn-o2-lab-linux-amd64.tar.zst" -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/o2-archive-hash.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
+          (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS) | tee evidence/o2-binary-hash.txt
+          chmod +x "$RUNNER_TEMP/ch-bin/clickhouse"
+          "$RUNNER_TEMP/ch-bin/clickhouse" --version | tee evidence/o2-version.txt
+          cat "$RUNNER_TEMP/ch-bin/BUILD_INFO.txt" >evidence/o2-build-info.txt
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' evidence/o2-build-info.txt
+          grep -q 'optimization=O2' evidence/o2-build-info.txt
+          python3 -m py_compile .github/ts-lab-layout/layout_id_smoke.py .github/ts-lab-layout/probe_lightweight_stage_projection.py
+          python3 - <<'PY'
+          import shutil
+          d=shutil.disk_usage('.')
+          assert d.free/d.total>.20,'Insufficient free disk: exclude invalid experiment'
+          PY
+      - name: Start isolated ClickHouse for query-context memory diagnostics
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles"
+          cat > "$RUNNER_TEMP/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path><tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <max_server_memory_usage>5000000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions><log_queries>1</log_queries><max_memory_usage>4000000000</max_memory_usage></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <trace_log><database>system</database><table>trace_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></trace_log>
+            <processors_profile_log><database>system</database><table>processors_profile_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></processors_profile_log>
+            <query_thread_log><database>system</database><table>query_thread_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_thread_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/ch-bin/clickhouse" server --config-file="$RUNNER_TEMP/config.xml" >evidence/ch-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -fsS -X POST --data-binary 'SELECT 1 FORMAT TSV' http://127.0.0.1:18191/ | tee evidence/ch-ready.txt
+
+      - name: Controlled ClickHouse restart helper, preserving the same on-disk datasets
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ch-restart.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          binary="$1"
+          phase="$2"
+          parent="$(cat "$RUNNER_TEMP/ch.pid")"
+          children="$(cat "/proc/$parent/task/$parent/children" 2>/dev/null || true)"
+          for pid in $children "$parent"; do
+            if [ -n "$pid" ]; then kill -TERM "$pid" 2>/dev/null || true; fi
+          done
+          # Do not restart just because a clickhouse watchdog has stopped:
+          # wait for both the old HTTP listener and its actual process.
+          for attempt in $(seq 1 100); do
+            if ! curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "BUCKET_PREVIOUS_SERVER_CLOSED phase=$phase attempt=$attempt"
+              break
+            fi
+            sleep 1
+          done
+          if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+            echo 'Old ClickHouse still listening; refuse unsafe restart' >&2
+            exit 1
+          fi
+          sleep 2
+          "$binary" server --config-file="$RUNNER_TEMP/config.xml" >"evidence/ch-server-$phase.log" 2>&1 &
+          echo "$!" >"$RUNNER_TEMP/ch.pid"
+          for attempt in $(seq 1 120); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "BUCKET_SERVER_STARTED phase=$phase attempt=$attempt"
+              exit 0
+            fi
+            sleep 1
+          done
+          tail -110 "evidence/ch-server-$phase.log"
+          exit 1
+          SH
+          chmod +x "$RUNNER_TEMP/ch-restart.sh"
+
+
+      - name: Smoke lightweight stage projection on ID-sorted native TAGS
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/tags-projection
+          python3 -m py_compile .github/ts-lab-layout/probe_lightweight_stage_projection.py
+          python3 .github/ts-lab-layout/probe_lightweight_stage_projection.py \
+            --out evidence/tags-projection | tee evidence/tags-projection-events.log
+
+      - name: Keep exact ALTER syntax projection index plans and native correctness
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-tags-lightweight-projection-evidence
+          path: evidence/
+          retention-days: 35
+          compression-level: 1
