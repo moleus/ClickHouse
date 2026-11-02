@@ -30,6 +30,8 @@ def main():
             report["checks"],"add_minmax")
     if report["checks"]["add_minmax"]["ok"]:
         collect(f"ALTER TABLE {tr} MATERIALIZE INDEX idx_time_max SETTINGS mutations_sync=2",report["checks"],"mat_minmax")
+    collect(f"ALTER TABLE {tr} MODIFY SETTING deduplicate_merge_projection_mode='rebuild'",
+            report["checks"],"allow_projection_rebuild")
     collect(f"ALTER TABLE {tr} ADD PROJECTION time_by_max (SELECT id,min_time,max_time ORDER BY max_time,id)",
             report["checks"],"add_projection")
     if report["checks"]["add_projection"]["ok"]:
@@ -39,9 +41,10 @@ def main():
            "toDateTime64('2026-10-19 00:00:00',3,'UTC')")
     for label,opts in {
         "none":"optimize_use_projections=0",
-        "cost":"optimize_use_projections=1,prefer_projection_optimization=0",
-        "prefer":"optimize_use_projections=1,prefer_projection_optimization=1",
+        "cost":"optimize_use_projections=1",
+        "force":"optimize_use_projections=1,force_optimize_projection=1",
     }.items():
+        opts += ",optimize_trivial_count_query=0"
         collect("EXPLAIN PLAN indexes=1,projections=1 "+query+" SETTINGS "+opts,
                 report["checks"],"explain_"+label)
         collect(query+" SETTINGS "+opts+" FORMAT TSV",report["checks"],"query_"+label)
