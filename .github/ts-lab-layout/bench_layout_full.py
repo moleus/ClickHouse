@@ -7,6 +7,7 @@ Do not infer production speedup from single-host hot page-cache data.
 """
 import argparse,hashlib,json,os,pathlib,random,re,statistics,sys,time,urllib.request
 sys.path.insert(0,".github/ts-lab-layout")
+sys.path.insert(0,".github/ts-lab-perf")
 sys.path.insert(0,".github/ts-lab-bench")
 from layout_id_smoke import definition,SCHEMA
 from bench_granularity_v11 import streamed_insert,optimize_table,wait_no_merges,stats,inner,querylogs
