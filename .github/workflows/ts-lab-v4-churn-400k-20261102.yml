@@ -1,4 +1,4 @@
-name: TimeSeries 400k new-series sparse CI load native-v4 A/B/C/A
+name: TimeSeries 400k new-series sparse CI load corrected metric verification
 on:
   push:
     branches: [lab/timeseries-fastpath-ci]
