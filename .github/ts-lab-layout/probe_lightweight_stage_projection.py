@@ -48,7 +48,10 @@ def main():
             query(create)
             tags=target(table,"tags");item["tags"]=tags
             if variant=="light_projection":
-                # ALTER allows one secondary sort order without rewriting original TAGS.
+                # ReplacingMergeTree deduplicates during merges; rebuild index after each dedup.
+                item["deduplicate_mode"]="rebuild"
+                query(f"ALTER TABLE {tags} MODIFY SETTING deduplicate_merge_projection_mode = 'rebuild'")
+                # ALTER keeps the original TAGS order while adding a secondary lookup key.
                 item["projection_ddl"]=f"ALTER TABLE {tags} ADD PROJECTION p_stage_label (SELECT _part_offset ORDER BY (metric_name,stage))"
                 query(item["projection_ddl"])
             insert(table,data_bytes(rows[:len(rows)//2]))
