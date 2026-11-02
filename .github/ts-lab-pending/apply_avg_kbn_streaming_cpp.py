@@ -130,6 +130,7 @@ AggregateFunctionPtr createAvgKBNLab(
 }
 }
 
+void registerAggregateFunctionAvgKBNLab(AggregateFunctionFactory & factory);
 void registerAggregateFunctionAvgKBNLab(AggregateFunctionFactory & factory)
 {
     FunctionDocumentation::Description desc =
