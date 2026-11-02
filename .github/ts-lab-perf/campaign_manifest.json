@@ -30,16 +30,22 @@
       "required": true
     },
     {
+      "kind": "stage",
+      "id": 41492609952,
+      "artifact": "tslab-stage-path-evidence",
+      "required": true
+    },
+    {
       "kind": "pmu",
-      "id": 41490537656,
+      "id": 41492116498,
       "artifact": "tslab-pmu-capability",
       "required": true
     },
     {
       "kind": "hardware",
-      "id": 41490797988,
+      "id": 41492330376,
       "artifact": "tslab-hardware-perf-evidence",
-      "required": false
+      "required": true
     }
   ]
 }
