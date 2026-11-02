@@ -1,0 +1,82 @@
+name: TimeSeries Linux perf, PMU and syscall profiler capability check
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-pmu-capability-20261102.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tslab-pmu-capability-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  capability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Test regular, sudo, and sysctl performance counter permissions separately
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/pmu
+          command -v perf >evidence/pmu/perf-path.txt || true
+          command -v strace >evidence/pmu/strace-path.txt || true
+          command -v bpftrace >evidence/pmu/bpftrace-path.txt || true
+          cat /proc/sys/kernel/perf_event_paranoid >evidence/pmu/paranoid-before.txt || true
+          cat /proc/sys/kernel/kptr_restrict >evidence/pmu/kptr-before.txt || true
+          uname -a >evidence/pmu/kernel.txt
+          cat /proc/cpuinfo >evidence/pmu/cpuinfo.txt
+          perf --version >evidence/pmu/perf-version.txt 2>&1 || true
+
+          set +e
+          perf stat -x, -e task-clock,cycles,instructions,cache-misses,branch-misses \
+             -o evidence/pmu/unprivileged.csv -- python3 -c 'sum((i*i)%8191 for i in range(4000000))' \
+             >evidence/pmu/unprivileged-out.txt 2>evidence/pmu/unprivileged-err.txt
+          echo "$?" >evidence/pmu/unprivileged-rc.txt
+
+          sudo -n perf stat -x, -e task-clock,cycles,instructions,cache-misses,branch-misses \
+             -o evidence/pmu/sudo.csv -- python3 -c 'sum((i*i)%8191 for i in range(4000000))' \
+             >evidence/pmu/sudo-out.txt 2>evidence/pmu/sudo-err.txt
+          echo "$?" >evidence/pmu/sudo-rc.txt
+
+          sudo -n sysctl -w kernel.perf_event_paranoid=1 \
+             >evidence/pmu/sysctl-out.txt 2>evidence/pmu/sysctl-err.txt
+          echo "$?" >evidence/pmu/sysctl-rc.txt
+
+          perf stat -x, -e task-clock,cycles,instructions,cache-misses,branch-misses \
+             -o evidence/pmu/after-sysctl.csv -- python3 -c 'sum((i*i)%8191 for i in range(4000000))' \
+             >evidence/pmu/after-sysctl-out.txt 2>evidence/pmu/after-sysctl-err.txt
+          echo "$?" >evidence/pmu/after-sysctl-rc.txt
+
+          sudo -n perf record -F 99 -g --call-graph dwarf -o evidence/pmu/perf.data \
+             -- python3 -c 'sum((i*i)%8191 for i in range(8000000))' \
+             >evidence/pmu/record-out.txt 2>evidence/pmu/record-err.txt
+          echo "$?" >evidence/pmu/record-rc.txt
+
+          sudo -n perf report -i evidence/pmu/perf.data --stdio --no-children --sort symbol \
+             >evidence/pmu/report.txt 2>evidence/pmu/report-err.txt
+          echo "$?" >evidence/pmu/report-rc.txt
+          set -e
+          cat /proc/sys/kernel/perf_event_paranoid >evidence/pmu/paranoid-after.txt || true
+          python3 - <<'PY'
+          import json,pathlib
+          p=pathlib.Path('evidence/pmu')
+          checks=['unprivileged','sudo','sysctl','after-sysctl','record','report']
+          r={k:int((p/(k+'-rc.txt')).read_text().strip()) for k in checks}
+          r['perf_event_paranoid_before']=(p/'paranoid-before.txt').read_text().strip()
+          r['perf_event_paranoid_after']=(p/'paranoid-after.txt').read_text().strip()
+          r['hardware_available']=any(r[k]==0 for k in ('unprivileged','sudo','after-sysctl'))
+          r['stack_profile_available']=r['record']==0 and r['report']==0
+          (p/'summary.json').write_text(json.dumps(r,indent=2)+'\n')
+          print('PERF_PMU_CAPABILITY',json.dumps(r,separators=(',',':')),flush=True)
+          PY
+      - name: Preserve PMU access test and full stderr
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-pmu-capability
+          path: evidence/
+          retention-days: 21
