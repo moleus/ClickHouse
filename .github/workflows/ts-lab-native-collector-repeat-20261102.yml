@@ -29,8 +29,9 @@ jobs:
           gh run download 41467151457 -R "$REPO" \
             -n tslab-v4-filtered-kbn-o2-lab-binary-0dec1dbeca0586c3782bff457d6b6890a43723f4 \
             -D "$RUNNER_TEMP/o2-art"
-          archive="$RUNNER_TEMP/o2-art/clickhouse-v4-filtered-kbn-o2-lab-linux-amd64.tar.zst"
-          (cd "$RUNNER_TEMP/o2-art" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/o2-archive-hash.txt
+          archive="$(find "$RUNNER_TEMP/o2-art" -type f -name "clickhouse-v4-filtered-kbn-o2-lab-linux-amd64.tar.zst" -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/o2-archive-hash.txt
           zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
           (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS) | tee evidence/o2-binary-hash.txt
           chmod +x "$RUNNER_TEMP/ch-bin/clickhouse"
