@@ -1,4 +1,4 @@
-name: TimeSeries batched array-row grouped grid C++ build and correctness
+name: TimeSeries batched array-row grouped grid C++ build and correctness v2
 
 on:
   push:
