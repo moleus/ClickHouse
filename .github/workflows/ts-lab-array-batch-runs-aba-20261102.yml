@@ -188,8 +188,8 @@ jobs:
       - name: Download verified fused grouped avg C++ binary only after its independent build succeeds
         run: |
           set -euo pipefail
-          run_id=41408759125
-          source_sha=c962b9721c1ac0410b7466040e558fbf92741967
+          run_id=41409953952
+          source_sha=2bd7c281b8edcdb4725fe866ab9e62da36bd8b1d
           mkdir -p "$RUNNER_TEMP/arraybatch-art" "$RUNNER_TEMP/arraybatch-bin"
           success=0
           for attempt in $(seq 1 120); do
