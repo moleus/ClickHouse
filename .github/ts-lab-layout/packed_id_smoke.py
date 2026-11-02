@@ -15,7 +15,7 @@ CANDIDATES=("default","stage","project")
 def generator(tag):
     # The underlying source's 128-bit hash is truncated from 128 to112 bits.
     # A 16-bit tag-value hash goes to high UInt128 bits, preserving ID width.
-    trunc="subtract(bitShiftLeft(toUInt128(1),112),toUInt128(1))"
+    trunc="toUInt128('5192296858534827628530496329220095')"
     hi=f"bitShiftLeft(bitAnd(toUInt128(sipHash64(tags['{tag}'])),toUInt128(65535)),112)"
     lo=f"bitAnd(reinterpretAsUInt128(sipHash128(tags)),{trunc})"
     return (f"tuple(sipHash64(metric_name),toLowCardinality("
