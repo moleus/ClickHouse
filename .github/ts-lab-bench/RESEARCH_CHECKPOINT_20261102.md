@@ -109,3 +109,18 @@ Link: https://github.com/moleus/ClickHouse/actions/runs/41418262715 .
 - **Do not claim a speedup until the C++ binary compiles and the A/B/A completes.** The 65,536-row threshold is only a controlled hypothesis; running the counterexample probe might cost more than it saves. Compare narrow/old-shifted IDs and increase in query memory. Keep fork lab-only.
 
 Links: https://github.com/moleus/ClickHouse/actions/runs/41418972822 and https://github.com/moleus/ClickHouse/actions/runs/41419049171 .
+
+## Bucketed whole-metric ID range: REJECTED, A/B/A finished (run 41419049171)
+
+- C++ build **41418972822 SUCCESS**; default 13 PromQL regression tests passed.
+- A/B/A run **41419049171** completed *all* 3 phases (original, candidate, original), all 10 Jenkins/dense query outputs matched exactly. Workflow marked FAILURE only because the *final inlined Python summary script* contained an unterminated quoted string. Raw `METRIC_RANGE_QUERY` for every phase and artifacts were uploaded. This is not a correctness mismatch and no reason to repeat the expensive build.
+- p50 candidate vs original repeat: broad Jenkins **966.296 vs969.285 ms** (not meaningful); filtered branch **485.387 vs318.217 ms**, project **257.346 vs139.052 ms**, exact stage **216.028 vs102.784 ms**, dense sum(rate) **177.005 vs174.573 ms**, dense group team **222.737 vs214.82 ms**, group region **222.044 vs216.948 ms**. Big regressions on narrow selectors.
+- Causal source: `tryMakeWholeMetricIDRangeConditions` executes an extra tags/time-range counterexample probe even when label filters guarantee the whole-metric fast path fails, so the candidate pays probe cost before original fallback. Broad matching does not gain enough to justify enabling the path for bucketed data.
+- **REJECT the C++ candidate**; keep `apply_bucketed_whole_metric_range_cpp.py` as experiment only; do not enable in production or change the existing non-bucketed path.
+
+## Permission-aware grouped AVG SQL prototype launched
+
+- Source evidence: `timeSeriesSelector` already resolves tags/IDs using `timeSeriesStoreTags` to populate the query's collector; `timeSeriesIdToGroup` maps IDs to groups; `timeSeriesRemoveAllTagsExcept` keeps the required grouping label. It may be possible to compute per-ID scalar avg and only then map to group through the collector, avoiding direct reads of internal SAMPLES/TAGS and making regular label filtering available.
+- Created experimental `.github/ts-lab-bench/bench_selector_scalar_grouped_avg.py` commit `2fd86cebc580dbf767886d5785cdb0801b22c6c5` with five selectors and native-original/native-recheck correctness, per-query memory/read_rows. **This is SQL only**, not a new C++ engine patch.
+- Workflow `.github/workflows/ts-lab-selector-scalar-grouped-avg-20261102.yml` commit `f46c8ef9dbc84ae0ca2b74f41fcf726ae9e6787b`; run **41419685211** started. If SQL fails, inspect the first error and fix it; otherwise record exact A/B/A p50/p95, memory and read rows and only then decide if C++ integration is justified.
+- The query passes `timeSeriesSelector` instead of direct inner targets; this is *structurally better for authorization*, but still requires explicit access-policy tests before production claims.
