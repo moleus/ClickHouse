@@ -1,4 +1,4 @@
-name: TimeSeries CBO adaptive four workloads
+name: TimeSeries CBO corrected-window four workloads
 on:
   push:
     branches: [lab/ts-cbo-adaptive-20261103]
@@ -31,6 +31,7 @@ jobs:
           set -euo pipefail
           python3 -m py_compile .github/ts-lab-cbo/run_adaptive_probe.py
           python3 .github/ts-lab-cbo/run_adaptive_probe.py --help
+          grep -q '2026-11-01 00:00:00' .github/ts-lab-cbo/run_adaptive_probe.py
       - name: Verify and extract pinned O2 binary
         run: |
           set -euo pipefail
