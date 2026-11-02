@@ -1,4 +1,4 @@
-name: TimeSeries four metadata path interventions same ID benchmark CPU TimeRanges and TAGS
+name: TimeSeries real system.columns ID invariant four metadata path CPU A B B A
 on:
   push:
     branches: [lab/timeseries-layout-research-20261102]
