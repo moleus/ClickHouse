@@ -2,7 +2,7 @@ name: TimeSeries CBO 1.33m paired statistics on off A B B A
 on:
   push:
     branches: [lab/ts-cbo-adaptive-20261103]
-    paths: ['.github/workflows/ts-lab-cbo-stage-stats-paired-paired-20261103.yml']
+    paths: ['.github/workflows/ts-lab-cbo-stage-stats-paired-20261103.yml']
 permissions:
   contents: read
   actions: read
