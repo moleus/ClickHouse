@@ -78,7 +78,16 @@ def main():
             try:
                 ms,body=post("http://127.0.0.1:18191",q,qid)
                 output=normalize_any(body)
-                if not output:raise AssertionError("Empty native PromQL result")
+                expected_per_day={"whole":38,"regex":38,"project":19,"stage":1}[args.case]
+                expected_points=expected_per_day*days
+                if len(output)!=expected_points:
+                    raise AssertionError(("Incomplete native PromQL result",args.case,days,
+                                          len(output),expected_points))
+                expected_grid={start+i*DAY for i in range(days)}
+                actual_grid={key[1] for key in output}
+                if actual_grid!=expected_grid:
+                    raise AssertionError(("Wrong timestamps",args.case,days,
+                                          sorted(actual_grid),sorted(expected_grid)))
                 if reference is None:reference=output;precision={"max_abs_error":0,"points":len(output)}
                 else:precision=assert_same(reference,output,args.case,v)
                 rec={"variant":v,"query_id":qid,"ms":round(ms,3),
@@ -96,10 +105,13 @@ def main():
             a=[x["ms"] for x in arr_a];b=[x["ms"] for x in arr_b]
             item["comparison"]={"default_p50_ms":statistics.median(a),
                 "hash_p50_ms":statistics.median(b),
-                "speedup_default_over_hash":round(statistics.median(b)/statistics.median(a),4),
+                "speedup_default_over_hash":round(statistics.median(a)/statistics.median(b),4),
                 "baseline_drift":round(abs(a[0]-a[-1])/statistics.mean(a),4)}
             if item["comparison"]["baseline_drift"]>.30:
                 item["errors"].append({"drift":"Over 30% baseline drift"})
+            # A matching result does not prove that an explicit algorithm took effect.
+            # Keep the full EXPLAIN and CPU stacks; only label a gain when the
+            # physical operator agrees with the configured algorithm.
         for rec in item["trials"]:
             if rec["variant"] in ("default","hash") and len(item.get("profiles",{}))<4:
                 out={}
