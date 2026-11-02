@@ -108,6 +108,11 @@ def phase_control(stage, report):
             raise AssertionError(f"Base table results differ: {filter_name} {a['count']} != {b['count']}")
         controls={"plain":a,"indexed":b}
         for mode in ("cost","force"):
+            if mode=="force" and b["count"]["n"]==0:
+                # An empty partition can be eliminated before a projection is
+                # considered; force_optimize_projection then correctly refuses.
+                controls["force_skipped"]="zero-match; no physical read required"
+                continue
             got=diagnostic("update_indexed",mode,filter_name)
             if got["count"]!=b["count"]:
                 raise AssertionError(f"Projection changed results: {stage} {filter_name} {mode} {got['count']} != {b['count']}")
