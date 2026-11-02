@@ -213,6 +213,10 @@ def ch_logs(base,qid,out):
         "cpu_leaf":("SELECT trace_type,arrayElement(symbols,1) AS leaf,count() AS samples "
                     "FROM system.trace_log WHERE query_id="+quote+
                     " GROUP BY trace_type,leaf ORDER BY samples DESC LIMIT 100 FORMAT JSONEachRow"),
+        "cpu_stacks":("SELECT trace_type,arraySlice(symbols,1,24) AS stack,count() AS samples "
+                      "FROM system.trace_log WHERE query_id="+quote+
+                      " AND trace_type='CPU' GROUP BY trace_type,stack ORDER BY samples DESC "
+                      "LIMIT 1000 FORMAT JSONEachRow"),
         "cpu_stack_count":("SELECT trace_type,count() AS count FROM system.trace_log WHERE query_id="+quote+
                            " GROUP BY trace_type FORMAT JSONEachRow"),
     }
