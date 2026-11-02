@@ -1,0 +1,206 @@
+name: TimeSeries paired CH v4 versus VM 1.134 dense sparse exact benchmark
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-ch-vm-dense-sparse-paired-20261102.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-ch-vm-dense-sparse-paired-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download SHA256 verified baseline binary without recompiling
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/ch-art" "$RUNNER_TEMP/ch-bin"
+          gh run download 41301314345 -R "$REPO" --pattern 'tslab-clickhouse-amd64-*' -D "$RUNNER_TEMP/ch-art"
+          archive="$(find "$RUNNER_TEMP/ch-art" -name 'clickhouse-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/ch-archive-hash.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
+          (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS) | tee evidence/ch-binary-hash.txt
+          chmod +x "$RUNNER_TEMP/ch-bin/clickhouse"
+          "$RUNNER_TEMP/ch-bin/clickhouse" --version | tee evidence/ch-version.txt
+
+      - name: Start isolated ClickHouse and create v11 Float64 fixture
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles"
+          cat > "$RUNNER_TEMP/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path><tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <max_server_memory_usage>4000000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions><log_queries>1</log_queries><max_memory_usage>2000000000</max_memory_usage></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/ch-bin/clickhouse" server --config-file="$RUNNER_TEMP/config.xml" >evidence/ch-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -fsS -X POST --data-binary 'CREATE TABLE precision_ts ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0'             'http://127.0.0.1:18191/?allow_experimental_time_series_table=1' >evidence/create.txt
+          python3 - <<'PY'
+          import datetime,json,pathlib,os
+          start=int(datetime.datetime(2026,11,1,tzinfo=datetime.timezone.utc).timestamp())
+          pathlib.Path('evidence/manifest.json').write_text(json.dumps({'start':start,'end':start+86400},indent=2))
+          series={
+              'cancel_1e18':[1e18,2.0,3.0,5.0,-1e18],
+              'cancel_1e16':[1e16,1.0,-1e16],
+              'cancel_micro':[1e18,1e-6,-1e18,1e-6],
+              'ordinary':[1.0,2.0,3.0],
+          }
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'precision.jsonl'
+          with out.open('w') as f:
+              for stage,values in series.items():
+                  samples=[['2026-10-31 01:%02d:00.000'%i,v] for i,v in enumerate(values)]
+                  f.write(json.dumps({'metric_name':'tslab_numeric_precision',
+                                      'tags':{'stage':stage,'build':'single-'+stage},
+                                      'samples':samples},separators=(',',':'))+'\n')
+          print('NUMERIC_FIXTURE',json.dumps(series,sort_keys=True),flush=True)
+          PY
+          sha256sum "$RUNNER_TEMP/precision.jsonl" >evidence/fixture-sha256.txt
+          curl -fsS --max-time 120 --data-binary "@$RUNNER_TEMP/precision.jsonl"             'http://127.0.0.1:18191/?allow_experimental_time_series_table=1&wait_end_of_query=1&query=INSERT%20INTO%20precision_ts%20(metric_name%2Ctags%2Csamples)%20FORMAT%20JSONEachRow'             >evidence/insert-response.txt
+          curl -fsS --data-binary 'SELECT metric_name,count() FROM precision_ts GROUP BY metric_name FORMAT TSV'             http://127.0.0.1:18191/ | tee evidence/fixture-count.tsv
+
+      - name: Create dense persistent series and sparse daily-new series
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/ts-lab-bench/generate_dense_sparse_cost_ts.py               .github/ts-lab-bench/bench_dense_sparse_v4_aba.py
+          python3 .github/ts-lab-bench/generate_dense_sparse_cost_ts.py             --manifest evidence/dense-sparse-manifest.json             --input "$RUNNER_TEMP/dense-sparse-40d.jsonl" | tee evidence/dense-sparse-fixture.log
+          sha256sum "$RUNNER_TEMP/dense-sparse-40d.jsonl" > evidence/dense-sparse-fixture-sha256.txt
+
+      - name: Download verified guarded scalar AVG C++ binary after independent build
+        run: |
+          set -euo pipefail
+          run_id=41447045583
+          source_sha=afba85d8f12b8746e47aab2da6c8facad9608e20
+          mkdir -p "$RUNNER_TEMP/selectorscalar-art" "$RUNNER_TEMP/selectorscalar-bin"
+          success=0
+          for attempt in $(seq 1 120); do
+            if gh run download "$run_id" -R "$REPO" \
+                 -n "tslab-v4-filtered-kbn-lab-binary-$source_sha" \
+                 -D "$RUNNER_TEMP/selectorscalar-art" 2>/dev/null; then
+              success=1
+              echo "SELECTOR_SCALAR_BINARY_ARTIFACT run=$run_id attempts=$attempt"
+              break
+            fi
+            conclusion="$(gh run view "$run_id" -R "$REPO" --json conclusion --jq .conclusion || true)"
+            if [ "$conclusion" = failure ] || [ "$conclusion" = cancelled ]; then
+              echo "Fused C++ binary did not build successfully ($conclusion)" >&2
+              exit 1
+            fi
+            sleep 15
+          done
+          [ "$success" = 1 ] || { echo "Fused C++ artifact not found" >&2; exit 1; }
+          archive="$(find "$RUNNER_TEMP/selectorscalar-art" -type f -name 'clickhouse-v4-filtered-kbn-lab-linux-amd64.tar.zst' -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/selector-scalar-archive-hash.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/selectorscalar-bin"
+          (cd "$RUNNER_TEMP/selectorscalar-bin" && sha256sum -c SHA256SUMS) | tee evidence/selectorscalar-binary-hash.txt
+          chmod +x "$RUNNER_TEMP/selectorscalar-bin/clickhouse"
+          "$RUNNER_TEMP/selectorscalar-bin/clickhouse" --version | tee evidence/selector-scalar-version.txt
+          cp "$RUNNER_TEMP/selectorscalar-bin/BUILD_INFO.txt" evidence/selector-scalar-build-info.txt
+
+
+      - name: Controlled ClickHouse restart helper, preserving the same on-disk datasets
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ch-restart.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          binary="$1"
+          phase="$2"
+          parent="$(cat "$RUNNER_TEMP/ch.pid")"
+          children="$(cat "/proc/$parent/task/$parent/children" 2>/dev/null || true)"
+          for pid in $children "$parent"; do
+            if [ -n "$pid" ]; then kill -TERM "$pid" 2>/dev/null || true; fi
+          done
+          # Do not restart just because a clickhouse watchdog has stopped:
+          # wait for both the old HTTP listener and its actual process.
+          for attempt in $(seq 1 100); do
+            if ! curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "BUCKET_PREVIOUS_SERVER_CLOSED phase=$phase attempt=$attempt"
+              break
+            fi
+            sleep 1
+          done
+          if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+            echo 'Old ClickHouse still listening; refuse unsafe restart' >&2
+            exit 1
+          fi
+          sleep 2
+          "$binary" server --config-file="$RUNNER_TEMP/config.xml" >"evidence/ch-server-$phase.log" 2>&1 &
+          echo "$!" >"$RUNNER_TEMP/ch.pid"
+          for attempt in $(seq 1 120); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "BUCKET_SERVER_STARTED phase=$phase attempt=$attempt"
+              exit 0
+            fi
+            sleep 1
+          done
+          tail -110 "evidence/ch-server-$phase.log"
+          exit 1
+          SH
+          chmod +x "$RUNNER_TEMP/ch-restart.sh"
+
+
+      - name: Download pinned SHA256 verified VM and start isolated 6-month store
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/vm-art" "$RUNNER_TEMP/vm-bin" "$RUNNER_TEMP/vm/data"
+          gh run download 41288854734 -R "$REPO"             -n tslab-victoria-metrics-v1.134.0 -D "$RUNNER_TEMP/vm-art"
+          (cd "$RUNNER_TEMP/vm-art" && sed 's#  output/#  #' SHA256SUMS | sha256sum -c -)             | tee evidence/vm-binary-hash.txt
+          tar -xzf "$RUNNER_TEMP/vm-art/victoria-metrics-linux-amd64-v1.134.0.tar.gz"             -C "$RUNNER_TEMP/vm-bin"
+          chmod +x "$RUNNER_TEMP/vm-bin/victoria-metrics-prod"
+          "$RUNNER_TEMP/vm-bin/victoria-metrics-prod" --version 2>&1             | head -n 3 | tee evidence/vm-version.txt
+          "$RUNNER_TEMP/vm-bin/victoria-metrics-prod"             -storageDataPath="$RUNNER_TEMP/vm/data"             -httpListenAddr=127.0.0.1:8430 -retentionPeriod=6             -search.maxUniqueTimeseries=1000000 -search.disableCache             >evidence/vm-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/vm.pid"
+          for attempt in $(seq 1 90); do
+            if curl -fsS --max-time 2 http://127.0.0.1:8430/health >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          curl -fsS --max-time 2 http://127.0.0.1:8430/health >evidence/vm-health.txt
+          python3 -m py_compile .github/ts-lab-bench/import_dense_sparse_to_vm.py             .github/ts-lab-bench/bench_ch_vs_vm_dense_sparse.py
+
+      - name: Replay exact ClickHouse fixture sample values and times into VM
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-bench/import_dense_sparse_to_vm.py             --fixture "$RUNNER_TEMP/dense-sparse-40d.jsonl"             --ch-manifest evidence/dense-sparse-manifest.json             --output evidence/vm-import-manifest.json | tee evidence/vm-import.log
+
+      - name: Pair VM and CH queries by case with alternating order and exact output checks
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/ch-restart.sh" "$RUNNER_TEMP/selectorscalar-bin/clickhouse" paired_vm
+          python3 .github/ts-lab-bench/bench_ch_vs_vm_dense_sparse.py             --manifest evidence/dense-sparse-manifest.json             --ch-pid "$RUNNER_TEMP/ch.pid" --vm-pid "$RUNNER_TEMP/vm.pid"             --output evidence/paired-ch-vm-results.json | tee evidence/paired-ch-vm.log
+          du -sb "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/vm/data"             > evidence/paired-storage-bytes.tsv
+          ps -eo pid,ppid,rss,comm | grep -E 'clickhouse|victoria-metrics|PID'             >evidence/paired-processes.tsv || true
+
+      - name: Preserve numerical proof and any diagnostic failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-ch-vm-dense-sparse-paired-${{ github.run_id }}
+          path: evidence/
+          retention-days: 21
+          compression-level: 1
