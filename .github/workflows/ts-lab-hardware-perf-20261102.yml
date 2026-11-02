@@ -1,0 +1,272 @@
+name: TimeSeries isolated CPU PMU and DWARF call stacks for native query
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-hardware-perf-20261102.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-hardware-perf-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download SHA256 verified baseline binary without recompiling
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/ch-art" "$RUNNER_TEMP/ch-bin"
+          gh run download 41301314345 -R "$REPO" --pattern 'tslab-clickhouse-amd64-*' -D "$RUNNER_TEMP/ch-art"
+          archive="$(find "$RUNNER_TEMP/ch-art" -name 'clickhouse-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/ch-archive-hash.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
+          (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS) | tee evidence/ch-binary-hash.txt
+          chmod +x "$RUNNER_TEMP/ch-bin/clickhouse"
+          "$RUNNER_TEMP/ch-bin/clickhouse" --version | tee evidence/ch-version.txt
+
+      - name: Start isolated ClickHouse and create v11 Float64 fixture
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles"
+          cat > "$RUNNER_TEMP/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path><tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <max_server_memory_usage>5000000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions><log_queries>1</log_queries><max_memory_usage>4000000000</max_memory_usage></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <trace_log><database>system</database><table>trace_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></trace_log>
+            <processors_profile_log><database>system</database><table>processors_profile_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></processors_profile_log>
+            <query_thread_log><database>system</database><table>query_thread_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_thread_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/ch-bin/clickhouse" server --config-file="$RUNNER_TEMP/config.xml" >evidence/ch-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -fsS -X POST --data-binary 'CREATE TABLE precision_ts ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0'             'http://127.0.0.1:18191/?allow_experimental_time_series_table=1' >evidence/create.txt
+          python3 - <<'PY'
+          import datetime,json,pathlib,os
+          start=int(datetime.datetime(2026,11,1,tzinfo=datetime.timezone.utc).timestamp())
+          pathlib.Path('evidence/manifest.json').write_text(json.dumps({'start':start,'end':start+86400},indent=2))
+          series={
+              'cancel_1e18':[1e18,2.0,3.0,5.0,-1e18],
+              'cancel_1e16':[1e16,1.0,-1e16],
+              'cancel_micro':[1e18,1e-6,-1e18,1e-6],
+              'ordinary':[1.0,2.0,3.0],
+          }
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'precision.jsonl'
+          with out.open('w') as f:
+              for stage,values in series.items():
+                  samples=[['2026-10-31 01:%02d:00.000'%i,v] for i,v in enumerate(values)]
+                  f.write(json.dumps({'metric_name':'tslab_numeric_precision',
+                                      'tags':{'stage':stage,'build':'single-'+stage},
+                                      'samples':samples},separators=(',',':'))+'\n')
+          print('NUMERIC_FIXTURE',json.dumps(series,sort_keys=True),flush=True)
+          PY
+          sha256sum "$RUNNER_TEMP/precision.jsonl" >evidence/fixture-sha256.txt
+          curl -fsS --max-time 120 --data-binary "@$RUNNER_TEMP/precision.jsonl"             'http://127.0.0.1:18191/?allow_experimental_time_series_table=1&wait_end_of_query=1&query=INSERT%20INTO%20precision_ts%20(metric_name%2Ctags%2Csamples)%20FORMAT%20JSONEachRow'             >evidence/insert-response.txt
+          curl -fsS --data-binary 'SELECT metric_name,count() FROM precision_ts GROUP BY metric_name FORMAT TSV'             http://127.0.0.1:18191/ | tee evidence/fixture-count.tsv
+
+      - name: Generate SHA verified 14d 95k new Jenkins IDs daily in ClickHouse
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/ts-lab-bench/generate_95k_daily_churn_ts.py             .github/ts-lab-bench/import_95k_churn_to_vm.py             .github/ts-lab-bench/bench_95k_daily_vs_vm.py
+          python3 .github/ts-lab-bench/generate_95k_daily_churn_ts.py             --manifest evidence/95k-manifest.json             --fixture "$RUNNER_TEMP/95k-churn.jsonl" | tee evidence/95k-ingest-ch.log
+          sha256sum "$RUNNER_TEMP/95k-churn.jsonl" >evidence/95k-fixture.sha256
+
+      - name: Download verified guarded scalar AVG C++ binary after independent build
+        run: |
+          set -euo pipefail
+          run_id=41447045583
+          source_sha=afba85d8f12b8746e47aab2da6c8facad9608e20
+          mkdir -p "$RUNNER_TEMP/selectorscalar-art" "$RUNNER_TEMP/selectorscalar-bin"
+          success=0
+          for attempt in $(seq 1 120); do
+            if gh run download "$run_id" -R "$REPO" \
+                 -n "tslab-v4-filtered-kbn-lab-binary-$source_sha" \
+                 -D "$RUNNER_TEMP/selectorscalar-art" 2>/dev/null; then
+              success=1
+              echo "SELECTOR_SCALAR_BINARY_ARTIFACT run=$run_id attempts=$attempt"
+              break
+            fi
+            conclusion="$(gh run view "$run_id" -R "$REPO" --json conclusion --jq .conclusion || true)"
+            if [ "$conclusion" = failure ] || [ "$conclusion" = cancelled ]; then
+              echo "Fused C++ binary did not build successfully ($conclusion)" >&2
+              exit 1
+            fi
+            sleep 15
+          done
+          [ "$success" = 1 ] || { echo "Fused C++ artifact not found" >&2; exit 1; }
+          archive="$(find "$RUNNER_TEMP/selectorscalar-art" -type f -name 'clickhouse-v4-filtered-kbn-lab-linux-amd64.tar.zst' -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/selector-scalar-archive-hash.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/selectorscalar-bin"
+          (cd "$RUNNER_TEMP/selectorscalar-bin" && sha256sum -c SHA256SUMS) | tee evidence/selectorscalar-binary-hash.txt
+          chmod +x "$RUNNER_TEMP/selectorscalar-bin/clickhouse"
+          "$RUNNER_TEMP/selectorscalar-bin/clickhouse" --version | tee evidence/selector-scalar-version.txt
+          cp "$RUNNER_TEMP/selectorscalar-bin/BUILD_INFO.txt" evidence/selector-scalar-build-info.txt
+
+
+      - name: Download verified compiled stage-projection C++ binary
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/projected-art" "$RUNNER_TEMP/projected-bin"
+          gh run download 41477923294 -R "$REPO"             -n "tslab-v4-stage-proj-o1-binary-a7fb8ead23aea998988f1488abe2ca94f6a381a6"             -D "$RUNNER_TEMP/projected-art"
+          archive="$(find "$RUNNER_TEMP/projected-art" -type f -name 'clickhouse-v4-stage-proj-o1-linux-amd64.tar.zst' -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS)             | tee evidence/projected-archive-sha256.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/projected-bin"
+          (cd "$RUNNER_TEMP/projected-bin" && sha256sum -c SHA256SUMS)             | tee evidence/projected-binary-sha256.txt
+          chmod +x "$RUNNER_TEMP/projected-bin/clickhouse"
+          grep -q 'stage tags projected' "$RUNNER_TEMP/projected-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/projected-bin/BUILD_INFO.txt" evidence/projected-build-info.txt
+          "$RUNNER_TEMP/projected-bin/clickhouse" --version | tee evidence/projected-version.txt
+
+      - name: Controlled ClickHouse restart helper, preserving the same on-disk datasets
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ch-restart.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          binary="$1"
+          phase="$2"
+          parent="$(cat "$RUNNER_TEMP/ch.pid")"
+          children="$(cat "/proc/$parent/task/$parent/children" 2>/dev/null || true)"
+          for pid in $children "$parent"; do
+            if [ -n "$pid" ]; then kill -TERM "$pid" 2>/dev/null || true; fi
+          done
+          # Do not restart just because a clickhouse watchdog has stopped:
+          # wait for both the old HTTP listener and its actual process.
+          for attempt in $(seq 1 100); do
+            if ! curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "BUCKET_PREVIOUS_SERVER_CLOSED phase=$phase attempt=$attempt"
+              break
+            fi
+            sleep 1
+          done
+          if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+            echo 'Old ClickHouse still listening; refuse unsafe restart' >&2
+            exit 1
+          fi
+          sleep 2
+          "$binary" server --config-file="$RUNNER_TEMP/config.xml" >"evidence/ch-server-$phase.log" 2>&1 &
+          echo "$!" >"$RUNNER_TEMP/ch.pid"
+          for attempt in $(seq 1 120); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "BUCKET_SERVER_STARTED phase=$phase attempt=$attempt"
+              exit 0
+            fi
+            sleep 1
+          done
+          tail -110 "evidence/ch-server-$phase.log"
+          exit 1
+          SH
+          chmod +x "$RUNNER_TEMP/ch-restart.sh"
+
+
+      - name: Enable perf on isolated ephemeral runner, preserve host and binary identity
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/hardware
+          python3 -m py_compile .github/ts-lab-perf/run_hardware_query.py .github/ts-lab-perf/capture.py
+          sudo -n sysctl -w kernel.perf_event_paranoid=1 | tee evidence/hardware/perf-permission.txt
+          perf --version >evidence/hardware/perf-version.txt
+          uname -a >evidence/hardware/kernel.txt
+          cat /proc/cpuinfo >evidence/hardware/cpuinfo.txt
+          df -h "$RUNNER_TEMP/ch/data" >evidence/hardware/disk.txt
+          sha256sum "$RUNNER_TEMP/projected-bin/clickhouse" "$RUNNER_TEMP/selectorscalar-bin/clickhouse" >evidence/hardware/bin-sha256.txt
+          python3 - <<'PY'
+          import json,pathlib
+          m=json.loads(pathlib.Path('evidence/95k-manifest.json').read_text())
+          assert m['series']==1330000
+          start=int(m['end'])-13*86400
+          common=" SETTINGS promql_enable_native_one_point_lab=1,max_threads=4 FORMAT JSONEachRow\n"
+          whole="avg by(stage)(avg_over_time(jenkins_ci_95k_daily[1d]))"
+          stage='avg by(stage)(avg_over_time(jenkins_ci_95k_daily{stage="stage-0007"}[1d]))'
+          for name,expr in [('whole',whole),('stage',stage)]:
+              sql=f"SELECT * FROM prometheusQueryRange(churn_ts,'{expr}',{start},{m['end']},86400)"+common
+              pathlib.Path('evidence/hardware/'+name+'.sql').write_text(sql)
+          print('HARDWARE_FIXTURE',m['sha256'],start,m['end'],flush=True)
+          PY
+      - name: Hardware counters on fresh-process full and projected whole/stage queries
+        run: |
+          set -euo pipefail
+          helper="$RUNNER_TEMP/ch-restart.sh"
+          projected="$RUNNER_TEMP/projected-bin/clickhouse"
+          original="$RUNNER_TEMP/selectorscalar-bin/clickhouse"
+          "$helper" "$projected" perf_projected_whole
+          python3 .github/ts-lab-perf/run_hardware_query.py \
+            --pid-file "$RUNNER_TEMP/ch.pid" \
+            --sql-file evidence/hardware/whole.sql --data-path "$RUNNER_TEMP/ch/data" \
+            --kind stat --case projected_whole --expected-points 532 \
+            --out evidence/hardware/projected_whole_stat
+          "$helper" "$original" perf_full_whole
+          python3 .github/ts-lab-perf/run_hardware_query.py \
+            --pid-file "$RUNNER_TEMP/ch.pid" \
+            --sql-file evidence/hardware/whole.sql --data-path "$RUNNER_TEMP/ch/data" \
+            --kind stat --case fulltags_whole --expected-points 532 \
+            --out evidence/hardware/fulltags_whole_stat
+          "$helper" "$projected" perf_projected_stage
+          python3 .github/ts-lab-perf/run_hardware_query.py \
+            --pid-file "$RUNNER_TEMP/ch.pid" \
+            --sql-file evidence/hardware/stage.sql --data-path "$RUNNER_TEMP/ch/data" \
+            --kind stat --case projected_stage --expected-points 14 \
+            --out evidence/hardware/projected_stage_stat
+
+      - name: Separate DWARF call stack profiler on same projected whole workload
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/ch-restart.sh" "$RUNNER_TEMP/projected-bin/clickhouse" perf_projected_record
+          python3 .github/ts-lab-perf/run_hardware_query.py \
+            --pid-file "$RUNNER_TEMP/ch.pid" \
+            --sql-file evidence/hardware/whole.sql --data-path "$RUNNER_TEMP/ch/data" \
+            --kind record --case projected_whole --expected-points 532 \
+            --out evidence/hardware/projected_whole_record
+
+      - name: Restore permission of perf artifacts and produce compact summary
+        if: always()
+        run: |
+          set -euo pipefail
+          sudo -n chown -R "$(id -u):$(id -g)" evidence/hardware || true
+          python3 - <<'PY'
+          import json,pathlib
+          root=pathlib.Path('evidence/hardware')
+          stats=[]
+          for path in sorted(root.glob('*/result_summary.json')):
+              r=json.loads(path.read_text())
+              stats.append({'case':r.get('case'),'kind':r.get('kind'),'ok':r.get('ok'),
+                            'wall_ms_instrumented':r.get('query_wall_ms'),
+                            'cpu_counters':r.get('perf_counters'),
+                            'perf_exit':r.get('perf_returncode'),
+                            'rss_peak_kib':r.get('sampled_rss_peak_kib')})
+          (root/'summary.json').write_text(json.dumps(stats,indent=2)+'\n')
+          print('PERF_HARDWARE_SUMMARY',json.dumps(stats,separators=(',',':')),flush=True)
+          PY
+
+      - name: Preserve raw PMU perf.data, perf stat, source maps and query evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-hardware-perf-evidence
+          path: evidence/
+          retention-days: 30
+          compression-level: 1
