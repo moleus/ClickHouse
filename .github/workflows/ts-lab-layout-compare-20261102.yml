@@ -1,4 +1,4 @@
-name: TimeSeries custom compound ID 1.33m three parallel layouts preflight and full A/B
+name: TimeSeries compound sorted ID three layouts full phase-end log A/B/B/A
 on:
   push:
     branches: [lab/timeseries-layout-research-20261102]
