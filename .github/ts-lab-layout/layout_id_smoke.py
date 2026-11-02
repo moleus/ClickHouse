@@ -39,11 +39,10 @@ def definition(table,labels):
         fields.append(f"sipHash64(tags['{label}'])")
     fields.append("toLowCardinality(reinterpretAsUUID(sipHash128(tags)))")
     generator="tuple("+", ".join(fields)+")"
-    return (f"CREATE TABLE {table} ENGINE=TimeSeries "
+    return (f"CREATE TABLE {table} ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0 "
             f"SAMPLES INNER COLUMNS (id {full}) "
             f"TAGS INNER COLUMNS (id {full} DEFAULT {generator}) "
-            f"TIME RANGES INNER COLUMNS (id {full}) "
-            f"SETTINGS recent_samples_ttl_seconds=0")
+            f"TIME RANGES INNER COLUMNS (id {full})")
 def data_rows():
     rows=[]
     # 2 metric families, 4 stages, 4 projects, 10 jobs, 100 builds.
