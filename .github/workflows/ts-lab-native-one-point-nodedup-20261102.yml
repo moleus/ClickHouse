@@ -1,0 +1,125 @@
+name: TimeSeries one-point native dedup equivalence under duplicate timestamps
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-native-one-point-nodedup-20261102.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-native-one-point-nodedup-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download SHA256 verified baseline binary without recompiling
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/ch-art" "$RUNNER_TEMP/ch-bin"
+          gh run download 41301314345 -R "$REPO" --pattern 'tslab-clickhouse-amd64-*' -D "$RUNNER_TEMP/ch-art"
+          archive="$(find "$RUNNER_TEMP/ch-art" -name 'clickhouse-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/ch-archive-hash.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
+          (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS) | tee evidence/ch-binary-hash.txt
+          chmod +x "$RUNNER_TEMP/ch-bin/clickhouse"
+          "$RUNNER_TEMP/ch-bin/clickhouse" --version | tee evidence/ch-version.txt
+
+      - name: Start isolated ClickHouse and create v11 Float64 fixture
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles"
+          cat > "$RUNNER_TEMP/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path><tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <max_server_memory_usage>4000000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions><log_queries>1</log_queries><max_memory_usage>2000000000</max_memory_usage></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/ch-bin/clickhouse" server --config-file="$RUNNER_TEMP/config.xml" >evidence/ch-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -fsS -X POST --data-binary 'CREATE TABLE precision_ts ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0'             'http://127.0.0.1:18191/?allow_experimental_time_series_table=1' >evidence/create.txt
+          python3 - <<'PY'
+          import datetime,json,pathlib,os
+          start=int(datetime.datetime(2026,11,1,tzinfo=datetime.timezone.utc).timestamp())
+          pathlib.Path('evidence/manifest.json').write_text(json.dumps({'start':start,'end':start+86400},indent=2))
+          series={
+              'cancel_1e18':[1e18,2.0,3.0,5.0,-1e18],
+              'cancel_1e16':[1e16,1.0,-1e16],
+              'cancel_micro':[1e18,1e-6,-1e18,1e-6],
+              'ordinary':[1.0,2.0,3.0],
+          }
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'precision.jsonl'
+          with out.open('w') as f:
+              for stage,values in series.items():
+                  samples=[['2026-10-31 01:%02d:00.000'%i,v] for i,v in enumerate(values)]
+                  f.write(json.dumps({'metric_name':'tslab_numeric_precision',
+                                      'tags':{'stage':stage,'build':'single-'+stage},
+                                      'samples':samples},separators=(',',':'))+'\n')
+          print('NUMERIC_FIXTURE',json.dumps(series,sort_keys=True),flush=True)
+          PY
+          sha256sum "$RUNNER_TEMP/precision.jsonl" >evidence/fixture-sha256.txt
+          curl -fsS --max-time 120 --data-binary "@$RUNNER_TEMP/precision.jsonl"             'http://127.0.0.1:18191/?allow_experimental_time_series_table=1&wait_end_of_query=1&query=INSERT%20INTO%20precision_ts%20(metric_name%2Ctags%2Csamples)%20FORMAT%20JSONEachRow'             >evidence/insert-response.txt
+          curl -fsS --data-binary 'SELECT metric_name,count() FROM precision_ts GROUP BY metric_name FORMAT TSV'             http://127.0.0.1:18191/ | tee evidence/fixture-count.tsv
+
+      - name: Add conflicting same-ID timestamps in separate unmerged inserts
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])
+          base=[
+            {'metric_name':'tslab_numeric_precision','tags':{'stage':'duplicate_positive','build':'dup-pos'},
+             'samples':[['2026-10-31 01:00:00.000',100.0],['2026-10-31 01:15:00.000',10.0]]},
+            {'metric_name':'tslab_numeric_precision','tags':{'stage':'duplicate_negative','build':'dup-neg'},
+             'samples':[['2026-10-31 01:00:00.000',-20.0],['2026-10-31 01:10:00.000',-10.0]]}
+          ]
+          later=[
+            {'metric_name':'tslab_numeric_precision','tags':{'stage':'duplicate_positive','build':'dup-pos'},
+             'samples':[['2026-10-31 01:00:00.000',1.0]]},
+            {'metric_name':'tslab_numeric_precision','tags':{'stage':'duplicate_negative','build':'dup-neg'},
+             'samples':[['2026-10-31 01:00:00.000',-5.0]]}
+          ]
+          for name,data in [('dup-first',base),('dup-second',later)]:
+              (root/(name+'.jsonl')).write_text(''.join(json.dumps(x,separators=(',',':'))+'\n' for x in data))
+          print('DUPLICATE_PART_FIXTURE',json.dumps({'first':base,'second':later}),flush=True)
+          PY
+          for part in dup-first dup-second; do
+            sha256sum "$RUNNER_TEMP/$part.jsonl" >> evidence/duplicate-fixture-sha256.txt
+            curl -fsS --max-time 120 --data-binary "@$RUNNER_TEMP/$part.jsonl"               'http://127.0.0.1:18191/?allow_experimental_time_series_table=1&wait_end_of_query=1&query=INSERT%20INTO%20precision_ts%20(metric_name%2Ctags%2Csamples)%20FORMAT%20JSONEachRow'               >"evidence/$part-insert.txt"
+          done
+
+      - name: A/B/C/A native one-point with versus without SQL dedup
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-bench/bench_native_one_point_nodedup.py             --manifest evidence/manifest.json             --output evidence/native-dedup-aba.json | tee evidence/native-dedup-aba.log
+
+      - name: Preserve source-equivalence probe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-native-one-point-nodedup-${{ github.run_id }}
+          path: evidence/
+          retention-days: 21
+          compression-level: 1
