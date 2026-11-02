@@ -1,0 +1,215 @@
+name: TimeSeries v4 opt-in filtered and KBN optimized O2 independent CI build
+
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-v4-o2-cxx-20261102.yml']
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: tslab-v4-o2-cxx-20261102-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  clickhouse:
+    runs-on: ${{ vars.CH_BUILD_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 360
+    env:
+      SOURCE_SHA: 52529f0c711566d696917678bf15e7068772fdde
+      LLVM_VERSION: 22.1.8
+      LLVM_SHA256: 8d5d1e52a06e1c10e457fd36489047053ac451ddad9c88017b0d0fc6b8e5d4c0
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 2500M
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Keep lab patch and tests
+        run: |
+          cp .github/ts-lab-patches/0001-fast-sum-rate-no-duplicate-grid.patch "${RUNNER_TEMP}/fastpath.patch"
+          cp .github/ts-lab-scripts/validate_promql.py "${RUNNER_TEMP}/validate_promql.py"
+          cp .github/ts-lab-bench/validate_promql_extra.py "${RUNNER_TEMP}/validate_promql_extra.py"
+          cp .github/ts-lab-pending/apply_selector_native_one_point_v4_filtered_cpp.py "${RUNNER_TEMP}/scalar_patch.py"
+          cp .github/ts-lab-pending/apply_avg_kbn_streaming_cpp.py "${RUNNER_TEMP}/kbn_patch.py"
+
+      - name: Check disk and clean only below 55 GiB free
+        run: |
+          set -euo pipefail
+          df -h .
+          available_bytes="$(df -B1 --output=avail . | tail -n 1 | tr -d ' ')"
+          if [ "$available_bytes" -lt 59055800320 ]; then
+            echo 'Less than 55 GiB free; reclaiming unused runner packages'
+            sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache /usr/local/share/powershell || true
+          else
+            echo 'Enough disk space; skipping slow cleanup'
+          fi
+          df -h .
+
+      - name: Checkout exact baseline source (without submodule worktrees)
+        run: |
+          set -euo pipefail
+          git remote add upstream https://github.com/ClickHouse/ClickHouse.git
+          git fetch --no-tags --depth=1 upstream "$SOURCE_SHA"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git submodule sync --recursive
+
+      - name: Restore exact pinned submodule metadata
+        id: pinned_submodules
+        uses: actions/cache/restore@v4
+        with:
+          path: .git/modules
+          key: tslab-submodule-metadata-52529f0c711566d696917678bf15e7068772fdde-v2
+
+      - name: Populate checked-out submodule worktrees in parallel
+        run: |
+          set -euo pipefail
+          git submodule init
+          git config --file .gitmodules --get-regexp '.*path' | sed 's/[^ ]* //' |
+            xargs -r -n 1 -P 12 git submodule update --depth=1 --single-branch --
+          git submodule status --recursive > "$RUNNER_TEMP/pinned-submodules.txt"
+          if grep -E '^[+-U]' "$RUNNER_TEMP/pinned-submodules.txt"; then
+            echo 'Submodule checkout mismatch' >&2
+            exit 1
+          fi
+          echo "Verified $(wc -l < "$RUNNER_TEMP/pinned-submodules.txt") pinned submodules"
+          df -h .
+
+      - name: Save pinned submodule metadata immediately on cache miss
+        if: steps.pinned_submodules.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .git/modules
+          key: tslab-submodule-metadata-52529f0c711566d696917678bf15e7068772fdde-v2
+
+      - name: Apply patch
+        run: |
+          set -euo pipefail
+          git apply --check "${RUNNER_TEMP}/fastpath.patch"
+          git apply "${RUNNER_TEMP}/fastpath.patch"
+          python3 "${RUNNER_TEMP}/scalar_patch.py"
+          python3 "${RUNNER_TEMP}/kbn_patch.py"
+          git diff --check
+          git diff --stat
+          mkdir -p evidence
+          git diff > evidence/combined.patch
+
+      - name: Install pinned LLVM
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 "https://www.kernel.org/pub/tools/llvm/files/llvm-${LLVM_VERSION}-x86_64.tar.xz" -o "${RUNNER_TEMP}/llvm.tar.xz"
+          echo "${LLVM_SHA256}  ${RUNNER_TEMP}/llvm.tar.xz" | sha256sum -c -
+          mkdir -p "${RUNNER_TEMP}/llvm"
+          tar -xf "${RUNNER_TEMP}/llvm.tar.xz" -C "${RUNNER_TEMP}/llvm" --strip-components=1
+          "${RUNNER_TEMP}/llvm/bin/clang++" --version
+
+      - name: Install ccache and NASM
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ccache nasm
+          ccache --version
+          nasm --version
+          mkdir -p "$CCACHE_DIR"
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: tslab-ccache-Linux-52529f0c711566d696917678bf15e7068772fdde-sparse-adaptive-41319688851
+          restore-keys: |
+            tslab-ccache-${{ runner.os }}-${{ env.SOURCE_SHA }}-
+
+      - name: Configure ClickHouse
+        run: |
+          set -euo pipefail
+          export PATH="${RUNNER_TEMP}/llvm/bin:${PATH}"
+          command -v ld.lld
+          ld.lld --version
+          cmake -S . -B build-lab -G Ninja \
+            -DLINKER_NAME="${RUNNER_TEMP}/llvm/bin/ld.lld" \
+            -DCMAKE_BUILD_TYPE=Release \
+            '-DCMAKE_C_FLAGS_RELEASE=-O2 -DNDEBUG -g0' \
+            '-DCMAKE_CXX_FLAGS_RELEASE=-O2 -DNDEBUG -g0' \
+            -DCOMPILER_CACHE=ccache \
+            -DCMAKE_C_COMPILER="${RUNNER_TEMP}/llvm/bin/clang" \
+            -DCMAKE_CXX_COMPILER="${RUNNER_TEMP}/llvm/bin/clang++" \
+            -DCMAKE_LINKER="${RUNNER_TEMP}/llvm/bin/ld.lld" \
+            -DENABLE_LIBRARIES=OFF \
+            -DENABLE_ANTLR4_CPP_RUNTIME=ON \
+            -DENABLE_ANTLR4_GRAMMARS=ON \
+            -DENABLE_TESTS=OFF \
+            -DENABLE_BENCHMARKS=OFF \
+            -DENABLE_RUST=OFF \
+            -DENABLE_CUDA=OFF \
+            -DENABLE_ARROW=OFF \
+            -DENABLE_ORC=OFF \
+            -DENABLE_HDFS=OFF \
+            -DENABLE_ISAL_LIBRARY=OFF \
+            -DENABLE_GPU=OFF \
+            -DENABLE_EXAMPLES=OFF \
+            -DENABLE_SUBSTRAIT=OFF \
+            -DCLICKHOUSE_OFFICIAL_BUILD=OFF
+          df -h .
+
+      - name: Compile one executable
+        run: |
+          set -euo pipefail
+          /usr/bin/time -v -o evidence/compile-time.txt ninja -C build-lab -j2 clickhouse > evidence/build.log 2>&1 || { tail -110 evidence/build.log; exit 1; }
+          tail -28 evidence/build.log
+          ccache --show-stats
+          test -s build-lab/programs/clickhouse
+          build-lab/programs/clickhouse --version
+
+      - name: Package lab binary
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          cp build-lab/programs/clickhouse output/clickhouse
+          chmod +x output/clickhouse
+          printf 'source=%s\nfork=%s\nllvm=%s\noptimization=O2 + opt-in filtered native one-point v4 and streaming avgKBNLab\n' "$SOURCE_SHA" "$GITHUB_SHA" "$LLVM_VERSION" > output/BUILD_INFO.txt
+          (cd output && sha256sum clickhouse > SHA256SUMS)
+          tar -C output -cf - clickhouse SHA256SUMS BUILD_INFO.txt | zstd -T2 -10 -o output/clickhouse-v4-filtered-kbn-o2-lab-linux-amd64.tar.zst
+          (cd output && sha256sum clickhouse-v4-filtered-kbn-o2-lab-linux-amd64.tar.zst > ARCHIVE_SHA256SUMS)
+
+      - name: Upload CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-v4-filtered-kbn-o2-lab-binary-${{ github.sha }}
+          path: |
+            output/clickhouse-v4-filtered-kbn-o2-lab-linux-amd64.tar.zst
+            output/ARCHIVE_SHA256SUMS
+            output/BUILD_INFO.txt
+            evidence/combined.patch
+            evidence/compile-time.txt
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      - name: Save partial compilation cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .ccache
+          key: tslab-ccache-${{ runner.os }}-${{ env.SOURCE_SHA }}-v4filterkbn-O2-${{ github.run_id }}
+
+      - name: Smoke tests
+        run: |
+          set -euo pipefail
+          build-lab/programs/clickhouse local -q 'SELECT 1' | grep -x 1
+          build-lab/programs/clickhouse local -q 'SELECT version()'
+          build-lab/programs/clickhouse local --allow_experimental_time_series_table=1 -q 'SELECT 1' | grep -x 1
+          build-lab/programs/clickhouse local -q "SELECT avgKBNLab(x) FROM (SELECT arrayJoin([toFloat64(1e18),toFloat64(1),-toFloat64(1e18)]) AS x) SETTINGS max_threads=1" | tee evidence/kbn-smoke.txt
+          grep -q '^0.333333333333' evidence/kbn-smoke.txt
+          build-lab/programs/clickhouse local -q "SELECT getSetting('promql_enable_native_one_point_lab')" | tee evidence/optin-default.txt
+          grep -x false evidence/optin-default.txt
+          build-lab/programs/clickhouse local -q "SELECT getSetting('promql_enable_native_one_point_lab') SETTINGS promql_enable_native_one_point_lab=1" | tee evidence/optin-enabled.txt
+          grep -x true evidence/optin-enabled.txt
+          python3 "${RUNNER_TEMP}/validate_promql.py" build-lab/programs/clickhouse
+          python3 "${RUNNER_TEMP}/validate_promql_extra.py" build-lab/programs/clickhouse
+
