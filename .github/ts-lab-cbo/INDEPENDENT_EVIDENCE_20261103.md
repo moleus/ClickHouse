@@ -184,3 +184,24 @@ The TDigest stats added 1,955 bytes to a 100,000-row part at 90% hot and
 cluster-wide memory or ingest-cost claim. High-cardinality/string key support,
 rare-value estimates, type conversion and time stability need separate checks.
 The quadratic JOIN itself was not executed.
+
+## 7. Cost-mode projection plans, direct physical read
+
+Run: https://github.com/moleus/ClickHouse/actions/runs/41538293956.
+The READ matrix completed successfully. This is the natural planner choice
+(`optimize_use_projections=1`), NOT `force_optimize_projection=1`.
+
+| Time window | No projection median | Natural cost mode median | Chosen plan | Read rows |
+| --- | ---: | ---: | --- | --- |
+| 1d | 12.25 ms | 5.0 ms | time_by_max | 101,200 |
+| 3d | 11.25 ms | 5.25 ms | time_by_max | 289,616 |
+| 7d | 11.75 ms | 9.25 ms | time_by_max | 666,448 |
+| 14d | 12.25 ms | 11.0 ms | base table | 1,330,000 |
+
+For 14d, EXPLAIN explicitly says the projection needs 163 marks and
+has no useful sort advantage. It selects the base table, avoiding the
+forced projection regression. The 1d/14d baseline drift was 28.57%, close
+to the 30% rejection guard; these wall-time differences need independent
+confirmation. The 3d/7d baseline drift was 4.44%/4.26%, respectively.
+This is a direct COUNT diagnostic; full native PromQL benefit is unproved.
+The JOIN matrix of the same run must be checked separately.
