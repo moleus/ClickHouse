@@ -1,0 +1,3 @@
+Source run: 41505253205, six independent selective jobs all completed successfully.
+Dense: 41504786378; mark model: 41503557195; public corpus: 41502908657.
+Publish only verified compact JSON and Markdown to lab/timeseries-layout-results.
