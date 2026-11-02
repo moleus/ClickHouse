@@ -158,9 +158,9 @@ def native(workload,table,out):
 
 def join_sql(table, cond, days, algorithm, use_statistics=1, semi=False):
     tags=inner(table,"tags");tr=inner(table,"timeranges")
-    lo="2026-11-02 00:00:00" if days==1 else "2026-10-19 00:00:00"
+    lo="2026-11-01 00:00:00" if days==1 else "2026-10-19 00:00:00"
     timerange=(f"max_time >= toDateTime64({lit(lo)},3,'UTC') AND "
-               f"min_time < toDateTime64('2026-11-03 00:00:00',3,'UTC')")
+               f"min_time < toDateTime64('2026-11-02 00:00:00',3,'UTC')")
     if semi:
         core=f"SELECT id FROM {tags} WHERE {cond} AND id IN (SELECT id FROM {tr} WHERE {timerange})"
     else:
@@ -181,6 +181,8 @@ def trial(workload, case, variant, sqltext, out, ref):
             qid=f"cbo_{workload}_{case}_{variant}_{n}_{os.getenv('GITHUB_RUN_ID','local')}"
             ms,body=execute(sqltext+" FORMAT JSONEachRow",qid)
             result=digest(body)
+            if result["rows"] == 0:
+                raise AssertionError("Invalid empty result: window does not overlap the fixture or predicate is wrong")
             if ref is None:
                 ref=result
             if result!=ref:
@@ -272,7 +274,7 @@ def main():
     p.add_argument("--output",required=True)
     p.add_argument("--fixture",required=True)
     a=p.parse_args()
-    assert 100<=a.count<=25000
+    assert 100<=a.count<=150000
     root=pathlib.Path(a.output);root.mkdir(parents=True,exist_ok=True)
     table="tslab_cbo_"+a.workload
     report={"workload":a.workload,"count":a.count,"cases":{},"errors":[],
