@@ -1,0 +1,38 @@
+name: TimeSeries four physical ID mark locality models independent of ClickHouse
+on:
+  workflow_dispatch:
+  push:
+    branches: [lab/timeseries-layout-research-20261102]
+    paths: ['.github/workflows/ts-lab-layout-mark-model-20261102.yml']
+permissions:
+  contents: read
+concurrency:
+  group: tslab-layout-mark-model-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  model:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Preflight and model exact index mark occupancy for 1.33m series
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/layout-model
+          python3 -m py_compile .github/ts-lab-layout/model_granule_grouping.py
+          python3 .github/ts-lab-layout/model_granule_grouping.py \
+            --out evidence/layout-model/grouping-predictions.json
+          cat evidence/layout-model/grouping-predictions.md >> "$GITHUB_STEP_SUMMARY"
+          sha256sum evidence/layout-model/grouping-predictions.json \
+            >evidence/layout-model/grouping-predictions.sha256
+      - name: Preserve model assumptions and exact per-selector granules
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-layout-mark-model-evidence
+          path: evidence/layout-model/
+          retention-days: 45
+          compression-level: 1
