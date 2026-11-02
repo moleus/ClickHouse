@@ -1,4 +1,4 @@
-name: TimeSeries custom metric plus stage project ID data locality 1.33m parallel
+name: TimeSeries custom compound ID 1.33m three parallel layouts preflight and full A/B
 on:
   push:
     branches: [lab/timeseries-layout-research-20261102]
@@ -26,6 +26,15 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
+
+      - name: Preflight all heavy benchmark Python dependencies before importing 1.33m records
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/ts-lab-layout/layout_id_smoke.py \
+            .github/ts-lab-layout/bench_layout_full.py \
+            .github/ts-lab-perf/bench_granularity_v11.py
+          python3 .github/ts-lab-layout/bench_layout_full.py --help >/dev/null
+          echo "LAYOUT_PREFLIGHT_IMPORTS_OK binary setup and data ingest can begin"
 
       - name: Download SHA256 verified baseline binary without recompiling
         run: |
