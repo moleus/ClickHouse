@@ -1,4 +1,4 @@
-name: TimeSeries deep CPU memory per-processor selector and grid profiles
+name: TimeSeries corrected deep CPU selector grid and processor traces
 on:
   push:
     branches: [lab/timeseries-fastpath-ci]
