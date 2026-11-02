@@ -156,3 +156,31 @@ and check whether a small number of stats-bearing columns can repair
 estimates without expensive high-cardinality per-label statistics.
 Do not enable any scheduled GitHub workflow, edit master, use production,
 or cancel an active build.
+
+## 6. TDigest frequency results on numeric category IDs
+
+Run: https://github.com/moleus/ClickHouse/actions/runs/41538429974 (PASS).
+Script: `.github/ts-lab-cbo/probe_tdigest_skew.py`.
+This is a *numeric surrogate* test, not a replacement for the original
+String-label TimeSeries interface. The source's `ColumnStatistics::estimateEqual`
+consults TDigest first when the numeric column has <2,048 distinct values.
+The test used UInt16 category IDs and 100,000 rows.
+
+| Hot population | Actual hot records | Estimate of filtered hot input with TDigest | Actual cold ID=2 | Estimated filtered cold input |
+| --- | ---: | ---: | ---: | ---: |
+| 90% | 90,000 | 90,000 | 101 | 0 |
+| 99% | 99,000 | 99,000 | 11 | 0 |
+
+TDigest corrected the heavy-hitter input estimate, but underestimated rare
+values to zero. For a self-JOIN with an equality on the label, the planner
+still used NDV=100 and estimated 81 million JOIN rows for the 90% hot label
+versus 8.1 billion mathematical pairs (100x low). For 99% hot it estimated
+98.01 million versus 9.801 billion actual pairs. Filtered input cardinality
+and JOIN output cardinality are different problems. The source does not infer
+that the filtered JOIN key has only one distinct value.
+
+The TDigest stats added 1,955 bytes to a 100,000-row part at 90% hot and
+1,910 bytes at 99% hot. This is only the measured part-size difference, not a
+cluster-wide memory or ingest-cost claim. High-cardinality/string key support,
+rare-value estimates, type conversion and time stability need separate checks.
+The quadratic JOIN itself was not executed.
