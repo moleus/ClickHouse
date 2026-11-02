@@ -35,3 +35,12 @@ Copy only v1's strict AST guard into an isolated CI patch: v11, Float64, UTC, Da
 3. Run same-run original/v3/original on 282036 series Jenkins (3d), normal 20k x120 dense rate and selected N/E curve. Capture p50/p95, memory, rows/bytes and baseline drift. Keep all unsupported shapes on original plan.
 4. Adversarial backlog: inf/NaNs/stale bits, negative epoch, shifted window, late 14–90d, subqueries and offsets, per-stage mixed compensated summation, access and query-context ownership, full O2/O3 workloads and multiple physical part layouts.
 5. No production promotion or PR based on a compile pass or only one successful benchmark.
+
+## Completed binary evaluation and updated decision
+
+Runs: C++ build `41438806766` SUCCESS, numerical/duplicate A/B/A `41439148997` SUCCESS, full Jenkins/dense A/B/A `41439396625` SUCCESS, selected-N/steps A/B/A `41439588519` SUCCESS.
+
+- Native-per-ID compensated arithmetic matches original on 6 numerical cases, including the three where prior SQL `avg` was wrong and two conflicting-duplicate-timestamp groups. Other PromQL query shapes still use the original converter; all 10 Jenkins+dense checks and all 9 selected metric/grid sizes match original output.
+- Original/candidate/original broad Jenkins p50 `1752.374 / 1370.979 / 1758.475ms`, memory `547.87MB→404.24MB`; 22.0% better than recheck. No read-row reduction. N=67200 E3 original `162.580 / 119.289 / 162.187ms`, stable 26.4% gain; N=67200 E40 baseline drift `190.221 / 116.482 / 243.197ms`, use conservative initial-baseline gain (~38.8%). N=210 E3 candidate `21.268ms` vs original recheck `19.426ms` (9.5% slower): cannot enable the v3 fastpath unconditionally in production.
+- Dense rate output equal; timings vary in both original phases, so unrelated binary performance changes are not isolated. C++ candidate remains **lab-only**; no source switch enabled on production/fork master.
+- Additional independent finding `41439318904`: original grouped `avgForEach` across different series shows severe order sensitivity for extreme cancellation. Even v3's native per-series sum does NOT solve cross-ID group numerical loss. Need separate Prometheus semantics analysis and adversarial tests before promoting any grouped AVG optimization.
