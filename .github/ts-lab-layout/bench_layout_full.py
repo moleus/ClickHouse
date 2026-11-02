@@ -143,7 +143,9 @@ def main():
     for key in ("manifest","fixture","binary","restart-helper","variant","output-dir"):
         p.add_argument("--"+key,required=True)
     p.add_argument("--fastpath",type=int,choices=(0,1),default=0)
-    p.add_argument("--selective-only",action="store_true")
+    modes=p.add_mutually_exclusive_group()
+    modes.add_argument("--selective-only",action="store_true")
+    modes.add_argument("--broad-only",action="store_true")
     a=p.parse_args()
     if a.variant not in ("stage","project","project_stage"):raise SystemExit("invalid prefix variant")
     meta=json.loads(pathlib.Path(a.manifest).read_text())
@@ -153,7 +155,7 @@ def main():
     report={"schema":1,"variant":a.variant,"canonical_sha256":meta["sha256"],
             "binary_sha256":_sha_file(a.binary),
             "source_type":"synthetic CI stage 14d, 1.33m unique series",
-            "fastpath":a.fastpath,"selective_only":a.selective_only,
+            "fastpath":a.fastpath,"selective_only":a.selective_only,"broad_only":a.broad_only,
             "cases":{},"physical":{},"errors":[],"checks":{"fixture":True}}
     save(out/"report.json",report)
     # Base table is created by the pinned 95k fixture generator before this script.
@@ -177,8 +179,9 @@ def main():
         rng=random.Random(92199)
         cases=list(QUERY_SELECTORS)
         if a.selective_only:cases=[x for x in cases if x!="whole"]
+        if a.broad_only:cases=["whole"]
         rng.shuffle(cases)
-        if not a.selective_only:
+        if not a.selective_only and not a.broad_only:
             cases=[x for x in cases if x!="whole"]+["whole"]
         for case in cases:
             print("LAYOUT_FULL_START",json.dumps({"variant":a.variant,"case":case}),flush=True)
@@ -218,7 +221,7 @@ def main():
         report["errors"].append({"fatal":str(exc)[:2500]})
         save(out/"report.json",report)
         raise
-    report["passed"]=not report["errors"] and len(report["cases"])==(4 if a.selective_only else 5)
+    report["passed"]=not report["errors"] and len(report["cases"] )==(4 if a.selective_only else (1 if a.broad_only else 5))
     save(out/"report.json",report)
     print("LAYOUT_FULL_DONE",json.dumps({"variant":a.variant,"passed":report["passed"],
           "cases":{k:v.get("compared") for k,v in report["cases"].items()},
