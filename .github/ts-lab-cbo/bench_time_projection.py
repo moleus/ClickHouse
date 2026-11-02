@@ -62,7 +62,11 @@ def main():
     p.add_argument("--case",choices=("read","join"),required=True)
     p.add_argument("--manifest",required=True)
     p.add_argument("--output",required=True)
+    p.add_argument("--days",default="1,3,7,14",help="comma-separated windows")
     a=p.parse_args()
+    days_list=[int(x) for x in a.days.split(",")]
+    if not days_list or len(set(days_list))!=len(days_list) or any(x<1 or x>14 for x in days_list):
+        raise ValueError("Invalid days selection")
     m=json.loads(pathlib.Path(a.manifest).read_text())
     if m["sha256"]!=CANONICAL or m["series"]!=1330000 or m["days"]!=14:
         raise AssertionError("Canonical input mismatch")
@@ -72,7 +76,7 @@ def main():
     try:
         fix_schema("churn_ts",report["schema"])
         save(root/"report.json",report)
-        for days in (1,3,7,14):
+        for days in days_list:
             end=int(m["end"]);start=end-days*DAY
             cases={x:{"sql":make_query("churn_ts",start,end,a.case,x)}
                    for x in ("none","cost","force")}
@@ -82,18 +86,21 @@ def main():
             # warmup+timed trials; alternate A/B/B/A to reject cache drift.
             for ix,which in enumerate(("none","force","force","none")):
                 values=[]
-                for t in range(5):
+                for t in range(9):
                     qid=f"timeprojection_{a.case}_{days}_{ix}_{t}_{os.getenv('GITHUB_RUN_ID','local')}"
                     try:
                         result=run(cases[which]["sql"],qid)
                         if int(result["n"])<=0:raise AssertionError("Empty time window")
                         if ref is None:ref=result
                         if result!=ref:raise AssertionError("Projection changed result rows "+str(result))
-                        values.append({"query_id":qid,"n":result["n"],"warmup":t==0})
+                        values.append({"query_id":qid,"n":result["n"],"warmup":t<5})
                     except Exception as e:
                         failed.append({"variant":which,"error":str(e)[:1200]})
-                logrows=querylogs(f"timeprojection_{a.case}_{days}_{ix}_")
-                by={v["query_id"]:v for v in logrows if v.get("type")=="QueryFinish"}
+                by={}
+                for log_attempt in range(6):
+                    logrows=querylogs(f"timeprojection_{a.case}_{days}_{ix}_")
+                    by={v["query_id"]:v for v in logrows if v.get("type")=="QueryFinish"}
+                    if all(v["query_id"] in by for v in values):break
                 for trial in values:
                     qid=trial["query_id"]
                     if qid not in by:raise AssertionError("Missing QueryFinish "+qid)
@@ -129,7 +136,7 @@ def main():
             print("TIME_PROJECTION_RESULT",json.dumps({"case":a.case,"days":days,
                 "comparison":comparison,"errors":failed},separators=(",",":")),flush=True)
             save(root/"report.json",report)
-        report["passed"]=len(report["windows"])==4 and all(not x["errors"] for x in report["windows"].values())
+        report["passed"]=len(report["windows"])==len(days_list) and all(not x["errors"] for x in report["windows"].values())
     except Exception as e:
         report["errors"].append(str(e)[:1800]);report["passed"]=False
     finally:
