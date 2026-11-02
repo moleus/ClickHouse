@@ -207,7 +207,7 @@ jobs:
           curl -fsS --data-binary "SELECT metric_name,count() AS series FROM jenkins_ts WHERE metric_name='lab_small_metric' GROUP BY metric_name FORMAT TSV" \
             'http://127.0.0.1:18191/?allow_experimental_time_series_table=1' \
             | tee evidence/mixed-metric-counts.tsv
-          grep -q "$(printf 'lab_small_metric\\t210')" evidence/mixed-metric-counts.tsv
+          awk '$1=="lab_small_metric" && $2==210 {ok=1} END {exit !ok}' evidence/mixed-metric-counts.tsv
 
       - name: Download verified guarded scalar AVG C++ binary after independent build
         run: |
