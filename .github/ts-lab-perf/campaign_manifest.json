@@ -46,6 +46,12 @@
       "id": 41492330376,
       "artifact": "tslab-hardware-perf-evidence",
       "required": true
+    },
+    {
+      "kind": "granularity",
+      "id": 41493836279,
+      "artifact": "tslab-granularity-sweep-evidence",
+      "required": true
     }
   ]
 }
