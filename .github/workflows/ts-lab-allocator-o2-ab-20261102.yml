@@ -202,7 +202,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile .github/ts-lab-bench/bench_allocator_ab.py
-          python3 .github/ts-lab-bench/bench_compiler_o2_ab.py \
+          python3 .github/ts-lab-bench/bench_allocator_ab.py \
             --manifest evidence/95k-manifest.json \
             --system-bin "$RUNNER_TEMP/selectorscalar-bin/clickhouse" \
             --jemalloc-bin "$RUNNER_TEMP/o2-bin/clickhouse" \
