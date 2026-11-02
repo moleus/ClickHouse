@@ -56,6 +56,18 @@ jobs:
              >evidence/pmu/record-out.txt 2>evidence/pmu/record-err.txt
           echo "$?" >evidence/pmu/record-rc.txt
 
+          sudo -n perf record -e cpu-clock -F 99 -g --call-graph dwarf \
+             -o evidence/pmu/software-clock.data \
+             -- python3 -c 'sum((i*i)%8191 for i in range(9000000))' \
+             >evidence/pmu/software-clock-out.txt 2>evidence/pmu/software-clock-err.txt
+          echo "$?" >evidence/pmu/software-clock-rc.txt
+          sudo -n perf report -i evidence/pmu/software-clock.data --stdio --no-children --sort symbol \
+             >evidence/pmu/software-clock-report.txt 2>evidence/pmu/software-clock-report-err.txt
+          echo "$?" >evidence/pmu/software-clock-report-rc.txt
+          sudo -n perf stat -e task-clock,cpu-clock,context-switches,page-faults \
+             -o evidence/pmu/software-stat.txt -- python3 -c 'sum((i*i)%8191 for i in range(8000000))' \
+             >evidence/pmu/software-stat-out.txt 2>evidence/pmu/software-stat-err.txt
+          echo "$?" >evidence/pmu/software-stat-rc.txt
           sudo -n perf report -i evidence/pmu/perf.data --stdio --no-children --sort symbol \
              >evidence/pmu/report.txt 2>evidence/pmu/report-err.txt
           echo "$?" >evidence/pmu/report-rc.txt
@@ -64,12 +76,13 @@ jobs:
           python3 - <<'PY'
           import json,pathlib
           p=pathlib.Path('evidence/pmu')
-          checks=['unprivileged','sudo','sysctl','after-sysctl','record','report']
+          checks=['unprivileged','sudo','sysctl','after-sysctl','record','report','software-clock','software-clock-report','software-stat']
           r={k:int((p/(k+'-rc.txt')).read_text().strip()) for k in checks}
           r['perf_event_paranoid_before']=(p/'paranoid-before.txt').read_text().strip()
           r['perf_event_paranoid_after']=(p/'paranoid-after.txt').read_text().strip()
           r['hardware_available']=any(r[k]==0 for k in ('unprivileged','sudo','after-sysctl'))
           r['stack_profile_available']=r['record']==0 and r['report']==0
+          r['software_stack_available']=r['software-clock']==0 and r['software-clock-report']==0
           (p/'summary.json').write_text(json.dumps(r,indent=2)+'\n')
           print('PERF_PMU_CAPABILITY',json.dumps(r,separators=(',',':')),flush=True)
           PY
