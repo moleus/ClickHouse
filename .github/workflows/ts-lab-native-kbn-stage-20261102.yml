@@ -1,4 +1,4 @@
-name: TimeSeries group AVG native KBN compensating stage experiment
+name: TimeSeries group AVG native KBN stage SQL analyzer repair
 on:
   push:
     branches: [lab/timeseries-fastpath-ci]
