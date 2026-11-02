@@ -1,0 +1,84 @@
+name: TimeSeries SELECT-only TAGS SAMPLES selector group temp grant isolation
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-temp-grant-isolation-20261102.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-temp-grant-isolation-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download SHA256 verified baseline binary without recompiling
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/ch-art" "$RUNNER_TEMP/ch-bin"
+          gh run download 41301314345 -R "$REPO" --pattern 'tslab-clickhouse-amd64-*' -D "$RUNNER_TEMP/ch-art"
+          archive="$(find "$RUNNER_TEMP/ch-art" -name 'clickhouse-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/ch-archive-hash.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
+          (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS) | tee evidence/ch-binary-hash.txt
+          chmod +x "$RUNNER_TEMP/ch-bin/clickhouse"
+          "$RUNNER_TEMP/ch-bin/clickhouse" --version | tee evidence/ch-version.txt
+
+      - name: Start isolated ClickHouse and create v11 Float64 fixture
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles" "$RUNNER_TEMP/ch/access"
+          cat > "$RUNNER_TEMP/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path>
+            <access_control_path>$RUNNER_TEMP/ch/access/</access_control_path><tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <max_server_memory_usage>4000000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota><access_management>1</access_management></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions><log_queries>1</log_queries><max_memory_usage>2000000000</max_memory_usage></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/ch-bin/clickhouse" server --config-file="$RUNNER_TEMP/config.xml" >evidence/ch-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -fsS -X POST --data-binary 'CREATE TABLE access_ts ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0'             'http://127.0.0.1:18191/?allow_experimental_time_series_table=1' >evidence/create.txt
+      - name: Create non-admin reader and enforce row policy on inner tags
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/ts-lab-bench/setup_v4_cte_readonly.py             .github/ts-lab-bench/bench_temp_grant_isolation.py
+          python3 .github/ts-lab-bench/setup_v4_cte_readonly.py | tee evidence/acl-policy-setup.log
+
+
+      - name: Probe physical tables selector and group functions under SELECT-only user
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/ts-lab-bench/bench_temp_grant_isolation.py
+          python3 .github/ts-lab-bench/bench_temp_grant_isolation.py | tee evidence/temp-grant-isolation.log
+
+      - name: Preserve numerical proof and any diagnostic failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-temp-grant-isolation-${{ github.run_id }}
+          path: evidence/
+          retention-days: 21
+          compression-level: 1
