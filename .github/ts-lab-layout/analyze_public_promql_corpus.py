@@ -66,25 +66,29 @@ def main():
                  **c}
             all_targets.append(row);perfile.append(row)
         details.append({"file":str(path.relative_to(root)),"sha256":doc,"promql_queries":len(perfile)})
-    counters=collections.Counter();bycase=collections.Counter()
+    counters=collections.Counter();bycase=collections.Counter();panel_presence=collections.Counter()
     for target in all_targets:
         if target["kind"]!="panel":continue
         bycase["total_panel_target_exprs"]+=1
         if target["has_name_filter"]:bycase["contains_explicit_metric_name"]+=1
         if target["has_label_matcher"]:bycase["has_at_least_one_matcher"]+=1
         if target["possible_unsupported"]:bycase["parse_warnings"]+=1
+        present=set()
         for name,op in target["operators"]:
             if name!="__name__":
                 counters[(name,op)]+=1
-                bycase["with_any_"+name]+=1
+                present.add(name)
+        for name in present:
+            panel_presence[name]+=1
+            bycase["with_any_"+name]+=1
     label_totals=collections.Counter()
     for (name,op),count in counters.items():label_totals[name]+=count
     n=bycase["total_panel_target_exprs"]
     if n<20:raise RuntimeError("Need at least 20 real public panel PromQL targets")
     recommendations=[]
     for name,c in label_totals.most_common(25):
-        recommendations.append({"label":name,"occurrences":c,
-                "share_of_panel_target_exprs":round(c/n,4),
+        recommendations.append({"label":name,"occurrences":c,"panels_containing_label":panel_presence[name],
+                "share_of_panel_target_exprs":round(panel_presence[name]/n,4),
                 "exact":counters[(name,"=")],"regex":counters[(name,"=~")],
                 "negative":counters[(name,"!=")]+counters[(name,"!~")]})
     out=pathlib.Path(a.out);out.parent.mkdir(parents=True,exist_ok=True)
@@ -105,10 +109,10 @@ def main():
         "",
         "These percentages are per defined panel, not per user query. They **cannot** establish a 99% production query distribution.",
         "The parser is heuristic; variables can expand into different metric names and labels.","",
-        "| Label | Occurrences | Per-panel prevalence (may exceed 100% across labels) | Equality | Regex |",
-        "|---|---:|---:|---:|---:|"]
+        "| Label | Matcher occurrences | Panels containing label | Fraction of panels | Equality | Regex |",
+        "|---|---:|---:|---:|---:|---:|"]
     for item in recommendations:
-        md.append(f"| {item['label']} | {item['occurrences']} | {100*item['share_of_panel_target_exprs']:.1f}% | {item['exact']} | {item['regex']} |")
+        md.append(f"| {item['label']} | {item['occurrences']} | {item['panels_containing_label']} | {100*item['share_of_panel_target_exprs']:.1f}% | {item['exact']} | {item['regex']} |")
     (out.with_suffix(".md")).write_text("\n".join(md)+"\n")
     print("PUBLIC_PROMQL_CORPUS",json.dumps({"source":a.source_repo,"commit":a.source_commit,
         "dashboard_files":len(files),"panels":n,"named_fraction":round(bycase["contains_explicit_metric_name"]/n,3),
