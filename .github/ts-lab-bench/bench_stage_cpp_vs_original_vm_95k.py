@@ -75,6 +75,61 @@ def server_restart(helper,binary,case):
 def save(path,report):
     pathlib.Path(path).write_text(json.dumps(report,indent=2)+"\n")
 
+def expected_points(selector, days):
+    # Exact property of generate_95k_daily_churn_ts.py: 38 stages,
+    # project-00 contains the 19 even-numbered stage labels.
+    if selector=="stage": return days
+    if selector=="project": return 19*days
+    return 38*days
+
+def wait_vm_complete(meta, output_path):
+    """Fail closed until all 14 daily windows contain 95,000 samples.
+
+    An import HTTP 204 means the ingest endpoint accepted the request;
+    it is NOT a proof that the VM index can serve every label selector.
+    This gate is run before any performance timing.
+    """
+    target=int(meta["per_day"])
+    assert target==95000 and meta["days"]==14
+    first=int(meta["base"])+DAY
+    last=int(meta["end"])
+    expr=f"sum(count_over_time({METRIC}[1d]))"
+    deadline=time.monotonic()+240
+    good=0
+    attempt=0
+    history=[]
+    while time.monotonic()<deadline:
+        attempt+=1
+        try:
+            ms,payload=vm_get({"query":expr,
+                "start":first,"end":last,"step":DAY})
+            got=vm_normalized(payload)
+            times={ts:float(value) for (_,ts),value in got.items()}
+            expected={first+i*DAY for i in range(14)}
+            ready=(set(times)==expected
+                   and all(value==target for value in times.values()))
+            info={"attempt":attempt,"ms":round(ms,2),
+                  "days":len(times),
+                  "min_count":min(times.values(),default=None),
+                  "max_count":max(times.values(),default=None),
+                  "ready":ready}
+            good=good+1 if ready else 0
+            history.append(info)
+            print("STAGE_VM_READINESS",json.dumps(info,separators=(",",":")),flush=True)
+            if good>=2:
+                return {"attempts":attempt,"last_checks":history[-6:],
+                        "days":14,"samples_per_day":target}
+        except Exception as exc:
+            good=0
+            info={"attempt":attempt,"error":str(exc)[:1200]}
+            history.append(info)
+            print("STAGE_VM_READINESS_ERROR",json.dumps(info),flush=True)
+        time.sleep(2)
+    pathlib.Path(output_path).write_text(json.dumps({
+        "complete":False,"attempts":attempt,"recent":history[-30:]},indent=2))
+    raise AssertionError(("VictoriaMetrics did not expose all 95k samples on all 14 days",
+                          history[-8:]))
+
 def main():
     p=argparse.ArgumentParser()
     for field in ("manifest","original-bin","projected-bin","restart-helper","output"):
@@ -85,7 +140,10 @@ def main():
     run=os.getenv("GITHUB_RUN_ID","local")
     report={"run_id":run,"source_sha256":meta["sha256"],
             "variants":list(VARIANTS),"cases":[],"failures":[],
-            "note":"O1 build, 5GB server cap; baseline and patched binary same source"}
+            "note":"O1 build; 5GB server cap; 14d VM strict readiness before A/B; 2 warmups + 4 timed VM trials"}
+    save(a.output,report)
+    report["vm_readiness"]=wait_vm_complete(
+        meta,str(pathlib.Path(a.output).with_name("vm-readiness.json")))
     save(a.output,report)
     controls=[("whole",14),("stage",14),("project",14),("regex",14),
               ("whole",3),("stage",3)]
@@ -96,14 +154,18 @@ def main():
         promql=f"avg by(stage)(avg_over_time({METRIC}{SELECTORS[sel]}[1d]))"
         reference=None
         vm_trials=[]
-        for i in range(4):
+        for i in range(6):
             try:
                 ms,payload=vm_get({"query":promql,
                     "start":t_start,"end":t_end,"step":DAY})
                 got=vm_normalized(payload)
+                expected=expected_points(sel,days)
+                if len(got)!=expected:
+                    raise AssertionError(("VM partial query response",
+                                          name,i,len(got),expected))
                 if reference is None:reference=got
                 else:assert_same(reference,got,name,"vm")
-                if i>0:vm_trials.append(round(ms,3))
+                if i>=2:vm_trials.append(round(ms,3))
             except Exception as ex:
                 report["failures"].append({"case":name,"variant":"VM","error":str(ex)[:1800]})
                 save(a.output,report)
