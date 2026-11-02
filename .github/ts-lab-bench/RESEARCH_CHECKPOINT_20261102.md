@@ -133,3 +133,14 @@ Links: https://github.com/moleus/ClickHouse/actions/runs/41418972822 and https:/
 - Therefore use a **narrow query-shape guard** if integrating this into the C++ PromQL converter: exact single metric selector, `avg by(stage)(avg_over_time(metric[1d]))`, disjoint evaluation windows, version 11, DateTime64(3) Float64 schema, no offset/subqueries/binary, no extra filters (for the first safe experiment). Others must use unchanged original path. Do not make a hard-coded optimization for branch naming.
 - Sample values were checked against original CH; additional adversarial NaN / staleness / shifted times, 14–90d backdelta and access-policy checks remain required. This is not production-ready.
 - Link: https://github.com/moleus/ClickHouse/actions/runs/41419685211 .
+
+## Guarded C++ lowering through `timeSeriesSelector` (work in progress)
+
+- Script `.github/ts-lab-pending/apply_selector_scalar_grouped_avg_cpp.py` commit `e4b2905aeb2592f4d6ec0de30f35030643415a22`. It changes *only in the pinned source checkout during CI*:
+  - `PrometheusQueryEvaluationSettings.h`: experimental eligibility flag, default false;
+  - `StoragePrometheusQuery.cpp`: verifies v11 Float64 value type via actual TimeSeries schema, sets flag;
+  - `PrometheusQueryToSQL/Converter.cpp`: guarded AST recognition for `avg by(stage)(avg_over_time(exact_metric[1d]))`, daily disjoint steps, UTC/millisecond scale, numeric-safe metric/table/database names, no other matchers, no nested subqueries, `@/offset`, or expression operators. Compiles the verified selector scalar SQL; every unsupported shape falls back to original converter.
+- The candidate only reads using `timeSeriesSelector` and the query-scoped tags collector; no raw inner target-table references. It retains the engine's actual label lookup/ID safety model, but production security policy still requires review.
+- Build workflow `.github/workflows/ts-lab-selector-scalar-cpp-cxx-20261102.yml` commit `66b59e250f2096dd4abddc9893f80642024bcb32`, run **41420384277** started.
+- A/B/A workflow `.github/workflows/ts-lab-selector-scalar-cpp-aba-20261102.yml` commit `e4fed87e4eab3f97dd88efca01a6ba01b21e3b76`, run **41420507321** started, with full Jenkins 6 + dense 4 cases against original and original recheck, labels/times/values and read_rows/memory.
+- The guard intentionally does not optimize project/regex/branch filters, because the SQL prototype regressed on project/regex and hardcoding branch is unacceptable. C++ correctness/adversarial/ABI tests and performance are **pending**; do not claim improvement until both complete. Candidate contains no production default change outside the standalone CI binary.
