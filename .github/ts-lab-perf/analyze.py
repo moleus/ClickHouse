@@ -104,6 +104,47 @@ def cpu_samples(rec):
     return {"total_leaf_samples_in_top100":total,"top":out,
             "warning":"sample fractions from top 100 leaves; incomplete denominator if >100 symbols"}
 
+def cpu_full_stacks(rec):
+    rows=[x for x in get(rec,"clickhouse","cpu_stacks",default=[])
+          if "CPU" in str(x.get("trace_type","")).upper()]
+    totals=[x.get("count",0) for x in get(rec,"clickhouse","cpu_stack_count",default=[])
+            if "CPU" in str(x.get("trace_type","")).upper()]
+    total=sum(totals)
+    selected=sum(x.get("samples",0) for x in rows)
+    counts=collections.Counter()
+    top=[]
+    for x in rows:
+        stack=[str(z) for z in x.get("stack",[]) if z]
+        n=int(x.get("samples",0))
+        if not stack:counts["unknown_stack"]+=n
+        else:
+            leaf=stack[0].lower()
+            tag=any("contexttimeseriestagscollector" in z.lower() for z in stack)
+            if tag:counts["collector_inclusive"]+=n
+            if tag and "memset" in leaf:counts["memset_under_collector"]+=n
+            if tag and any("hashtable" in z.lower() and "resize" in z.lower() for z in stack):
+                counts["collector_hash_resize"]+=n
+            if "memset" in leaf:counts["memset_all"]+=n
+            if any("mergingSorted" in z for z in stack):counts["merging_sorted_inclusive"]+=n
+            if any("reverSeindex" in z.lower() or "columnunique" in z.lower() for z in stack):
+                counts["reverse_index_inclusive"]+=n
+            if any("mergetreeselect" in z.lower() or "readfrommergetree" in z.lower() for z in stack):
+                counts["mergetree_read_inclusive"]+=n
+            if any("set::" in z.lower() or "creatingsets" in z.lower() for z in stack):
+                counts["id_set_inclusive"]+=n
+            if any("aggregatefunctiontimeseries" in z.lower() for z in stack):
+                counts["rollup_inclusive"]+=n
+        if len(top)<20:top.append({"samples":n,
+                       "leaf":stack[0][:190] if stack else "<unresolved>",
+                       "calls":[z[:145] for z in stack[1:6]]})
+    return {"cpu_trace_count":total,"selected_stack_samples":selected,
+            "selected_fraction":round(selected/max(total,1),5),
+            "category":{k:{"samples":v,"fraction_of_all_cpu":round(v/max(total,1),5)}
+                        for k,v in counts.most_common()},
+            "top_stacks":top,
+            "warning":"Categories overlap, sampled CPU not wall time. LIMIT 1000 may omit rare stacks."
+                      " A single parent function appearing in a trace is not proof it consumed all leaf time."}
+
 def vm_trace_leaves(rec):
     trace=rec.get("vm_trace")
     if not isinstance(trace,dict):return []
@@ -145,8 +186,9 @@ def describe(rec,path):
         s["query"]=profile_events(rec)
         s["processors"]=processors(rec)
         s["cpu_profile"]=cpu_samples(rec)
+        s["cpu_stacks"]=cpu_full_stacks(rec)
         s["hypotheses"]=infer_hotspots(rec,s["cpu_profile"])
-        s["missing"]=[k for k in ("query_log","processors","threads","cpu_leaf")
+        s["missing"]=[k for k in ("query_log","processors","threads","cpu_leaf","cpu_stacks")
                        if k not in get(rec,"clickhouse",default={})]
     else:
         s["vm_trace"]=vm_trace_leaves(rec)[:80]
@@ -184,6 +226,12 @@ def markdown(records):
             lines += ["","Top CPU leaf symbols (sampled; often top100 truncated):",""]
             for z in x["cpu_profile"]["top"][:12]:
                 lines.append(f"- {z['symbol']}: {fnum(100*z['sample_share'])}% of reported samples")
+            if x["cpu_stacks"]["cpu_trace_count"]:
+                c=x["cpu_stacks"]
+                lines += ["",f"Full CPU stacks: {c['selected_stack_samples']}/{c['cpu_trace_count']} samples",
+                          "Overlapping CPU categories:"]
+                for group,obj in c["category"].items():
+                    lines.append(f"- {group}: {obj['samples']} samples ({obj['fraction_of_all_cpu']*100:.2f}% of all sampled CPU)")
             if x["missing"]:lines.append("Unavailable ClickHouse data: "+", ".join(x["missing"]))
         else:
             lines += ["VM query trace: the durations of parent and child nodes overlap.",""]
