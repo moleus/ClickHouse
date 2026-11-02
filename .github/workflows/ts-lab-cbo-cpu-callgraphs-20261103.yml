@@ -1,0 +1,44 @@
+name: TimeSeries CPU callgraphs and source profiles
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-cbo-cpu-callgraphs-20261103.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-cbo-callgraphs-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Validate graph script and download fixed 1.33m count-only profile evidence
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/ts-lab-cbo/analyze_cpu_stacks.py
+          python3 .github/ts-lab-cbo/analyze_cpu_stacks.py --help
+          mkdir -p evidence/source evidence/graphs
+          gh run download 41533187321 -R moleus/ClickHouse --pattern 'tslab-cbo-1330k-countonly-*-evidence' -D evidence/source
+          find evidence/source -name report.json -type f | sort
+      - name: Produce CPU flame folded stacks, callgraphs and SVG summaries
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-cbo/analyze_cpu_stacks.py --root evidence/source --output evidence/graphs | tee evidence/graphs.log
+          cat evidence/graphs/README.md >> "$GITHUB_STEP_SUMMARY"
+          sha256sum evidence/graphs/* > evidence/graphs-sha256.txt
+      - name: Preserve function profiles and graphs for all 32 variants
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-cbo-cpu-callgraphs-20261103
+          path: evidence/
+          retention-days: 60
+          compression-level: 1
