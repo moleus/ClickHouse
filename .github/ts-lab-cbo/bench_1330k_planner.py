@@ -68,7 +68,11 @@ def main():
     p.add_argument("--case",required=True,choices=sorted(CASES))
     p.add_argument("--manifest",required=True)
     p.add_argument("--output",required=True)
+    p.add_argument("--days",default="1,3,7,14",help="Comma separated positive day windows")
     a=p.parse_args()
+    days_list=[int(x) for x in a.days.split(",")]
+    if not days_list or len(set(days_list))!=len(days_list) or any(x<1 or x>14 for x in days_list):
+        raise ValueError("Invalid day window list")
     dest=pathlib.Path(a.output);dest.mkdir(parents=True,exist_ok=True)
     meta=json.loads(pathlib.Path(a.manifest).read_text())
     if meta["sha256"]!=CANONICAL or meta["series"]!=1330000:
@@ -88,7 +92,7 @@ def main():
             attempt("SELECT name,rows,marks,bytes_on_disk FROM system.parts "
                     "WHERE active AND database='default' AND table="+literal(raw),o,"parts")
             report.setdefault("catalog",{})[kind]=o
-        for days in [1,3,7,14]:
+        for days in days_list:
             start=meta["end"]-days*DAY
             end=meta["end"]
             slot={"days":days,"variants":{},"trials":[],"errors":[]}
@@ -153,7 +157,7 @@ def main():
             save(dest/"report.json",report)
             print("PLANNER1330_WINDOW",json.dumps({"case":a.case,"days":days,"comparison":slot.get("comparison"),
                    "errors":slot["errors"]}),flush=True)
-        report["passed"]=len(report["windows"])==4 and all(not w["errors"] for w in report["windows"].values())
+        report["passed"]=len(report["windows"])==len(days_list) and all(not w["errors"] for w in report["windows"].values())
     except Exception as exc:
         report["errors"].append(str(exc)[:2000]);report["passed"]=False
     finally:
