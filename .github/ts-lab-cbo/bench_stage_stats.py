@@ -128,7 +128,40 @@ def main():
                     k=f"{t}-{mode}-stats{enabled}"
                     report["cases"][k]=inspect(t,has_stage,mode,enabled,os.getenv("GITHUB_RUN_ID","local"))
                     write(root/"report.json",report)
-        report["passed"]=all("error" not in x for x in report["cases"].values()) and len(report["cases"])==8
+        # Strict paired A/B/B/A: same physical dataset, alternating the
+        # optimizer statistics setting to separate planner changes from cache drift.
+        report["paired"]={}
+        for t,has_stage in [("churn_ts",False),(table,True)]:
+            phases=[]
+            for ix,enabled in enumerate([0,1,1,0]):
+                stage=f"P{ix}"
+                detail=inspect(t,has_stage,"join",enabled,
+                    os.getenv("GITHUB_RUN_ID","local")+"_"+stage)
+                if "error" in detail or "querylog_error" in detail:
+                    raise RuntimeError("Paired trial failure: "+str(detail.get("error",detail.get("querylog_error"))))
+                phases.append({"phase":stage,"use_statistics":enabled,
+                               "wall_ms":detail["median_ms"],
+                               "cpu_ms":detail["median_cpu_ms"],
+                               "read_rows":detail["median_read_rows"],
+                               "estimated":detail.get("estimated",[])})
+                report["paired"][t]={"phases":phases}
+                write(root/"report.json",report)
+            off=[x for x in phases if x["use_statistics"]==0]
+            on=[x for x in phases if x["use_statistics"]==1]
+            off_ms=statistics.mean(x["wall_ms"] for x in off)
+            on_ms=statistics.mean(x["wall_ms"] for x in on)
+            drift=abs(off[0]["wall_ms"]-off[1]["wall_ms"])/off_ms
+            report["paired"][t]["summary"]={
+                "statistics_off_ms":round(off_ms,3),
+                "statistics_on_ms":round(on_ms,3),
+                "speedup":round(off_ms/on_ms,4),
+                "baseline_drift":round(drift,4),
+                "off_cpu_ms":round(statistics.mean(x["cpu_ms"] for x in off),3),
+                "on_cpu_ms":round(statistics.mean(x["cpu_ms"] for x in on),3)}
+            if drift>.30:
+                report["errors"].append({"table":t,"reason":"Over 30% A/B/B/A control drift","drift":drift})
+        report["passed"]=(all("error" not in x for x in report["cases"].values())
+                          and len(report["cases"])==8 and not report["errors"])
     except Exception as exc:
         report["errors"].append(str(exc)[:2000]);report["passed"]=False
     finally:
@@ -138,6 +171,7 @@ def main():
                             "median_cpu_ms":v.get("median_cpu_ms"),"error":v.get("error")}
                         for k,v in report["cases"].items()}}
         write(root/"compact.json",digest)
+        digest["paired"]={t:z.get("summary") for t,z in report.get("paired",{}).items()}
         print("CBO_STATS_RESULT",json.dumps(digest,separators=(",",":")),flush=True)
     if not report["passed"]:raise SystemExit(1)
 if __name__=="__main__":main()
