@@ -185,12 +185,24 @@ jobs:
               'vm_series_visible':visible}),flush=True)
           PY
 
-      - name: Insert small metric next to the high-cardinality metric
+      - name: Insert tiny metric through the proven JSONEachRow writer
         run: |
           set -euo pipefail
-          curl -fsS --max-time 350 --data-binary \
-            "INSERT INTO jenkins_ts (metric_name, tags, samples) SELECT 'lab_small_metric',tags,samples FROM jenkins_ts LIMIT 210" \
-            'http://127.0.0.1:18191/?allow_experimental_time_series_table=1&wait_end_of_query=1' \
+          python3 - <<'PY'
+          import json,os,pathlib
+          base=pathlib.Path(os.environ['RUNNER_TEMP'])/'jenkins-batches'
+          target=base/'small-metric-batch.jsonl'
+          with (base/'ch-batch.jsonl').open() as source,target.open('w') as out:
+              for n in range(210):
+                  record=json.loads(next(source))
+                  record['metric_name']='lab_small_metric'
+                  out.write(json.dumps(record,sort_keys=True,separators=(',',':'))+'\n')
+          print('MIXED_METRIC_INPUT',target,210,flush=True)
+          PY
+          sha256sum "$RUNNER_TEMP/jenkins-batches/small-metric-batch.jsonl" > evidence/mixed-metric-input-sha256.txt
+          curl -fsS --max-time 350 -w 'MIXED_METRIC_INSERT_SECONDS=%{time_total}\n' \
+            --data-binary "@$RUNNER_TEMP/jenkins-batches/small-metric-batch.jsonl" \
+            'http://127.0.0.1:18191/?allow_experimental_time_series_table=1&wait_end_of_query=1&query=INSERT%20INTO%20jenkins_ts%20(metric_name%2Ctags%2Csamples)%20FORMAT%20JSONEachRow' \
             | tee evidence/mixed-metric-insert.log
           curl -fsS --data-binary "SELECT metric_name,count() AS series FROM jenkins_ts WHERE metric_name='lab_small_metric' GROUP BY metric_name FORMAT TSV" \
             'http://127.0.0.1:18191/?allow_experimental_time_series_table=1' \
