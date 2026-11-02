@@ -22,8 +22,27 @@ def table_for(prefix):
     _,s=call("SELECT name FROM system.tables WHERE database='default' "
              f"AND startsWith(name,'.inner_id.{prefix}.') FORMAT TSVRaw")
     names=s.strip().splitlines()
-    if len(names)!=1: raise AssertionError((prefix,names))
-    return "default."+chr(96)+names[0].replace(chr(96),chr(96)*2)+chr(96)
+    # This server also has a separate precision_ts fixture. Resolve the right
+    # physical target by checking data, not by assuming only one inner table.
+    found=[]
+    for name in names:
+        full="default."+chr(96)+name.replace(chr(96),chr(96)*2)+chr(96)
+        if prefix=="tags":
+            probe=f"SELECT count() FROM {full} WHERE metric_name='tslab_sparse_40d' FORMAT TSV"
+        elif prefix=="samples":
+            probe=f"SELECT sum(length(samples)) FROM {full} FORMAT TSV"
+        else:
+            probe=f"SELECT count() FROM {full} FORMAT TSV"
+        _,count=call(probe)
+        try:amount=int(count.strip())
+        except ValueError:amount=0
+        found.append((amount,full))
+    if not found or max(x[0] for x in found)<=0:
+        raise AssertionError(("no matching inner table",prefix,found))
+    selected=max(found)
+    print("DEEP_PROFILE_INNER_TARGET",json.dumps(
+       {"type":prefix,"selected":selected,"candidates":found},default=str),flush=True)
+    return selected[1]
 
 def load_jsonlines(s):
     return [json.loads(x) for x in s.splitlines() if x.strip()]
