@@ -43,5 +43,12 @@ after = """        if (array_of_pairs_argument || array_arguments)
 """
 if src.count(before) != 1:
     raise RuntimeError(f"Unexpected baseline source: {src.count(before)} matching regions")
-path.write_text(src.replace(before, after, 1))
+patched = src.replace(before, after, 1)
+old_signature = """        Arena * arena,
+        ssize_t if_argument_pos) const override"""
+new_signature = """        Arena * /* arena */,
+        ssize_t if_argument_pos) const override"""
+if patched.count(old_signature) != 1:
+    raise RuntimeError("Unexpected patched addBatch signature")
+path.write_text(patched.replace(old_signature, new_signature, 1))
 print("LAB_TS_ARRAY_BATCH_RUNS_CPP_APPLIED", path)
