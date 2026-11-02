@@ -1,4 +1,4 @@
-name: TimeSeries packed 16-bit stage prefix inside unchanged size UUID smoke
+name: TimeSeries packed fixed-width UUID low112 mask native SQL parity
 on:
   workflow_dispatch:
   push:
