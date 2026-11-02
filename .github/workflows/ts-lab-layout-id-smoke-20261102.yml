@@ -1,4 +1,4 @@
-name: TimeSeries layout custom ID smoke with detailed ClickHouse schema error diagnostics
+name: TimeSeries compound label-prefixed ID native v11 schema smoke
 on:
   workflow_dispatch:
   push:
