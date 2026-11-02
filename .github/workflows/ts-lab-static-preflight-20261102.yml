@@ -1,0 +1,60 @@
+name: TimeSeries lab preflight CLI and workflow static checks before expensive CI
+on:
+  workflow_dispatch:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths:
+      - '.github/workflows/ts-lab-*.yml'
+      - '.github/ts-lab-perf/**'
+      - '.github/ts-lab-bench/bench_*.py'
+permissions:
+  contents: read
+concurrency:
+  group: tslab-static-preflight-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Compile Python experiment scripts and validate active workflow CLI contracts
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/lab-preflight
+          python3 -m compileall -q .github/ts-lab-perf
+          python3 -m py_compile .github/ts-lab-bench/bench_compiler_o2_ab.py \
+            .github/ts-lab-bench/bench_allocator_ab.py
+          python3 .github/ts-lab-perf/lint_lab_workflows.py \
+            --workflow .github/workflows/ts-lab-compiler-o1-o2-20261102.yml \
+            --workflow .github/workflows/ts-lab-allocator-o2-ab-20261102.yml \
+            --workflow .github/workflows/ts-lab-native-collector-repeat-20261102.yml \
+            --workflow .github/workflows/ts-lab-granularity-sweep-20261102.yml \
+            --workflow .github/workflows/ts-lab-hardware-perf-20261102.yml \
+            --workflow .github/workflows/ts-lab-stage-path-20261102.yml \
+            --workflow .github/workflows/ts-lab-campaign-publish-20261102.yml \
+            --output evidence/lab-preflight/active.json
+      - name: Audit all historical lab workflows without blocking verified active workflows
+        if: always()
+        run: |
+          python3 .github/ts-lab-perf/lint_lab_workflows.py \
+            --all-lab --output evidence/lab-preflight/all-lab.json || true
+          python3 - <<'PY'
+          import json,pathlib
+          p=pathlib.Path('evidence/lab-preflight/all-lab.json')
+          if p.exists():
+              x=json.loads(p.read_text())
+              print('LAB_AUDIT',json.dumps({'workflows':x['workflow_count'],
+                     'commands':x['checked_commands'],'errors':x['errors_total']}),flush=True)
+          PY
+      - name: Save compact preflight failures and CLI contract evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-preflight-evidence
+          path: evidence/lab-preflight/
+          retention-days: 21
+          compression-level: 1
