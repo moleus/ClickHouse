@@ -49,6 +49,8 @@ def main():
     post("http://127.0.0.1:18191",
          f"CREATE USER {USER} IDENTIFIED WITH no_password HOST IP '127.0.0.1'")
     post("http://127.0.0.1:18191",f"GRANT SELECT ON default.* TO {USER}")
+    # PrometheusQueryRange uses temporary tables for internal state; explicit read-only user needs this grant.
+    post("http://127.0.0.1:18191",f"GRANT CREATE TEMPORARY TABLE ON *.* TO {USER}")
     row_policy=(f"CREATE ROW POLICY lab_allowed_only ON {fq} FOR SELECT "
                 f"USING tags['project']='allowed' TO {USER}")
     post("http://127.0.0.1:18191",row_policy)
