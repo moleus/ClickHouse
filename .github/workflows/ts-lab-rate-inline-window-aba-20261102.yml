@@ -269,7 +269,7 @@ jobs:
               base_after) "$RUNNER_TEMP/ch-restart.sh" "$RUNNER_TEMP/ch-bin/clickhouse" base_after ;;
             esac
             echo "INLINE_WINDOW_PHASE_BEGIN=$phase"
-            python3 .github/ts-lab-bench/bench_array_batch_aba.py \
+            python3 .github/ts-lab-bench/bench_rate_inline_window_aba.py \
               --phase "$phase" --jenkins-manifest evidence/manifest.json \
               --dense-manifest evidence/dense-manifest.json \
               --canonical evidence/inline-window-canonical.json \
