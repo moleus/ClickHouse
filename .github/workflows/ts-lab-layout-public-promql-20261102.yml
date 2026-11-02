@@ -1,4 +1,4 @@
-name: TimeSeries layout public Grafana PromQL label workload frequency research
+name: TimeSeries public Grafana label prevalence distinct-panel corrected baseline
 on:
   workflow_dispatch:
   push:
