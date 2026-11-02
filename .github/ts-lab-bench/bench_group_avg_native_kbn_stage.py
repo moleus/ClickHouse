@@ -40,7 +40,7 @@ def stage_kbn_query(start,end,ordered=False):
               arrayMap((i,v) -> tuple(fromUnixTimestamp64Milli(-toInt64(i)),v),
                        arrayEnumerate({values}),{values})
             ),1)) AS stage_avg
-      FROM stage_arrays
+      FROM stage_arrays GROUP BY stage_group,gi,vals
     )"""
     return q[:a]+replace+q[b:]
 
