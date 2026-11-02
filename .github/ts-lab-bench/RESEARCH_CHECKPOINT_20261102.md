@@ -156,3 +156,25 @@ Links: https://github.com/moleus/ClickHouse/actions/runs/41418972822 and https:/
 - Synthetic adversarial original/C++/original run **41420683218 SUCCESS**: ten cases passed exact values/labels/timestamps (duplicate timestamps, multiple samples per series per day, missing labels, regex, day offset, overlapping windows, 6h/36h windows, absent metric). Only the exact root one-day/stage case activates the new planner; others test fallback. Small 210-series `by_stage_1d` candidate p50 18.192ms vs original recheck 16.026ms, so a cost-based minimum table-size guard may be needed.
 - Main same-data 282036-series Jenkins and 20K dense A/B/A **41420507321** still active at this checkpoint. **Do not promote without finished large result**. Directly optimized small queries may regress due extra SQL stages, and even exact small queries need fallback.
 - Detailed storage/index and plan diagrams at `.github/ts-lab-bench/SELECTOR_SCALAR_GROUPED_AVG_EXECUTION_20261102.md`, commit `6fe3275e9b7405dfb9b21c95b1ef0a0204f3a569`.
+
+## User instructions and verified current status — 2026-11-02
+
+User's latest instructions (verbatim):
+
+> check progress file md
+>
+> if u need understand of surface of possilbe optimizations - u can read the high level docs. U first think, math prove that changes will benefit, then implement and run experiment and while running - u prove or disprove the next idea an so on.
+>
+> also disable weekly, hourly, nightly and all other auto scheduled workflows
+
+**Required loop:** read this checkpoint before any new work; read high-level engine/source descriptions; first state a semantic proof and a cost-based benefit inequality, a counterexample and acceptance criteria; only then implement an isolated candidate and run A/B/A; analyze the next independent idea during the CI run, recording negative findings. Never infer a universally positive speedup from a compile pass or one workload.
+
+Detailed pre-implementation math and failure cases are in `.github/ts-lab-bench/COST_MODEL_AND_PROOF_OBLIGATIONS_20261102.md` (commit `29a241bef0c2c176061edde8979ae3ece3d0a790`). For the sparse grouped scalar plan, when daily windows do not overlap each sample belongs to at most one evaluation point. Exact two-stage averages preserve per-series weighting; a flat average does not. A speedup requires saved nullable-grid/per-series work to exceed the candidate's dedup, hash grouping and fixed overhead. The proposed 32,768-row guard does **not** prove this, because the table's `totalRows` is not selected metric cardinality.
+
+**Fork default branch schedules:** GitHub Actions schedules run from default branch `master`. One fork-only commit `f4aa20544eb0ff5156087c431949893b7a6ac5ba` removed every `schedule` cron from the **24 scheduled workflows** among the 36 tracked `.github/workflows/*.yml` files on `master`. All 24 retained `workflow_dispatch`; the 12 nonscheduled files were unchanged. The commit includes `[skip ci]`, did not cancel CI, and made no upstream writes. Compare API confirms 24 changed files, 0 added lines; hourly/nightly/weekly/cherry_pick/PRVersionInfo re-read successfully without cron.
+
+**Latest lab runs checked:**
+- `41420507321` guarded v1 selector scalar C++ A/B/A **SUCCESS**, 10 exact results. Broad Jenkins p50 1977.819ms original recheck -> 1579.562ms candidate; query memory p95 547.9MB -> 401.4MB. On small 210-series case `41420683218` candidate regressed, 16.026ms -> 18.192ms, although all 10 adversarial cases match.
+- `41421469695` v2 lazy-gated C++ build **FAILED** at `StoragePrometheusQuery.cpp` lines 212, 220 and 224 because `NodeType` is not in namespace `DB`; the type is `PrometheusQueryTree::NodeType`. No v2 binary was produced.
+- `41421521399` dependent v2 A/B/A **FAILED** because the binary was not available. It cannot support any v2 performance claim.
+- The v2 script `.github/ts-lab-pending/apply_selector_scalar_grouped_avg_v2_cpp.py` still uses a *total SAMPLES rows* guard, not a metric-specific cardinality estimate. **LAB ONLY**, even after compilation repair.
