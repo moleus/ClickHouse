@@ -6,12 +6,14 @@ All shares are of observed CPU samples, not wall time or exclusive latency.
 """
 import argparse,collections,json,pathlib,re,statistics
 def parse_samples(raw):
-    samples=[];cur=[];header=False;unparsed=0
+    samples=[];cur=[];header=False;unparsed=0; times=[]
     for line in raw.splitlines():
         l=line.strip()
         is_header=bool(re.search(r"\d+(?:\.\d+)?:\s+.*\bcpu-clock:",line))
         if is_header:
             if header:samples.append(cur)
+            timestamp=re.search(r'(\d+\.\d+):\s+.*\bcpu-clock:',line)
+            times.append(float(timestamp.group(1)) if timestamp else None)
             cur=[];header=True
             continue
         if not header:continue
@@ -27,7 +29,7 @@ def parse_samples(raw):
         else:
             unparsed+=1
     if header:samples.append(cur)
-    return samples,unparsed
+    return samples,unparsed,times
 def classify(stack):
     joined=" ".join(stack).lower()
     leaf=stack[0].lower() if stack else ""
@@ -49,7 +51,7 @@ def main():
     p.add_argument("--expected-min",type=int,default=100)
     a=p.parse_args()
     raw=pathlib.Path(a.script).read_text(errors="replace")
-    samples,unparsed=parse_samples(raw)
+    samples,unparsed,times=parse_samples(raw)
     out=pathlib.Path(a.output_dir);out.mkdir(parents=True,exist_ok=True)
     leaves=collections.Counter();counts=collections.Counter();folded=collections.Counter()
     missing=0
@@ -59,17 +61,25 @@ def main():
         folded[";".join(reversed(frames[:75]))]+=1
         for group,present in classify(frames).items():
             if present:counts[group]+=1
-    valid=len(samples)>=a.expected_min and missing/max(1,len(samples))<.15
+    coverage=(len(samples)-missing)/max(1,len(samples))
+    valid=len(samples)>=a.expected_min and coverage>=.80
     n=len(samples)
     summary={"valid":valid,"sampling":"perf cpu-clock DWARF, source matching binary Build ID",
-             "total_samples":n,"samples_with_no_symbols":missing,"unparsed_lines":unparsed,
+             "total_samples":n,"samples_with_no_symbols":missing,"symbolized_samples":n-missing,
+             "symbolized_coverage":round(coverage,5),"unparsed_lines":unparsed,
+             "first_time_s":next((t for t in times if t is not None),None),
+             "last_time_s":next((t for t in reversed(times) if t is not None),None),
+             "last_symbolized_time_s":next((t for t,frames in reversed(list(zip(times,samples))) if frames and t is not None),None),
              "limitations":["CPU sampling not wall time; categories overlap",
                             "stack attribution is inclusive; no additive CPU share",
                             "DWARF call graph can miss inlined functions and be truncated",
                             "intervals are not statistically independent in general",
-                            "hardware cycles/cache-misses/IPC remain unavailable"],
-             "inclusive_group_counts":{k:{"samples":v,"fraction":round(v/max(n,1),5)} for k,v in counts.most_common()},
-             "top_leaves":[{"symbol":k,"samples":v,"fraction":round(v/max(n,1),5)} for k,v in leaves.most_common(30)],
+                            "hardware cycles/cache-misses/IPC remain unavailable",
+                            "if symbolized coverage below 80%, do not generalize call stacks to entire query"],
+             "inclusive_group_counts":{k:{"samples":v,"fraction_of_all_events":round(v/max(n,1),5),
+                 "fraction_of_symbolized":round(v/max(n-missing,1),5)} for k,v in counts.most_common()},
+             "top_leaves":[{"symbol":k,"samples":v,"fraction_of_all_events":round(v/max(n,1),5),
+                 "fraction_of_symbolized":round(v/max(n-missing,1),5)} for k,v in leaves.most_common(30)],
              "memset_attribution":{"all_memset_leaves":sum(v for k,v in leaves.items() if "memset" in k.lower()),
                                    "memset_with_collector_in_stack":counts.get("memset_under_collector",0)}}
     (out/"callchain-summary.json").write_text(json.dumps(summary,indent=2)+"\n")
@@ -79,20 +89,20 @@ def main():
     markdown=["# Native ClickHouse CPU call-chain attribution","",
               "CPU-clock sampling. Shares below are **inclusive CPU sample fractions**, not query-wall fractions.",
               "Categories overlap. Full raw perf.data and source binary build IDs are retained.","",
-              f"Samples: {n}; missing frames: {missing}; unparsed lines: {unparsed}; valid: {valid}","","| Group | Samples | % |",
+              f"Samples: {n}; frames available: {n-missing}; coverage: {coverage:.1%}; unparsed lines: {unparsed}; valid: {valid}","","| Group | Samples | % of symbolized events |",
               "|---|---:|---:|"]
     for k,v in counts.most_common():
-        markdown.append(f"| {k} | {v} | {100*v/max(n,1):.2f}% |")
-    markdown+=["","| Leaf | Samples | % |","|---|---:|---:|"]
+        markdown.append(f"| {k} | {v} | {100*v/max(n-missing,1):.2f}% |")
+    markdown+=["","| Leaf | Samples | % of symbolized events |","|---|---:|---:|"]
     for key,val in leaves.most_common(20):
-        markdown.append(f"| {key.replace('|','/')} | {val} | {100*val/max(n,1):.2f}% |")
+        markdown.append(f"| {key.replace('|','/')} | {val} | {100*val/max(n-missing,1):.2f}% |")
     markdown+=["","Do NOT attribute all memset to a single caller. Use the stack-filtered count.",
                "Sampled CPU work can overlap concurrent query operators; no critical-path model is inferred."]
     (out/"callchain-summary.md").write_text("\n".join(markdown)+"\n")
     print("CALLCHAIN_DONE",json.dumps({"valid":valid,"samples":n,"empty":missing,
-        "collector_samples":counts.get("tag_collector",0),
+        "coverage":round(coverage,4),"collector_samples":counts.get("tag_collector",0),
         "memset_with_collector":counts.get("memset_under_collector",0),
         "all_memset_leaves":summary["memset_attribution"]["all_memset_leaves"]},separators=(",",":")),flush=True)
-    if not valid:raise SystemExit("Insufficient symbolized call chain evidence")
+    if not valid:raise SystemExit("Only partial CPU call-chain coverage; cannot generalize hotspot fractions")
 
 if __name__=="__main__":main()
