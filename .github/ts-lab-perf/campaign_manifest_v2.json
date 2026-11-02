@@ -1,0 +1,45 @@
+{
+  "version": 2,
+  "repo": "moleus/ClickHouse",
+  "branch": "lab/timeseries-perf-results",
+  "max_runs": 8,
+  "artifact_download_limit_mib": 50,
+  "run_refs": [
+    {
+      "kind": "compiler",
+      "id": 41498812663,
+      "artifact": "tslab-95k-stage-projection-paired-41498812663",
+      "required": true
+    },
+    {
+      "kind": "allocator",
+      "id": 41499622283,
+      "artifact": "tslab-95k-stage-projection-paired-41499622283",
+      "required": true
+    },
+    {
+      "kind": "collector",
+      "id": 41499234636,
+      "artifact": "tslab-native-collector-repeat-evidence",
+      "required": true
+    },
+    {
+      "kind": "granularity",
+      "id": 41493836279,
+      "artifact": "tslab-granularity-sweep-evidence",
+      "required": true
+    },
+    {
+      "kind": "callchain",
+      "id": 41499534451,
+      "artifact": "tslab-native-callchain-attribution-evidence",
+      "required": false
+    },
+    {
+      "kind": "lint",
+      "id": 41500561641,
+      "artifact": "tslab-preflight-evidence",
+      "required": false
+    }
+  ]
+}
