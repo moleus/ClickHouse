@@ -99,3 +99,13 @@ p50 milliseconds (default recheck -> best candidate):
 Source: `src/Interpreters/AdaptiveAggregation/Merge.cpp` function `Aggregator::mergeAndConvertAdaptiveBucketImpl` partitions staged records and merges source cells; `src/Processors/QueryPlan/AggregatingStep.cpp` requires multistream, grouping keys and no ordered-rows property. It is not solely extra overhead: it performs actual aggregation work, explaining why inclusive CPU stack sampling overstated its optimization opportunity.
 
 Link: https://github.com/moleus/ClickHouse/actions/runs/41418262715 .
+
+## Source patch: verified whole-metric ID range for large bucketed `TimeSeries` (new)
+
+- Pinned source `src/Storages/StorageTimeSeriesSelector.cpp` already has `tryMakeWholeMetricIDRangeConditions`: the range is a primary-key `indexHint`, while the exact `id IN (SELECT ... FROM tags)` remains the row-level filter. It probes all time-eligible matching tags for any ID outside the canonical metric hash prefix and for non-matching labels; supports exact/regex name selection, custom shifted IDs fallback, and physical ID type validation. Currently the source only invokes it for **non-bucketed** samples.
+- New candidate script `.github/ts-lab-pending/apply_bucketed_whole_metric_range_cpp.py` commit `63cdbc2e92533f78d43b4c3bb6db8854a3d804f6` enables this existing, guarded source path for bucketed SAMPLES targets with >=65536 rows, using the original exact filter and safety probe. It does not change storage format, roles, query executor or inserts.
+- Build workflow `.github/workflows/ts-lab-bucketed-metric-range-cxx-20261102.yml` commit `9eb4add402f8992bd246d6b8e7811ffbd9500d3e`, run **41418972822** started.
+- A/B/A original/candidate/original benchmark workflow `.github/workflows/ts-lab-bucketed-metric-range-aba-20261102.yml` commit `c8662741878a31078b2ab502dbbb8d81c400849c`, run **41419049171** started, using `.github/ts-lab-bench/bench_bucketed_metric_range_aba.py` and the original Jenkins/dense inputs. Includes full metric, narrowed label selectors, exact VM Jenkins oracle, rate correctness and memory/read rows.
+- **Do not claim a speedup until the C++ binary compiles and the A/B/A completes.** The 65,536-row threshold is only a controlled hypothesis; running the counterexample probe might cost more than it saves. Compare narrow/old-shifted IDs and increase in query memory. Keep fork lab-only.
+
+Links: https://github.com/moleus/ClickHouse/actions/runs/41418972822 and https://github.com/moleus/ClickHouse/actions/runs/41419049171 .
