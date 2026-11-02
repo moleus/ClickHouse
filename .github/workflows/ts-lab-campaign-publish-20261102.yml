@@ -31,7 +31,7 @@ jobs:
           assert m['repo']=='moleus/ClickHouse'
           assert m['branch']=='lab/timeseries-perf-results'
           assert len(m['run_refs'])<=m['max_runs']<=8
-          assert all(int(x['id'])>0 and x['kind'] in ('fresh','micro','profiler','index','pmu','hardware')
+          assert all(int(x['id'])>0 and x['kind'] in ('fresh','micro','profiler','index','stage','pmu','hardware','granularity')
                      for x in m['run_refs'])
           print('CAMPAIGN_PREFLIGHT',len(m['run_refs']),'pinned CI runs')
           PY
