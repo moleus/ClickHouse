@@ -2,6 +2,7 @@
 """Locate missing CREATE TEMPORARY TABLE privilege in TimeSeries read path."""
 import json,pathlib,urllib.parse,urllib.request,urllib.error
 from setup_v4_cte_readonly import reader_post
+from bench_bucket_cxx_abca import post
 
 def execute(sql):
     try:
@@ -18,9 +19,8 @@ def main():
     # Inner samples target belongs to the same isolated TimeSeries fixture.
     sys_query=("SELECT name FROM system.tables WHERE database='default' "
                "AND startsWith(name,'.inner_id.samples.') FORMAT TSVRaw")
-    samples_response=execute(sys_query)
-    assert samples_response["success"],samples_response
-    names=[x.strip() for x in samples_response["data"].splitlines() if x.strip()]
+    _,sample_raw=post("http://127.0.0.1:18191",sys_query)
+    names=[x.decode("utf-8","replace").strip() for x in sample_raw.splitlines() if x.strip()]
     assert len(names)==1,("expected exactly one samples target",names)
     samples="default."+ticks+names[0].replace(ticks,ticks+ticks)+ticks
     s_start=(m["start"]-86400)*1000+1
