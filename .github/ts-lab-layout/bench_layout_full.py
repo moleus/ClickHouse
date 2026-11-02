@@ -23,6 +23,12 @@ QUERY_SELECTORS={
     "regex":'{branch=~"main|feature-0[0-9]"}',
 }
 OUTPUT_POINTS={"whole":532,"stage":14,"project":266,"project_stage":14,"regex":532}
+def _sha_file(path):
+    h=hashlib.sha256()
+    with open(path,"rb") as f:
+        for chunk in iter(lambda:f.read(8*1024*1024),b""):
+            h.update(chunk)
+    return h.hexdigest()
 def check_disk(folder):
     import shutil
     use=shutil.disk_usage(folder)
@@ -44,10 +50,20 @@ def system_snapshot(variant):
                       if z.startswith(("pgfault ","pgmajfault ","pswpin ","pswpout "))}
     return snap
 def log_for(qid):
-    query=actual_sql("SYSTEM FLUSH LOGS")
-    rows=querylogs(qid)
-    done=next((x for x in reversed(rows) if x.get("type")=="QueryFinish" and x.get("query_id")==qid),None)
-    if not done:raise RuntimeError("Missing QueryFinish: "+qid)
+    # QueryFinish enters system.query_log asynchronously; a successful HTTP
+    # response is not a guarantee that the log entry is already visible.
+    # Retry with a bounded backoff instead of treating missing data as zero.
+    rows=[];done=None
+    for attempt in range(8):
+        actual_sql("SYSTEM FLUSH LOGS")
+        rows=querylogs(qid)
+        done=next((x for x in reversed(rows)
+                   if x.get("type")=="QueryFinish" and x.get("query_id")==qid),None)
+        if done:break
+        time.sleep(.20*(attempt+1))
+    if not done:
+        found=[{"query_id":x.get("query_id"),"type":x.get("type")} for x in rows[:12]]
+        raise RuntimeError(f"Missing QueryFinish after 8 retries: {qid}; available entries={found}")
     events=done.get("ProfileEvents",{})
     return {"duration_ms":done.get("query_duration_ms"),"memory_bytes":done.get("memory_usage"),
             "read_rows":done.get("read_rows"),"read_bytes":done.get("read_bytes"),
@@ -130,7 +146,7 @@ def main():
     out=pathlib.Path(a.output_dir);out.mkdir(parents=True,exist_ok=True)
     table="churn_"+a.variant
     report={"schema":1,"variant":a.variant,"canonical_sha256":meta["sha256"],
-            "binary_sha256":hashlib.sha256(pathlib.Path(a.binary).read_bytes()).hexdigest(),
+            "binary_sha256":_sha_file(a.binary),
             "source_type":"synthetic CI stage 14d, 1.33m unique series",
             "cases":{},"physical":{},"errors":[],"checks":{"fixture":True}}
     save(out/"report.json",report)
