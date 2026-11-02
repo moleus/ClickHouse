@@ -1,0 +1,33 @@
+name: TimeSeries overflow fallback Decimal-oracle negative control
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-overflow-fallback-model-20261102.yml']
+permissions:
+  contents: read
+concurrency:
+  group: tslab-overflow-fallback-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  falsify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Prove and falsify overflow fallback against Decimal oracle
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python3 -m py_compile .github/ts-lab-bench/bench_overflow_mean_model.py
+          python3 .github/ts-lab-bench/bench_overflow_mean_model.py \
+            --output evidence/overflow-mean-model.json | tee evidence/overflow-mean-model.log
+      - name: Keep raw proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-overflow-mean-model-${{ github.run_id }}
+          path: evidence/
+          if-no-files-found: warn
