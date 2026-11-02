@@ -59,8 +59,8 @@ def measured(binary,restart,case,trial):
             count,last=r["body"].strip().split("\t")
             r["rows"]=int(count);r["group_or_checksum"]=int(last)
             if int(count)!=N:raise ValueError("wrong number of generated rows")
-            if not case["control"] and int(last)!=37:
-                raise ValueError("wrong group count: expected max_group=37")
+            if not case["control"] and int(last)!=38:
+                raise ValueError("wrong group count: expected max_group=38")
         except Exception as exc:
             r["ok"]=False;r["error"]="output validation: "+str(exc)
     r["sql_log"]=query_detail(qid)
@@ -94,11 +94,11 @@ def main():
     # Validate native functions on a short deterministic query first.
     pid=server_restart(a.restart_helper,a.binary,"repeat_smoke")
     smoke=sql(make_query(3800,1,8192,rows=3800))
-    if not smoke["ok"] or smoke.get("body","").strip()!="3800\t37":
+    if not smoke["ok"] or smoke.get("body","").strip()!="3800\t38":
         result["errors"].append({"smoke":smoke})
         save(a.output,result)
         raise RuntimeError("native collector smoke failure")
-    result["smoke"]="3800 rows and 38 native groups";save(a.output,result)
+    result["smoke"]="3800 rows and 38 native groups plus reserved empty group 0";save(a.output,result)
     rng=random.Random(9122001)
     for round_index in range(3):
         order=list(cases);rng.shuffle(order)
