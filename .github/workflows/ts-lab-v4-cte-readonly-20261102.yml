@@ -1,0 +1,177 @@
+name: TimeSeries read-only PromQL explicit materialized CTE off ACL A/B/C/A
+on:
+  push:
+    branches: [lab/timeseries-fastpath-ci]
+    paths: ['.github/workflows/ts-lab-v4-cte-readonly-20261102.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-v4-cte-readonly-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download SHA256 verified baseline binary without recompiling
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/ch-art" "$RUNNER_TEMP/ch-bin"
+          gh run download 41301314345 -R "$REPO" --pattern 'tslab-clickhouse-amd64-*' -D "$RUNNER_TEMP/ch-art"
+          archive="$(find "$RUNNER_TEMP/ch-art" -name 'clickhouse-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/ch-archive-hash.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
+          (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS) | tee evidence/ch-binary-hash.txt
+          chmod +x "$RUNNER_TEMP/ch-bin/clickhouse"
+          "$RUNNER_TEMP/ch-bin/clickhouse" --version | tee evidence/ch-version.txt
+
+      - name: Start isolated ClickHouse and create v11 Float64 fixture
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles" "$RUNNER_TEMP/ch/access"
+          cat > "$RUNNER_TEMP/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path>
+            <access_control_path>$RUNNER_TEMP/ch/access/</access_control_path><tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <max_server_memory_usage>4000000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota><access_management>1</access_management></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions><log_queries>1</log_queries><max_memory_usage>2000000000</max_memory_usage></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/ch-bin/clickhouse" server --config-file="$RUNNER_TEMP/config.xml" >evidence/ch-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -fsS -X POST --data-binary 'CREATE TABLE access_ts ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0'             'http://127.0.0.1:18191/?allow_experimental_time_series_table=1' >evidence/create.txt
+      - name: Create non-admin reader and enforce row policy on inner tags
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/ts-lab-bench/setup_v4_cte_readonly.py             .github/ts-lab-bench/bench_v4_cte_readonly_aba.py
+          python3 .github/ts-lab-bench/setup_v4_cte_readonly.py | tee evidence/acl-policy-setup.log
+
+      - name: Download verified guarded scalar AVG C++ binary after independent build
+        run: |
+          set -euo pipefail
+          run_id=41447045583
+          source_sha=afba85d8f12b8746e47aab2da6c8facad9608e20
+          mkdir -p "$RUNNER_TEMP/selectorscalar-art" "$RUNNER_TEMP/selectorscalar-bin"
+          success=0
+          for attempt in $(seq 1 120); do
+            if gh run download "$run_id" -R "$REPO" \
+                 -n "tslab-v4-filtered-kbn-lab-binary-$source_sha" \
+                 -D "$RUNNER_TEMP/selectorscalar-art" 2>/dev/null; then
+              success=1
+              echo "SELECTOR_SCALAR_BINARY_ARTIFACT run=$run_id attempts=$attempt"
+              break
+            fi
+            conclusion="$(gh run view "$run_id" -R "$REPO" --json conclusion --jq .conclusion || true)"
+            if [ "$conclusion" = failure ] || [ "$conclusion" = cancelled ]; then
+              echo "Fused C++ binary did not build successfully ($conclusion)" >&2
+              exit 1
+            fi
+            sleep 15
+          done
+          [ "$success" = 1 ] || { echo "Fused C++ artifact not found" >&2; exit 1; }
+          archive="$(find "$RUNNER_TEMP/selectorscalar-art" -type f -name 'clickhouse-v4-filtered-kbn-lab-linux-amd64.tar.zst' -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/selector-scalar-archive-hash.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/selectorscalar-bin"
+          (cd "$RUNNER_TEMP/selectorscalar-bin" && sha256sum -c SHA256SUMS) | tee evidence/selectorscalar-binary-hash.txt
+          chmod +x "$RUNNER_TEMP/selectorscalar-bin/clickhouse"
+          "$RUNNER_TEMP/selectorscalar-bin/clickhouse" --version | tee evidence/selector-scalar-version.txt
+          cp "$RUNNER_TEMP/selectorscalar-bin/BUILD_INFO.txt" evidence/selector-scalar-build-info.txt
+
+
+      - name: Controlled ClickHouse restart helper, preserving the same on-disk datasets
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ch-restart.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          binary="$1"
+          phase="$2"
+          parent="$(cat "$RUNNER_TEMP/ch.pid")"
+          children="$(cat "/proc/$parent/task/$parent/children" 2>/dev/null || true)"
+          for pid in $children "$parent"; do
+            if [ -n "$pid" ]; then kill -TERM "$pid" 2>/dev/null || true; fi
+          done
+          # Do not restart just because a clickhouse watchdog has stopped:
+          # wait for both the old HTTP listener and its actual process.
+          for attempt in $(seq 1 100); do
+            if ! curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "BUCKET_PREVIOUS_SERVER_CLOSED phase=$phase attempt=$attempt"
+              break
+            fi
+            sleep 1
+          done
+          if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+            echo 'Old ClickHouse still listening; refuse unsafe restart' >&2
+            exit 1
+          fi
+          sleep 2
+          "$binary" server --config-file="$RUNNER_TEMP/config.xml" >"evidence/ch-server-$phase.log" 2>&1 &
+          echo "$!" >"$RUNNER_TEMP/ch.pid"
+          for attempt in $(seq 1 120); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "BUCKET_SERVER_STARTED phase=$phase attempt=$attempt"
+              exit 0
+            fi
+            sleep 1
+          done
+          tail -110 "evidence/ch-server-$phase.log"
+          exit 1
+          SH
+          chmod +x "$RUNNER_TEMP/ch-restart.sh"
+
+
+      - name: Verify row policy under original v4-on v4-off and original
+        run: |
+          set -euo pipefail
+          for phase in base_before v4_on v4_off base_after; do
+            case "$phase" in
+              base_before) ;;
+              v4_on) "$RUNNER_TEMP/ch-restart.sh" "$RUNNER_TEMP/selectorscalar-bin/clickhouse" v4_on ;;
+              v4_off) ;;
+              base_after) "$RUNNER_TEMP/ch-restart.sh" "$RUNNER_TEMP/ch-bin/clickhouse" base_after ;;
+            esac
+            python3 .github/ts-lab-bench/bench_v4_cte_readonly_aba.py               --phase "$phase" --manifest evidence/acl-manifest.json               --canonical evidence/cte-readonly-canonical.json               --output "evidence/cte-readonly-$phase.json" | tee "evidence/cte-readonly-$phase.log"
+          done
+          python3 - <<'PY'
+          import json,pathlib
+          p=pathlib.Path('evidence')
+          rows={x:json.loads((p/('cte-readonly-'+x+'.json')).read_text())
+            for x in ['base_before','v4_on','v4_off','base_after']}
+          assert all(r['row_policy_confirmed'] for r in rows.values())
+          assert all(all(x['points']==0 for k,x in r['cases'].items() if k=='denied')
+                     for r in rows.values())
+          print('CTE_READONLY_ABCA_PASS',json.dumps({
+              "phases":list(rows),"queries_per_phase":len(rows['base_before']['cases']),
+              "no_denied_stage":True},separators=(",",":")),flush=True)
+          PY
+
+      - name: Preserve numerical proof and any diagnostic failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-v4-cte-readonly-${{ github.run_id }}
+          path: evidence/
+          retention-days: 21
+          compression-level: 1
