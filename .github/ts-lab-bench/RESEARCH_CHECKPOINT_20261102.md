@@ -144,3 +144,8 @@ Links: https://github.com/moleus/ClickHouse/actions/runs/41418972822 and https:/
 - Build workflow `.github/workflows/ts-lab-selector-scalar-cpp-cxx-20261102.yml` commit `66b59e250f2096dd4abddc9893f80642024bcb32`, run **41420384277** started.
 - A/B/A workflow `.github/workflows/ts-lab-selector-scalar-cpp-aba-20261102.yml` commit `e4fed87e4eab3f97dd88efca01a6ba01b21e3b76`, run **41420507321** started, with full Jenkins 6 + dense 4 cases against original and original recheck, labels/times/values and read_rows/memory.
 - The guard intentionally does not optimize project/regex/branch filters, because the SQL prototype regressed on project/regex and hardcoding branch is unacceptable. C++ correctness/adversarial/ABI tests and performance are **pending**; do not claim improvement until both complete. Candidate contains no production default change outside the standalone CI binary.
+
+### Additional C++ adversarial guard test
+
+- Added workflow `.github/workflows/ts-lab-selector-scalar-cpp-corner-20261102.yml`, commit `887f577245f0ebabf403c3702c450a9aeeb5206b`, run **41420683218**, reuses `.github/ts-lab-bench/bench_fused_corner_cases.py` for original/candidate/original on one on-disk 210-series synthetic dataset with duplicate timestamps, multiple samples, missing/empty stage, regex, offset, absent metric, out-of-order.
+- It downloads verified binary artifact from build **41420384277** and compares value equality for all cases. Do not confuse an unused fastpath fallback correctness test with actual speed: current main C++ guard optimizes the exact-metric broad `avg by(stage)(avg_over_time(...[1d]))` only; all other filters must stay native.
