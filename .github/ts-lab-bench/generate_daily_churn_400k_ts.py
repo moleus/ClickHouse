@@ -48,7 +48,7 @@ def main():
                  +b"".join(batch).decode())
             post("http://127.0.0.1:18191",sql)
     _,raw=post("http://127.0.0.1:18191",
-              "SELECT count() FROM churn_ts WHERE metric_name='tslab_daily_churn' FORMAT TSV")
+              f"SELECT count() FROM churn_ts WHERE metric_name='{METRIC}' FORMAT TSV")
     count=int(raw.decode().strip())
     assert count==DAYS*PER_DAY,(count,DAYS*PER_DAY)
     manifest={"base":base,"end":end,"days":DAYS,"per_day":PER_DAY,
