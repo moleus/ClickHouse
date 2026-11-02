@@ -1,4 +1,5 @@
 name: TimeSeries low cardinality UniqV2 NDV default bias
+# 2026-11-03 launch: verify LC cardinality estimator on one fixed synthetic value
 on:
   push:
     branches: [lab/ts-cbo-adaptive-20261103]
