@@ -66,9 +66,17 @@ The C++ type guard candidate checks TAGS id_type == Tuple(UInt64, LowCardinality
 
 **Security gate**: direct queries to inner targets must not bypass the outer table's access semantics or row policies. All latency tests here run a single unrestricted benchmark account. Before production, use an approved engine-internal read path that checks the user's outer table access, storage row policies and target ownership. The current direct-inner SQL should NOT be enabled by default.
 
+## Small-table cost guard and index-granule evidence
+
+Source level: IStorage::totalRows(ContextPtr) supplies an optional part-metadata row count for a samples target. A lab-only C++ cost guard now uses this estimate and keeps the unchanged PromQL converter for target tables with fewer than 16,384 sample rows. This threshold is an experiment, not a production cost model. Patch .github/ts-lab-pending/apply_direct_inner_safe_size_guard_cpp.py; build 41413900299, mixed-metric A/B/A 41413945372, adversarial corner A/B/A 41413952829 (statuses require final CI review).
+
+Why it is needed: 41413638122 verified ten adversarial corner-case outputs for the type-guarded C++ candidate, including duplicate timestamps, missing labels, 6h/36h windows, regex, offsets and overlapping windows. But on 210 short series the guarded broad 1d grouped avg was 18.8ms p50 versus 13.3ms baseline recheck; 6h case 17.9 vs 11.3ms. The specialized plan is not universally faster. The small-table threshold should prevent the overhead on these inputs, while retaining the wide Jenkins path.
+
+Existing sample-granularity experiment 41354012551 already disproves a simple smaller-granule fix. Decreasing samples_index_granularity from 256 to 8 reduced stage10 read_rows ~562K → 327K, but increased p50 ~88ms → 204ms. The project-specific query similarly dropped 564K → 370K read rows but grew 92ms → 283ms. Additional index marks and small scattered reads can cost more than the skipped row decoding. Do not globally lower the index granularity without a new per-ID seek design.
+
 ## Remaining acceptance gates
 
-1. Verify the ID-type-guarded C++ binary with canonical ID, noncanonical tuple ID, and UInt64 ID. Verify exact labels, timestamps and numbers against original C++. Include nondefault id_generator/default expressions, missing labels, regex, overlaps, duplicates, out-of-order timestamps, back-delta, 15s HA and 14-90d windows.
+1. The type-aware ID guard passed canonical, shifted tuple and UInt64 cases (41413078542). Extend correctness testing Verify exact labels, timestamps and numbers against original C++. Include nondefault id_generator/default expressions, missing labels, regex, overlaps, duplicates, out-of-order timestamps, back-delta, 15s HA and 14-90d windows.
 2. Reduce expensive per-series rate grids or fuse the grouped rate operation. Avoid a broad configuration setting change: rate source already has four concurrent AggregatingTransform/ReadPool streams in full PromQL.
 3. Re-run the accepted guarded implementation under O2/O3 with production-like cardinality, 69% late samples, 14-90d retention and ingest/merge CPU, part count, memory and S3/storage cost. Compare exact semantics with VictoriaMetrics; the observed MetricsQL rate behavior may differ from PromQL.
 
@@ -78,7 +86,7 @@ The C++ type guard candidate checks TAGS id_type == Tuple(UInt64, LowCardinality
 - Late JOIN mixed families: https://github.com/moleus/ClickHouse/actions/runs/41410791419
 - Canonical metric-ID range C++: .github/ts-lab-pending/apply_direct_inner_late_tags_metric_range_cpp.py, build 41411743589 and A/B/A https://github.com/moleus/ClickHouse/actions/runs/41411788979
 - Complete residual-ID C++: .github/ts-lab-pending/apply_direct_inner_late_tags_safe_id_range_cpp.py, build 41412428782 and A/B/A https://github.com/moleus/ClickHouse/actions/runs/41412500210
-- Type guard: .github/ts-lab-pending/apply_direct_inner_safe_id_type_guard_cpp.py, build 41412903481 and adversarial ID test 41413078542 (status pending validation)
+- Type guard: .github/ts-lab-pending/apply_direct_inner_safe_id_type_guard_cpp.py; build 41412903481 SUCCESS and 13 PromQL tests, ID layout test 41413078542 SUCCESS (canonical, shifted tuple, UInt64 exact). The guarded C++ A/B/A run 41413630390 passed all 8 output checks; broad Jenkins 1363ms baseline repeat vs 887ms candidate, memory ~507MB → 200MB, but dense-rate timings also changed on the supposedly unchanged path, so consider the latency estimate noisy.
 - Metric ID prefix/range SQL: .github/ts-lab-bench/bench_jenkins_metric_id_range.py, 41411008407
 - Residual lookup SQL: .github/ts-lab-bench/bench_jenkins_metric_id_range_safe.py, 41411869762
 - Read rows and memory audit: 41412065305
