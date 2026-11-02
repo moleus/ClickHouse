@@ -1,0 +1,158 @@
+# ClickHouse TimeSeries cost and statistics: verified evidence, 2026-11-03
+
+Scope: isolated fork `moleus/ClickHouse`, branch `lab/ts-cbo-adaptive-20261103`.
+Source pinned to `52529f0c711566d696917678bf15e7068772fdde`.
+No production data or master changes. No scheduled GitHub workflows enabled.
+The O2 binary is SHA-verified from Actions run 41467151457. The Jenkins fixture
+is SHA256 `8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858`.
+
+## 1. Correlated stage/project labels
+
+Run: https://github.com/moleus/ClickHouse/actions/runs/41536188291 (PASS).
+Script: `.github/ts-lab-cbo/bench_correlated_labels.py`.
+
+A 152,000-series synthetic fixture uses `j = i % 152`,
+`stage = j % 38`, `project = j % 8`. Each series has one sample.
+Fixture SHA256: `d305b1b79ad71177f9f5221dd044facb79320af8c3c2c6a2fcb636b1095625bb`.
+There are 240/240 query-log records. Native PromQL produced 2,069 points;
+Map and dedicated `stage, project` columns had the same labels, timestamps and
+values (maximum absolute difference 0).
+
+| Filter, full 14 days | Actual TAGS IDs | Estimated TAGS rows with Map | Estimated TAGS rows with columns |
+| --- | ---: | ---: | ---: |
+| stage=7 and project=0 (impossible) | 0 | ~8,280 | 250 |
+| stage=6 and project=0 (correlated) | 1,000 | ~8,280 | 250 |
+| stage=7 | 4,000 | ~25,080 | 2,000 |
+| project=0 | 19,000 | ~25,080 | 9,500 |
+| whole metric | 152,000 | 76,000 | 76,000 |
+
+The native JOIN plan estimated 82,760 output rows for either two-label Map
+predicate and 2,500 for either dedicated-column predicate, despite actual
+outputs of 0 and 1,000. The table estimate is not an actual result.
+
+The dedicated-column TAGS part used 6,465,735 bytes, versus 5,584,491 bytes
+for Map (+15.8%). This storage cost did not prove a native query speedup:
+the single native run was 466.104 ms for Map and 461.796 ms for columns.
+Reject unstable cases with >30% A/B/A baseline drift.
+
+Cause verified against pinned sources:
+- `StatisticsUniqV2.cpp` collects all LowCardinality dictionary entries,
+  including an unused default. Constant `metric_name` has true NDV 1,
+  but a stored UniqV2 estimate of 2.
+- `ConditionSelectivityEstimator.h/.cpp` uses an unknown-predicate
+  factor of 0.33. Independent column cardinalities cannot model correlated
+  or impossible stage/project pairs.
+- No usable Tuple-ID NDV in this binary; the join plan falls back to an
+  approximate cardinality. A separate optional C++ patch is being compiled.
+These causes can compound. Do not use estimated rows as ground truth.
+
+## 2. LowCardinality NDV curve
+
+Run: https://github.com/moleus/ClickHouse/actions/runs/41536759462 (PASS).
+Script: `.github/ts-lab-cbo/probe_lowcard_curve.py`.
+20 controls: String vs LowCardinality(String), k=1,2,8,38,152, with and
+without an actually used empty default key, 15,000 rows each.
+
+For k=1,2,8,38, LowCardinality estimates k+1 when its default is unused,
+while String reports k. When the default is used, LC estimates k, as
+expected. At k=152, sketch approximation adds +/-1 differences.
+For k=1, true self-join pairs are 225,000,000, while LC plan estimates
+112,500,000 because NDV is 2. Both physical plans and exact group counts
+are saved. Self-join is EXPLAIN-only; no large pair set was materialized.
+
+## 3. Highly skewed label distribution
+
+Run: https://github.com/moleus/ClickHouse/actions/runs/41537465947 (PASS).
+Script: `.github/ts-lab-cbo/probe_skew_selectivity.py`.
+100 distinct labels in 100,000 rows, either 90% or 99% with value `hot`.
+String UniqV2 estimate NDV 100; LC estimate NDV 101.
+
+For String with 90% hot labels: the planner estimates the *same* 10,000
+JOIN output rows for `hot` (actual pair count 8,100,000,000) and
+`cold-1` (actual 10,201). With 99% hot: estimated 10,000 for `hot`
+(actual 9,801,000,000) and for `cold-1` (actual 121).
+Actual pair counts are exact `frequency^2`, validated from group counts.
+The quadratic JOIN was NOT executed; these are estimated vs mathematical
+cardinalities, not measured runtime.
+
+Pinned `ColumnStatistics::estimateEqual` uses `uniq_v2` as a uniform
+frequency fallback. It uses `CountMinSketch` earlier if available, and
+TDigest for numeric columns with fewer than 2,048 distinct values.
+
+Run https://github.com/moleus/ClickHouse/actions/runs/41538082297 (PASS as
+capability probe): `countmin` is not available in the pinned lab binary.
+ALTER returned `Unknown statistic type 'CountMinSketch'` for all four
+String/LC skew controls. No CountMin speedup claim is allowed.
+An independent numeric-ID TDigest test is at
+https://github.com/moleus/ClickHouse/actions/runs/41538429974;
+read that run before drawing conclusions.
+
+## 4. TimeRanges max_time projection
+
+Run: https://github.com/moleus/ClickHouse/actions/runs/41537651194 (PASS
+after correcting system.projection_parts schema, QueryFinish retries and
+warmup count). Script `.github/ts-lab-cbo/bench_time_projection.py`.
+
+TimeRanges is an AggregatingMergeTree; add the projection only with
+`deduplicate_merge_projection_mode='rebuild'`. The projection is
+`(SELECT id,min_time,max_time ORDER BY max_time,id)`.
+In the canonical 1.33m fixture, the projection stored 1,330,000 rows
+(34,268,414 bytes in system.projection_parts). The paired A/B/B/A comparisons
+used 5 warmups and 4 measured repetitions per phase. All reported baseline
+drift values were below 30%.
+
+| Query and range | No projection | Force projection | Relative speedup | Read rows base -> projection |
+| --- | ---: | ---: | ---: | --- |
+| Direct COUNT 1d | 15.25 ms | 5.5 ms | 2.77x | 1.33m -> 101,200 |
+| TAGS JOIN COUNT 1d | 107.0 ms | 77.5 ms | 1.38x | 2.66m -> 1.4312m |
+| TAGS JOIN COUNT 3d | 221.5 ms | 185.75 ms | 1.19x | 2.66m -> 1.6196m |
+| TAGS JOIN COUNT 7d | 322.25 ms | 325.0 ms | 0.99x | 2.66m -> 1.9964m |
+| TAGS JOIN COUNT 14d | 417.5 ms | 436.25 ms | 0.96x | 2.66m -> 2.66m |
+
+**Not a full native PromQL gain**: these are direct SQL diagnostics. A
+cost-based choice should avoid forcing projection on wide windows. Full
+EXPLAIN, read marks, query-log CPU, RSS and parts are in uploaded artifacts.
+The cost-mode vs none A/B/B/A run is
+https://github.com/moleus/ClickHouse/actions/runs/41538293956.
+
+Correctness control run:
+https://github.com/moleus/ClickHouse/actions/runs/41537846983 (PASS).
+Script `.github/ts-lab-cbo/probe_time_projection_updates.py`.
+Inserted the same 1,024 series into two TimeSeries tables. One has the
+projection. Tests run before and after each incremental update and FINAL
+merge, including older out-of-order samples. Five phases produced 4,8,8,9,9
+native PromQL points with identical labels and timestamps, and maximum
+absolute numerical error below 6.3e-13. Projection and ordinary paths
+agreed for all four time predicates. The final merged TimeRanges had
+256 recently updated IDs, 512 old IDs and 1,024 total IDs. Before merge,
+raw row counts included duplicate records; tests checked this rather than
+assuming every row was a distinct series. This is a small control, not proof
+of all production update/replication behavior.
+
+Initial failures remain in Actions artifacts: 41536526138 queried a
+nonexistent `projection_name` in system.projection_parts; 41536988345
+lost a QueryFinish during log extraction; 41537095237 had 42.25% baseline
+drift in the 1d direct read. They were fixed and rerun; do not report their
+timings as verified performance claims.
+
+## 5. Native C++ and next step
+
+Two independent pinned-source builds are still in progress; preserve both
+and their ccache: https://github.com/moleus/ClickHouse/actions/runs/41531656434
+(opt-in native JOIN algorithm override) and
+https://github.com/moleus/ClickHouse/actions/runs/41535183046
+(combined override plus Tuple UniqV2 validator).
+
+Once a verified patched binary artifact is available, start the existing
+`ts-lab-cbo-native-join-20261103.yml` four-way full native PromQL A/B/B/A
+suite with exact expected timestamps/labels/numbers. Compare variants
+within the same O1 binary. Do not compare patched O1 against O2 as a
+single-variable performance change. The workflow is intentionally
+workflow_dispatch-only until a compiled binary exists. Do not start it early.
+
+Other independent work: measure actual CBO cost selection rather than
+forcing projections, test TDigest for frequent numeric label surrogates,
+and check whether a small number of stats-bearing columns can repair
+estimates without expensive high-cardinality per-label statistics.
+Do not enable any scheduled GitHub workflow, edit master, use production,
+or cancel an active build.
