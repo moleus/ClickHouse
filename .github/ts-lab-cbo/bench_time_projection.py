@@ -63,6 +63,7 @@ def main():
     p.add_argument("--manifest",required=True)
     p.add_argument("--output",required=True)
     p.add_argument("--days",default="1,3,7,14",help="comma-separated windows")
+    p.add_argument("--alternative",choices=("force","cost"),default="force")
     a=p.parse_args()
     days_list=[int(x) for x in a.days.split(",")]
     if not days_list or len(set(days_list))!=len(days_list) or any(x<1 or x>14 for x in days_list):
@@ -71,7 +72,7 @@ def main():
     if m["sha256"]!=CANONICAL or m["series"]!=1330000 or m["days"]!=14:
         raise AssertionError("Canonical input mismatch")
     root=pathlib.Path(a.output);root.mkdir(parents=True,exist_ok=True)
-    report={"case":a.case,"fixture_sha":m["sha256"],"schema":{},"windows":{},"errors":[]}
+    report={"case":a.case,"alternative":a.alternative,"fixture_sha":m["sha256"],"schema":{},"windows":{},"errors":[]}
     save(root/"report.json",report)
     try:
         fix_schema("churn_ts",report["schema"])
@@ -84,7 +85,7 @@ def main():
             trials=[];ref=None;failed=[]
             # Same physical table, disable vs force projection. Every phase has
             # warmup+timed trials; alternate A/B/B/A to reject cache drift.
-            for ix,which in enumerate(("none","force","force","none")):
+            for ix,which in enumerate(("none",a.alternative,a.alternative,"none")):
                 values=[]
                 for t in range(9):
                     qid=f"timeprojection_{a.case}_{days}_{ix}_{t}_{os.getenv('GITHUB_RUN_ID','local')}"
@@ -119,11 +120,12 @@ def main():
                                "read_rows":statistics.median(x["read_rows"] for x in measured),
                                "selected_marks":statistics.median(x["selected_marks"] or 0 for x in measured)})
             p0=[x for x in trials if x["variant"]=="none"]
-            p1=[x for x in trials if x["variant"]=="force"]
+            p1=[x for x in trials if x["variant"]==a.alternative]
             base_ms=statistics.mean(x["wall_ms"] for x in p0)
             alt_ms=statistics.mean(x["wall_ms"] for x in p1)
             drift=abs(p0[0]["wall_ms"]-p0[1]["wall_ms"])/base_ms
-            comparison={"no_projection_ms":base_ms,"forced_projection_ms":alt_ms,
+            comparison={"no_projection_ms":base_ms,"alternate_ms":alt_ms,
+                        "alternative":a.alternative,
                         "speedup":round(base_ms/alt_ms,4),
                         "drift":round(drift,4),
                         "base_read_rows":statistics.mean(x["read_rows"] for x in p0),
@@ -143,7 +145,7 @@ def main():
         save(root/"report.json",report)
         save(root/"compact.json",{"case":a.case,"passed":report["passed"],
             "errors":report["errors"],"windows":{k:v["comparison"] for k,v in report["windows"].items()}})
-        print("TIME_PROJECTION_DONE",json.dumps({"case":a.case,"passed":report["passed"],
+        print("TIME_PROJECTION_DONE",json.dumps({"case":a.case,"alternative":a.alternative,"passed":report["passed"],
             "errors":report["errors"]},separators=(",",":")),flush=True)
     if not report["passed"]:raise SystemExit(1)
 if __name__=="__main__":
