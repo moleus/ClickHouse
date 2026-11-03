@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "session_id": "r03-400node-vm-vs-ch-concurrent-20261103-01",
-  "status": "active",
+  "status": "handoff",
   "branch": "lab/ts-cbo-adaptive-20261103",
   "question_id": "R03",
   "canonical_claim_id": "R03-k8s-400node-native-vm-concurrency-v1",
@@ -43,5 +43,10 @@
   "next_action": {
     "step": "Inspect CI41624246411 job logs and artifact when completed, parse R03_DONE and each A/B/B/A case. Check all 12 comparisons, exact four oracles, missing errors, both-engine p50/QPS/schedstat CPU A/A drift<=25%, same physical CH parts, VM last-day 576000 visibility, no OOM. If success, create new immutable evidence under .github/ts-lab/evidence/R03-...json and append INDEX, report VM vs CH p50/p95/p99/CPU/QPS for 1/4/8 with O1+glibc confounds. If failed, preserve exact errors and do not infer global gains. Do not modify R05 or R10 owners. Keep jemalloc CI running.",
     "stop_condition": "No C++ rebuild, no master/production mutations, no overlapping root, no prompt to click GitHub grant until connector really fails. Never cancel ongoing jemalloc or another agent workflow."
-  }
+  },
+  "branch_head": "b4f741a96b1644d36da73b7216a362e53bdf1e7d",
+  "blocked_by": [
+    "At creation the corrected R03 CI 41624246411 was still in progress; this immutable chronological handoff is superseded by subsequent validated evidence in .github/ts-lab/evidence/R03-ch-vm-k8s-concurrent-41624246411.json.",
+    "No production optimized ClickHouse O2+jemalloc parity proof; the independent existing jemalloc build is not to be cancelled or restarted."
+  ]
 }
