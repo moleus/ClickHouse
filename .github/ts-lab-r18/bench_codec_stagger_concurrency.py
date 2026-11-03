@@ -244,11 +244,15 @@ def main():
         p.add_argument("--"+k,required=True)
     p.add_argument("--cases",nargs="+",choices=CASES_TO_RUN,default=list(CASES_TO_RUN))
     p.add_argument("--clients",nargs="+",type=int,choices=CLIENTS,default=list(CLIENTS))
+    p.add_argument("--binary")
+    p.add_argument("--expected-binary-sha256",default=BINARY_SHA)
     args=p.parse_args()
+    if args.binary and sha256(args.binary)!=args.expected_binary_sha256:
+        raise AssertionError("Executable differs from explicit pinned SHA256")
     res={
         "question_id":"R18-timeseries-samples-value-codec-v1",
         "dependent_gate":"staggered 3h nodes and 1/4/8 concurrent native clients",
-        "source_sha":SOURCE_SHA,"binary_sha256":BINARY_SHA,
+        "source_sha":SOURCE_SHA,"binary_sha256":args.expected_binary_sha256,
         "fixture_sha256":SHA,"settings":{"max_threads_per_query":2,"threads_per_runner":4,
          "codec_order":CODEC_ORDER,"outer_alignment_order":ALIGNMENT_ORDER,
          "warmup_waves":WARMUP_WAVES,"measured_waves":MEASURED_WAVES},
@@ -393,7 +397,7 @@ def main():
         save(args.output,res)
         condensed={
             "passed":res["passed"],"errors":res["errors"],
-            "source_sha":SOURCE_SHA,"binary_sha256":BINARY_SHA,
+            "source_sha":SOURCE_SHA,"binary_sha256":args.expected_binary_sha256,
             "fixture_sha256":SHA,"fixture_pair_audit":res.get("fixture_pair_audit"),
             "storage":{k:v.get("physical",{}).get("samples")
                 for k,v in res["audits"].items()},
