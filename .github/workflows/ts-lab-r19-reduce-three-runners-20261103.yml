@@ -1,0 +1,99 @@
+name: R19 aggregate three independent expired metadata native read proofs
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r19-reduce-three-runners-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-r19-reduce-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  aggregate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Preflight three official GitHub SHA records and reducer code
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r19-reduced "$RUNNER_TEMP/r19-reduce"
+          python3 -m py_compile .github/ts-lab/experiments/r19_reduce_retention.py
+          python3 .github/ts-lab/experiments/r19_reduce_retention.py --help > evidence/r19-reduced/help.txt
+          git rev-parse HEAD > evidence/r19-reduced/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r19_reduce_retention.py > evidence/r19-reduced/reducer-sha256.txt
+          test "$(gh api repos/$REPO/actions/artifacts/13230143375 --jq '.digest')" = \
+            "sha256:e70253bd7ca544bdc8629fc3d7426d26b21bdc267c425d0ee59b6d58a7fabdb5"
+          test "$(gh api repos/$REPO/actions/artifacts/13229669489 --jq '.digest')" = \
+            "sha256:0dc79e5cd226c8316e48654b69a844dfe148e31390724c6514abbe4d77453db8"
+          test "$(gh api repos/$REPO/actions/artifacts/13230372100 --jq '.digest')" = \
+            "sha256:921e4a6f67d640ef9ef7a66f1f45450e4c1a9b3188bd5b98c57f6256fd7ffa1c"
+      - name: Download exact source-pinned original and two replicates
+        run: |
+          set -euo pipefail
+          gh run download 41635340660 -R "$REPO" \
+            -n tslab-r19-retained-metadata-41635340660 \
+            -D "$RUNNER_TEMP/r19-reduce/original"
+          gh run download 41635691926 -R "$REPO" \
+            -n tslab-r19-retained-metadata-replicate-41635691926-one \
+            -D "$RUNNER_TEMP/r19-reduce/one"
+          gh run download 41635691926 -R "$REPO" \
+            -n tslab-r19-retained-metadata-replicate-41635691926-two \
+            -D "$RUNNER_TEMP/r19-reduce/two"
+          python3 - <<'PY'
+          import pathlib,os,zipfile
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'r19-reduce'
+          for name in ('original','one','two'):
+              folder=root/name
+              assert (folder/'report.json').is_file(),name
+              path=root/(name+'.zip')
+              with zipfile.ZipFile(path,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=1) as dst:
+                  for src in sorted(folder.rglob('*')):
+                      if src.is_file():dst.write(src,src.relative_to(folder))
+              print('REPACKED',name,path.stat().st_size)
+          PY
+          sha256sum "$RUNNER_TEMP/r19-reduce"/*.zip > evidence/r19-reduced/local-zip-sha256.txt
+          cat > evidence/r19-reduced/official-artifacts.txt <<'EOF'
+          Original: CI41635340660 artifact13230143375 sha256:e70253bd7ca544bdc8629fc3d7426d26b21bdc267c425d0ee59b6d58a7fabdb5
+          One: CI41635691926 artifact13229669489 sha256:0dc79e5cd226c8316e48654b69a844dfe148e31390724c6514abbe4d77453db8
+          Two: CI41635691926 artifact13230372100 sha256:921e4a6f67d640ef9ef7a66f1f45450e4c1a9b3188bd5b98c57f6256fd7ffa1c
+          Excluded: CI41635086542 INFRA_FAIL, no server was started
+          Note: report ZIP hashes refer to repacked files; official GitHub artifact hashes checked above.
+          EOF
+      - name: Verify exact same live samples, old metadata persistence and native ABBA read costs
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r19_reduce_retention.py \
+            --artifact "$RUNNER_TEMP/r19-reduce/original.zip" \
+            --artifact "$RUNNER_TEMP/r19-reduce/one.zip" \
+            --artifact "$RUNNER_TEMP/r19-reduce/two.zip" \
+            --output evidence/r19-reduced/report.json | tee evidence/r19-reduced/console.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/r19-reduced/report.json'))
+          assert d['valid']
+          assert d['physical_retention_reproduced']
+          assert d['all_query_cpu_wall_regressions_reproduced']
+          assert d['decision']=='REPLICATED_LAB_EFFECT'
+          assert len(d['artifact_zip_hashes'])==3
+          assert all(v==17 for v in d['ratios']['broad']['read_rows_p50']['per_runner_retained_over_clean'])
+          print('R19_REPLICATION_GATE',json.dumps({'passed':True,
+             'decision':d['decision'],'ratios':d['ratios']},separators=(',',':')))
+          PY
+      - name: Preserve only derived evidence and official artifact pins
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r19-three-runner-proof-${{ github.run_id }}
+          path: evidence/r19-reduced/
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
