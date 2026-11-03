@@ -82,8 +82,14 @@ def count(endpoint,inner_table):
     return int(base.sql(endpoint,'SELECT count() FROM '+quote(inner_table)+' FORMAT TSV').strip())
 
 
+def count_unique_ids(endpoint,inner_table):
+    return int(base.sql(endpoint,'SELECT uniqExact(id) FROM '+quote(inner_table)+' FORMAT TSV').strip())
+
+
 def stage_snapshot(endpoint,table,step):
-    return {'step':step,'tags_rows':count(endpoint,inner(endpoint,table,'tags')),
+    tags_table=inner(endpoint,table,'tags')
+    return {'step':step,'tags_rows':count(endpoint,tags_table),
+            'tags_unique_ids':count_unique_ids(endpoint,tags_table),
             'timeranges_rows':count(endpoint,inner(endpoint,table,'timeranges')),
             'physical_sample_points':base.physical(endpoint,table)['physical_sample_points'],
             'native':select_native(endpoint,table)}
@@ -151,6 +157,8 @@ def main():
                     f'INSERT INTO {table}(metric_name,tags,samples) FORMAT JSONEachRow\n'+payload,qid)
                 snap=stage_snapshot(a.endpoint,table,'insert_'+str(i))
                 out['modes'][mode]['steps'].append(snap)
+                if snap['tags_unique_ids']>1:
+                    raise AssertionError('Duplicate logical TAGS IDs after one series insert')
                 if snap['physical_sample_points']!=i+1:
                     raise AssertionError(f'{mode}: wrong physical sample count after insert {i}')
                 if i==0:
@@ -165,8 +173,8 @@ def main():
                     check_native(snap['native'],None if bytes_ else sum(VALUE_SEQUENCE[:2])/2,
                                  mode+'_second_insert')
                 if i==2:
-                    if snap['tags_rows']!=1:
-                        raise AssertionError('Cache invalidation did not restore tags on next insert')
+                    if snap['tags_unique_ids']!=1 or snap['tags_rows']<1:
+                        raise AssertionError('Cache invalidation did not restore a logical TAGS ID')
                     check_native(snap['native'],sum(VALUE_SEQUENCE)/3,mode+'_restored')
                 save()
             qids=[f'r19cache_{mode}_insert_{i}' for i in range(3)]
