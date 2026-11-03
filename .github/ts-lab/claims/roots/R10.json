@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "question_id": "R10",
+  "primary_claim_id": "R10-bucket-id-factorial-v1",
+  "owner": "chatgpt-native-r10-bucket-id-20261103",
+  "scope": "Source-pinned 2x3 factorial: TimeSeries SAMPLES bucket duration 900/3600/10800s multiplied by default LC UUID versus raw UUID on identical 400-slot 3d high-churn repeated-ID fixture; native PromQL and physical read/merge comparisons, no C++ rebuild or production mutation.",
+  "allowed_support_claims": [],
+  "based_on": "R01-k8s-mixed-v1 canonical primary; source-corrected bucket-row model and 41612120162 native results; no new R01 competing campaign."
+}
