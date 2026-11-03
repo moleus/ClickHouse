@@ -6,9 +6,10 @@ This file is the operational source of truth for new work in `moleus/ClickHouse`
 
 1. **Write only** to `lab/ts-cbo-adaptive-20261103`. The older CPU/layout/perf branches have been merged and must not receive new commits. Never write to `master`, production, or upstream.
 2. Fetch current branch HEAD before a write. Prefer new path per experiment, distinct from other agents' active files. For existing files, `fetch_file` and update with its exact blob SHA; on conflict refresh and reconcile instead of force-pushing. Do not rebase, amend, reset or force-push.
-3. Record a run in a new experiment-specific Markdown log, with pinned source SHA, workflow commit SHA, fixture SHA, binary SHA, query text, runner hardware, failure classification and CI link. Add a short index entry to [INDEX.md](INDEX.md), using fresh blob SHA.
-4. Use a new workflow per expensive experiment. No shared environment, common mutable data volume, static query ID, or overlapping GitHub cache mutation. Limit runner matrix parallelism. No code changes during measurement phases.
-5. Protect ongoing builds and cache artifacts. Never cancel them when pushing or rerunning a different experiment.
+3. **Before creating any new question-specific experiment claim or expensive workflow, reserve its canonical question ID with a create-only `.github/ts-lab/claims/roots/RNN.json` file.** The root names exactly one primary claim and owner. If another root exists, do not create a different suffix as a workaround. An allowed support claim must be explicitly named in that root. This rule closes the R01 collision where two agents created different claim suffixes for overlapping Kubernetes fixtures. The root owner coordinates non-overlapping subtests; never overwrite the original root or claim.
+4. Record a run in a new experiment-specific Markdown log, with pinned source SHA, workflow commit SHA, fixture SHA, binary SHA, query text, runner hardware, failure classification and CI link. Add a short index entry to [INDEX.md](INDEX.md), using fresh blob SHA.
+5. Use a new workflow per expensive experiment. No shared environment, common mutable data volume, static query ID, or overlapping GitHub cache mutation. Limit runner matrix parallelism. No code changes during measurement phases.
+6. Protect ongoing builds and cache artifacts. Never cancel them when pushing or rerunning a different experiment.
 
 ## Preserve repository symlinks
 
