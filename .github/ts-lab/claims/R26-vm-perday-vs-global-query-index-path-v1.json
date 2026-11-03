@@ -1,0 +1,23 @@
+{
+  "id": "R26-vm-perday-vs-global-query-index-path-v1",
+  "question": "With the same VM v1.134 release and fixed complete read-only indexed data, when is per-day tag index search cheaper than global tag index search for 1/3 day PromQL?",
+  "owner": "chatgpt-e04-vm-perday-index-20261103",
+  "state": "claimed",
+  "source_sha": "eaf7a68c92c8069a67ae02e601e81453a5e002de",
+  "baseline": "VM v1.134.0 optimized SHA-pinned release and default per-day index search on stored data; TagFilters index-cache budget fixed to 1 byte",
+  "candidate": "Exactly same binary and physical indexed base snapshot, -disablePerDayIndex=true forces global search; TagFilters cache budget unchanged at 1 byte",
+  "fixture": "Exact R01 aligned 400-slot 3d 2,488,320 sample/28,896 series SHA256 ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+  "single_variable": "VM index read path selection via -disablePerDayIndex in fresh VM processes, not data ingestion or cache capacity",
+  "math_bound": "Per-day performs D date posting lookups and unions; global performs one posting lookup spanning all retained series. For small D and churned data expected postings inspected N_day << N_global, but cost of union/seek and page cache can cross over. D bounded by actual query and partition.",
+  "falsifier": "Different native labels/timestamps/values, metrics/trace showing same effective path, baseline A/A drift >=25%, OOM, background cache resets or clone mismatch",
+  "test_matrix": "VM global/day/day/global same-host ABBA with clean post-ingest data clones, 1 byte TagFilter cache for both, 8 warmups+48 measured single-client requests per 4 selectors, one-tick and three-tick 1d ranges, per-query trace and CPU/RSS; exact output parity",
+  "runner_budget": "Single GitHub-hosted Ubuntu24.04 runner; reuse verified VM v1.134 artifact, no build, timeout 65min, self-path workflow push only, do not cancel existing jobs",
+  "planned_workflow": ".github/workflows/ts-lab-r26-vm-index-path-20261103.yml",
+  "dependencies": [
+    "E04 source audit VM adjustTimeRange",
+    "R01 frozen fixture",
+    "R03 pinned VM binary/import"
+  ],
+  "created_utc": "2026-11-03",
+  "overlap_note": "Distinct from R25 cache capacity test, E03/R06 CH optimizer, R05 marks, R07 day metadata; source feature test of VM index read-path only"
+}
