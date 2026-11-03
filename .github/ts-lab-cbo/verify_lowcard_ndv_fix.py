@@ -14,6 +14,7 @@ def nullable(case,vals):
     name="tslab_lc_nullable_"+case
     sql(f"CREATE TABLE {name} (id UInt64,val LowCardinality(Nullable(String))) ENGINE=MergeTree ORDER BY id")
     sql(f"INSERT INTO {name} SELECT number,CAST({vals},'LowCardinality(Nullable(String))') FROM numbers(15000)")
+    sql(f"ALTER TABLE {name} ADD STATISTICS val TYPE uniq_v2")
     sql(f"ALTER TABLE {name} MATERIALIZE STATISTICS ALL SETTINGS mutations_sync=2")
     actual=fetch(f"SELECT count() AS rows,uniqExact(val) AS ndv,countIf(isNull(val)) AS null_count FROM {name}")[0]
     part=fetch("SELECT column,estimates.cardinality AS ndv FROM system.parts_columns "
