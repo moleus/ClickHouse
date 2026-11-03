@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "question_id": "R23",
+  "claim_id": "R23-tag-map-key-order-normalization-cost-v1",
+  "owner": "chatgpt-r23-tag-order-20261103",
+  "state": "claimed",
+  "question": "Do different JSON key orders within the exact same TimeSeries tags Map change the ID/TAGS cache behavior or total ingestion CPU, even though the pinned TimeSeriesSink sorts labels before deriving the stable ID and checking the cache?",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "source_proof": "src/Storages/TimeSeries/TimeSeriesSink.cpp::fillTagsColumns builds vector<pair<string_view,string_view>> and calls sortTagsAndRemoveDuplicates with std::sort and std::unique for EVERY input row; TimeSeriesSink::consumeTagsAndSamples calls makeTagsBlock(filter,...) (which calculates ID) BEFORE tags_deduplication_cache->filterOutWrittenRows. Sorting and ID generation are not skipped on cache hits.",
+  "mathematics": {
+    "series": 4096,
+    "batches": 24,
+    "extra_labels": 16,
+    "stable_project_rack_series_labels": 3,
+    "total_input_tags_per_series": 19,
+    "input_pairs_per_phase": 1867776,
+    "formula": "4096*24*19=1,867,776 input tag pairs/phase; after adding __name__, normalized map has 20 labels/ID. Expected GLOBAL TAGS cache misses=4096, hits=4096*(24-1)=94,208; expected distinct stable IDs=4096 and raw TAGS physical rows=4096 in both variants if source canonicalizes."
+  },
+  "experiment": "Two variant serializations of same 4096 logical series: sorted JSON map keys vs per (series,batch) deterministic pseudorandom permutation. Map values, metric, sample values and timestamps identical in every corresponding row. Exactly same fixed series-row ordering, same wire bytes lengths, same 24 batches and cache 1MiB/3600s, same RAW_UUID TimeSeries v11, same stock binary; A/B/B/A with 4 fresh isolated servers. Stop merges for fair TAGS rows/counters. Execute full native avg_by(project) 3 warmups+6 measured per phase and independent numeric oracle. Save canonical SHA of decoded data and separate SHA of raw transmitted bytes (different by design), exact ID+tags sorted-hash, physical parts, process CPU, write_bytes, global cache hit/miss, QueryFinish CPU, native read CPU/wall.",
+  "predicted_outcomes": [
+    "P1: Both modes produce exactly same logical ID/hash/physical TAGS counts and cache hit/miss counters even though encoded JSON key order varies; failure is data correctness regression or a flawed fixture.",
+    "P2: Random key order MAY increase total insert CPU due to std::sort input order and parser/cache branch behavior; a >5% mode change exceeding within-runner A/A drift warrants replication, not immediate C++ change.",
+    "P3: Similar CPU and read timing => NO_ROBUST_ORDER_EFFECT, useful rejection of a pre-sort client optimization."
+  ],
+  "control_precommit": {
+    "AA_drift_threshold": 0.25,
+    "practical_effect_threshold": 0.05,
+    "full_native_labels_timestamp_exact": true,
+    "float_tolerance_abs": 1e-8,
+    "hardware": "GitHub ubuntu-24.04 hosted runner; four sequential fresh CH processes",
+    "max_runtime_minutes": 32,
+    "artifact_pinning": "Use existing CI 41596421285 source/LLVM/O1 stock binary with archive+binary SHA; record helper source Git blob SHA and command sha256sum; no build.",
+    "no_change": [
+      "No compiler or patch changes",
+      "No actual TAGS cache size/TTL change",
+      "No timestamp/series row-order change",
+      "No adding an index",
+      "No master/production/scheduled workflow edits"
+    ]
+  },
+  "stop_conditions": "Any unequal logical SHA, input byte length, ID+tags fingerprint, native labels/timestamp/float, 4096 distinct IDs, 94208/4096 cache counters, 98304 SAMPLES points or >25% A/A control drift => INVALID_METHOD; preserve raw evidence."
+}
