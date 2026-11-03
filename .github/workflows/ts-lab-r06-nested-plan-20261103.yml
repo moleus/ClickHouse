@@ -1,0 +1,101 @@
+name: R06 capture native TimeSeries nested selector plans
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r06-nested-plan-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-r06-nested-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  nested_plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Preflight R06 scripts and repository symlink before any downloads
+        run: |
+          set -euo pipefail
+          test "$(readlink AGENTS.md)" = ".claude/CLAUDE.md"
+          test "$(git ls-files -s AGENTS.md | awk '{print $1}')" = 120000
+          python3 -m py_compile .github/ts-lab-r06/*.py
+          python3 -m unittest discover -s .github/ts-lab-r06 -p 'test_*.py' -v
+          mkdir -p evidence
+      - name: Reuse original SHA verified O1 native JOIN override (no compile)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r06-art" "$RUNNER_TEMP/r06-bin"
+          gh run download 41531656434 -R "$REPO" --pattern 'tslab-cbo-join-override-binary-*' -D "$RUNNER_TEMP/r06-art"
+          archive="$(find "$RUNNER_TEMP/r06-art" -name 'clickhouse-cbo-join-override-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/verified-archive.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r06-bin"
+          (cd "$RUNNER_TEMP/r06-bin" && sha256sum -c SHA256SUMS) | tee evidence/verified-binary.txt
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r06-bin/BUILD_INFO.txt"
+          grep -q 'optimization=O1' "$RUNNER_TEMP/r06-bin/BUILD_INFO.txt"
+          chmod +x "$RUNNER_TEMP/r06-bin/clickhouse"
+          "$RUNNER_TEMP/r06-bin/clickhouse" --version | tee evidence/version.txt
+          sha256sum "$RUNNER_TEMP/r06-bin/clickhouse" | tee evidence/binary.sha256
+          cat "$RUNNER_TEMP/r06-bin/BUILD_INFO.txt" | tee evidence/build-info.txt
+      - name: Start one isolated TimeSeries server with DEBUG selector logging
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r06/data" "$RUNNER_TEMP/r06/tmp" "$RUNNER_TEMP/r06/userfiles"
+          cat > "$RUNNER_TEMP/r06-config.xml" <<EOF
+          <clickhouse>
+            <logger><level>debug</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host>
+            <http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/r06/data/</path>
+            <tmp_path>$RUNNER_TEMP/r06/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/r06/userfiles/</user_files_path>
+            <max_server_memory_usage>3000000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default>
+              <allow_experimental_time_series_table>1</allow_experimental_time_series_table>
+              <enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions>
+              <log_queries>1</log_queries>
+              <log_processors_profiles>1</log_processors_profiles>
+              <max_memory_usage>2000000000</max_memory_usage>
+              <max_threads>4</max_threads>
+            </default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <processors_profile_log><database>system</database><table>processors_profile_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></processors_profile_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/r06-bin/clickhouse" server --config-file="$RUNNER_TEMP/r06-config.xml" >evidence/r06-server.log 2>&1 &
+          echo "$!" >evidence/server.pid
+          for trial in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "R06 server ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          tail -120 evidence/r06-server.log
+          exit 1
+      - name: Capture internal SELECT, EXPLAIN PLAN and PIPELINE (no timing claims)
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-r06/probe_nested_selector_plan.py \
+            --log evidence/r06-server.log --out evidence/r06-nested --series 8192 \
+            | tee evidence/r06-plan-probe.log
+      - name: Preserve complete source, fixture, SQL and plan evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r06-native-nested-plan-evidence
+          path: evidence/
+          retention-days: 45
+          compression-level: 1
