@@ -254,6 +254,35 @@ def measure(case,workers,fixture,root_pid,interval_ms,report,filename):
               "sampler":enabled,"median_wave_ms":entry["median_wave_ms"],
               "p50_req_ms":entry["p50_single_request_ms"],
               "mean_cores":entry.get("mean_working_cores")}),flush=True)
+    # query_thread_log relates OS TIDs to the actual query IDs. Exclude
+    # idle background threads from reported query-associated scheduling totals.
+    # Thread reuse between queries is possible; this remains a sampled hint,
+    # not an owner-aware mutex lock duration.
+    try:
+        thread_rows=records(
+            "SELECT query_id,thread_id,thread_name FROM system.query_thread_log "
+            "WHERE startsWith(query_id,"+sql_string(f"offcpu_{case}_{workers}_")+
+            ") FORMAT JSONEachRow")
+        query_tids=collections.defaultdict(set)
+        for tr in thread_rows:query_tids[tr["query_id"]].add(str(tr["thread_id"]))
+        for phase_entry in phases:
+            for batch in phase_entry["batches"]:
+                profile=batch["probe"]
+                if profile is None:continue
+                tids=set()
+                for trial in batch["trials"]:
+                    tids.update(query_tids.get(trial["qid"],()))
+                available=profile.get("per_tid",{})
+                matched=[available[t] for t in tids if t in available]
+                profile["query_thread_log_ids"]=len(tids)
+                profile["matched_query_thread_ids"]=len(matched)
+                profile["query_associated_cpu_ms"]=round(sum(t["cpu_ms"] for t in matched),3)
+                profile["query_associated_runqueue_ms"]=round(sum(t["runnable_queue_ms"] for t in matched),3)
+                profile["query_associated_futex_samples"]=sum(
+                    n for t in matched for key,n in t["wchans"].items() if "futex" in key.lower())
+    except Exception as exc:
+        report["query_thread_log_correlation_error"]=str(exc)[:1500]
+
     logs={row["query_id"]:row for row in querylogs(f"offcpu_{case}_{workers}_")
           if row.get("type")=="QueryFinish"}
     for entry in phases:
@@ -275,12 +304,16 @@ def measure(case,workers,fixture,root_pid,interval_ms,report,filename):
     control=statistics.mean(x["median_wave_ms"] for x in a)
     candidate=statistics.mean(x["median_wave_ms"] for x in b)
     drift=abs(a[0]["median_wave_ms"]-a[1]["median_wave_ms"])/control
+    probe_self_pct=statistics.mean(profile["collection_overhead_wall_pct"] for ph in b for batch in ph["batches"][1:] for profile in [batch["probe"]] if profile)
     summary={"workers":workers,"baseline_wave_ms":round(control,3),
+             "sampler_self_overhead_pct":round(probe_self_pct,3),
              "sampler_wave_ms":round(candidate,3),
              "sampler_wall_overhead_ratio":round(candidate/control,3),
              "baseline_cpu_per_request_ms":round(statistics.mean(x["median_query_cpu_ms"] for x in a),3),
              "sampler_cpu_per_request_ms":round(statistics.mean(x["median_query_cpu_ms"] for x in b),3),
              "baseline_drift":round(drift,4),"valid":drift<=0.25}
+    if probe_self_pct>20:
+        report["errors"].append({"workers":workers,"reason":"sampler-self-overhead-too-high","pct":round(probe_self_pct,3)})
     report["cases"][str(workers)]["summary"]=summary
     save(filename,report)
     print("OFFCPU_WAVE",json.dumps({"case":case,**summary}),flush=True)
