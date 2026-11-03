@@ -1,0 +1,149 @@
+name: R07 R01 native versus raw versus stale-safe SQL CPU ABBA
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths:
+      - '.github/workflows/ts-lab-r07-r01-stale-filter-cost-20261103.yml'
+      - '.github/ts-lab/experiments/r07_r01_stale_filter_cost_abba.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-r07-stale-cost-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  matched:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Verify source, syntax and pinned original R01 generator
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r07-cost
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | awk '{print $1}')" = 120000
+          python3 -m py_compile .github/ts-lab/experiments/r07_r01_stale_filter_cost_abba.py
+          python3 -m py_compile .github/ts-lab-r01/generate_k8s_churn_fixture.py
+          python3 .github/ts-lab/experiments/r07_r01_stale_filter_cost_abba.py --help
+          git rev-parse HEAD | tee evidence/r07-cost/workflow-head.txt
+          uname -a | tee evidence/r07-cost/runner-kernel.txt
+          nproc | tee evidence/r07-cost/runner-cpus.txt
+          free -b | tee evidence/r07-cost/runner-memory.txt
+      - name: Restore immutable pinned stock O1 binary and verify archive and executable
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch-art" "$RUNNER_TEMP/ch-bin"
+          gh run download 41596421285 -R "$REPO" \
+            --pattern 'tslab-stock-clickhouse-o1-binary-*' \
+            -D "$RUNNER_TEMP/ch-art"
+          archive="$(find "$RUNNER_TEMP/ch-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/ch-stock-archive-hash.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
+          (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS) | tee evidence/ch-stock-binary-hash.txt
+          test "$(grep '^source=' "$RUNNER_TEMP/ch-bin/BUILD_INFO.txt")" = \
+            "source=52529f0c711566d696917678bf15e7068772fdde"
+          grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/ch-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/ch-bin/BUILD_INFO.txt" evidence/BUILD_INFO.txt
+          "$RUNNER_TEMP/ch-bin/clickhouse" --version | tee evidence/clickhouse-version.txt
+          sha256sum "$RUNNER_TEMP/ch-bin/clickhouse" | tee evidence/clickhouse-binary-sha256.txt
+          test "$(sha256sum "$RUNNER_TEMP/ch-bin/clickhouse" | awk '{print $1}')" = \
+            "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e"
+
+      - name: Start isolated stock ClickHouse with native tracing and bounded memory
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles"
+          cat > "$RUNNER_TEMP/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host>
+            <http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path><tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <max_server_memory_usage>4800000000</max_server_memory_usage>
+            <users>
+              <default><password></password>
+              <networks><ip>127.0.0.1</ip></networks>
+              <profile>default</profile><quota>default</quota></default>
+            </users>
+            <profiles><default>
+              <allow_experimental_time_series_table>1</allow_experimental_time_series_table>
+              <enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions>
+              <log_queries>1</log_queries>
+              <log_processors_profiles>1</log_processors_profiles>
+              <log_query_threads>1</log_query_threads>
+              <use_statistics>1</use_statistics>
+              <query_profiler_cpu_time_period_ns>1000000</query_profiler_cpu_time_period_ns>
+              <max_memory_usage>1800000000</max_memory_usage>
+            </default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table>
+              <flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <query_thread_log><database>system</database><table>query_thread_log</table>
+              <flush_interval_milliseconds>1000</flush_interval_milliseconds></query_thread_log>
+            <trace_log><database>system</database><table>trace_log</table>
+              <flush_interval_milliseconds>1000</flush_interval_milliseconds></trace_log>
+            <processors_profile_log><database>system</database><table>processors_profile_log</table>
+              <flush_interval_milliseconds>1000</flush_interval_milliseconds></processors_profile_log>
+            <default_profile>default</default_profile>
+            <default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/ch-bin/clickhouse" server --config-file="$RUNNER_TEMP/config.xml" \
+            >evidence/ch-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          for i in $(seq 1 100); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS --max-time 3 http://127.0.0.1:18191/ping
+          curl -fsS -X POST --data-binary 'SELECT version()' \
+            http://127.0.0.1:18191/ | tee evidence/server-version.txt
+
+      - name: Generate frozen 400-slot 3d R01 staggered mixed 15s 60s 300s
+        run: |
+          set -euo pipefail
+          python3 -u .github/ts-lab-r01/generate_k8s_churn_fixture.py \
+            --days 3 --node-slots 400 --stagger-node-starts \
+            --fixture "$RUNNER_TEMP/r07-r01-staggered.jsonl" \
+            --manifest evidence/r07-cost/r01-manifest.json \
+            | tee evidence/r07-cost/generate.log
+          test "$(sha256sum "$RUNNER_TEMP/r07-r01-staggered.jsonl" | awk '{print $1}')" = \
+            "ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a"
+          sha256sum "$RUNNER_TEMP/r07-r01-staggered.jsonl" > evidence/r07-cost/fixture.sha256
+          python3 - <<'PY'
+          import json
+          d=json.load(open("evidence/r07-cost/r01-manifest.json"))
+          assert d["series"]==28896 and d["samples"]==2488320
+          assert d["bucket_rows_by_step"]["3600"]==113760
+          assert d["node_slots"]==400 and d["days"]==3
+          print("R07_R01_MANIFEST_VERIFIED",d["sha256"],d["samples"],d["series"])
+          PY
+      - name: Run six-phase native/raw/safe SQL with source-faithful stale filter
+        run: |
+          set -euo pipefail
+          python3 -u .github/ts-lab/experiments/r07_r01_stale_filter_cost_abba.py \
+            --fixture "$RUNNER_TEMP/r07-r01-staggered.jsonl" \
+            --manifest evidence/r07-cost/r01-manifest.json \
+            --pid-file "$RUNNER_TEMP/ch.pid" \
+            --output evidence/r07-cost/report.json \
+            | tee evidence/r07-cost/compare.log
+      - name: Persist raw trials, exact bit predicate, CPU, RSS and any failed correctness
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r07-stale-cost-${{ github.run_id }}
+          path: evidence/
+          retention-days: 45
+          compression-level: 1
