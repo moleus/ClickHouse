@@ -1,12 +1,14 @@
 # TimeSeries CPU attribution research checkpoint — 2026-11-03
 
+**Current entrypoint:** [shared research index](../ts-lab/INDEX.md), [common agent guide](../ts-lab/AGENT_GUIDE.md), [methodology and failure ledger](../ts-lab/METHODOLOGY_AND_FAILURES.md).
+
 Repository: moleus/ClickHouse
-**Work only in branch:** `lab/ts-cpu-attribution-20261103`
+**Unified write branch:** `lab/ts-cbo-adaptive-20261103` (merged from historical `lab/ts-cpu-attribution-20261103` via PR #1).
 Pinned source: `52529f0c711566d696917678bf15e7068772fdde`.
 Fixture SHA256: `8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858`.
 The fixture has 1.33m unique Jenkins series, 95k new series daily for 14 days.
 The tests run on isolated GitHub runners, NOT on production.
-Do NOT edit master, old `lab/ts-cbo-adaptive-20261103` branch, or another agent's active runs.
+Do NOT edit master or older historical branches, or interfere with another agent's active runs. All new work is committed to `lab/ts-cbo-adaptive-20261103`.
 Do NOT cancel builds. Use separate path-triggered workflows with `cancel-in-progress: false`.
 
 ## Validated source-driven root cause
