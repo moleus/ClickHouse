@@ -100,7 +100,31 @@ The same-runner project ID SQL A/B/B/A gave:
 
 Premerge ALL/ANY wall difference `28.75ms` (−34.1%), CPU difference `28.59ms` (−27.4%); postmerge wall difference `2.50ms`, CPU difference `2.27ms`, and ANY now has slightly **higher** peak tracked memory. ALL/ANY postmerge wall drift from mirrored phases was 4.35%/4.88%; 2.5ms is too small to conclude a stable gain. **Causal negative-control result is the collapse of physical and JOIN output multiplicity, not a proof of a global zero-cost cutoff.** Physical bytes scanned also shrink after FINAL, so pre/post absolute latency must NOT be attributed solely to JOIN strictness.
 
-**Next bounded experiment:** [R30 duplicate-density 1/2/4/8/16 matrix](../workflows/ts-lab-r30-duplication-curve-20261103.yml). The first [CI #41716512958](https://github.com/moleus/ClickHouse/actions/runs/41716512958) is **INVALID_METHOD_PARTIAL**: levels 1/2/4 passed physical count/parity/drift, but level8 observed only 8192 rows instead of required 16384 due background merges on new tables. Exact [negative evidence](../ts-lab/evidence/R30-duplication-curve-invalid-41716512958.json) preserves partial results. Fixed code now explicitly applies `SYSTEM STOP MERGES <new TimeRanges target>` immediately after each CREATE and before any INSERT. Corrected [CI #41716983848](https://github.com/moleus/ClickHouse/actions/runs/41716983848) is a live rerun; do not interpret until full archive and A/A drift checks. Cross-level wall is never paired; only within-level ALL/ANY effects are.
+**Completed follow-up:** five-level density curve [CI #41716983848](https://github.com/moleus/ClickHouse/actions/runs/41716983848) PASS; see the detailed table below. First [CI #41716512958](https://github.com/moleus/ClickHouse/actions/runs/41716512958) remains [INVALID_METHOD_PARTIAL](../ts-lab/evidence/R30-duplication-curve-invalid-41716512958.json) and is not used for the final five-level result.
+
+## Verified 1/2/4/8/16 duplicate-density curve: CPU benefit scales, memory can regress
+
+[Source-pinned five-level CI #41716983848](https://github.com/moleus/ClickHouse/actions/runs/41716983848) **PASS 5/5**, [immutable SHA-verified raw measurement record](../ts-lab/evidence/R30-any-duplication-curve-41716983848.json), artifact `13270611732`, archive SHA256 `d264d6dd8fd08066eada747ebb673edeb9e722cdd182f9a586a7120710d8e442`. Same unchanged O1 JOIN-override executable SHA `3990e373...`, pinned ClickHouse source `52529f0c...`. Five **separate** TimeSeries tables each contain 2048 stable IDs, with 1/2/4/8/16 insert batches respectively. A scoped `SYSTEM STOP MERGES <new TimeRanges>` **before each first INSERT** produced exact physical metadata rows `2048*k` and exactly k active parts. Every level passed exact ID-set and SAMPLES output equality between ALL and ANY, 4 mirrored phases (ALL/ANY/ANY/ALL), 3 warmups+4 measured query IDs per phase, and both A/A drift gates under 25%.
+
+| Right rows per ID | ID SQL wall ALL→ANY | CPU ALL→ANY | Query peak ALL→ANY | Reduction in duplicated JOIN rows |
+|---|---|---|---|---|
+| 1 | 6→5ms | 6.361→6.163ms | 8.588→8.700MB (**ANY higher**) | 0 |
+| 2 | 6.5→6ms | 7.728→7.193ms | 8.827→8.991MB (**ANY higher**) | 1024 |
+| 4 | 8.5→7ms | 9.884→8.236ms | 9.093→9.338MB (**ANY higher**) | 3072 |
+| 8 | 12.75→9ms | 14.564→10.841ms | 9.627→10.029MB (**ANY higher**) | 7168 |
+| 16 | 20.5→14ms | 23.637→16.855ms | 13.366→11.404MB (**ANY lower**) | 15360 |
+
+All values are means of two paired phase medians on one GitHub runner. Both modes within each frozen table read the same `read_rows` and `read_bytes`. **Cross-level absolute latencies are not paired measurements**, and 1ms at k1 is too small for a robust release decision. The gradual increase in `ALL − ANY` CPU is consistent with the elimination of duplicated JOIN output. A retrospective least-squares fit of CPU delta versus extra output rows yields ~**0.435 microseconds CPU per duplicate emitted row**, `R²≈0.994` across these five points. It is a *descriptive* coefficient on this O1 workload and must NOT be used as a general ClickHouse planner constant without independent high-churn and dense workloads.
+
+The important negative outcome is **memory**: ANY tracked-query peak memory is **1.3–4.2% greater** for k1/2/4/8, but about **14.7% lower** at k16. Therefore `ANY` is not a universal memory optimization. A conditional native planner needs the true duplicate density, right-side memory/work cost and current resident memory headroom. A global source default cannot be selected just from k16.
+
+The prior [first curve #41716512958](https://github.com/moleus/ClickHouse/actions/runs/41716512958) failed closed after valid k1/2/4 due unexpected background merge at k8 (8192 rather than 16384 physical rows). [Immutable INVALID_METHOD_PARTIAL](../ts-lab/evidence/R30-duplication-curve-invalid-41716512958.json) is retained and excluded from the 5-level result. The repaired script explicitly freezes the TimeRanges of **each newly-created** table. Background SAMPLES merging can still occur; the benchmark times only TAGS/TimeRanges ID SQL, so do not call this native full-query latency.
+
+### Decision after the curve
+
+- Proven: direct ID SQL equality and small-fixture CPU gain correlated with right-side duplicate counts; physical FINAL negative control removes the multiplicative effect.
+- Not proven: C++ modified full native PromQL parity, release-like CPU and RSS, workload-wide benefit after natural merges, error/ACL semantics or concurrent query behavior.
+- Source patch `apply_any_join_cpp.py` remains dry-run only. [E01 R29 O2/jemalloc stock build](https://github.com/moleus/ClickHouse/actions/runs/41685467438) is independent and must not be cancelled/duplicated. No R30 compiled candidate until an approved matched-build budget is available.
 
 ## Strict gates before production-oriented work
 
