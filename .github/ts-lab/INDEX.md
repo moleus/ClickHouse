@@ -451,3 +451,11 @@ different hosts. Source evidence: [bucket CPU cost audit](../ts-lab-r10/START_AL
 No real 14d/HPA, continuous concurrent writes, or official jemalloc test;
 do not promote based on storage bytes alone.
 
+
+## 2026-11-03 R13: equivalent 200-branch regex syntax — NO_EFFECT on mixed-key TAGS layout
+
+[Immutable scientific evidence](evidence/R13-large-regex-alternation-in-vs-match-v1/41621089700.json) / [stock-O1 native ABBA #41621089700](https://github.com/moleus/ClickHouse/actions/runs/41621089700) (artifact ZIP SHA `bdfa7a6fd305...`, fixture SHA `e102f02fbffb...`): 32768 synthetic distinct series, 1024 branches, 200 exact matching values, 6400 selected series, 16 stage groups. Two PromQL regex shapes select **identical** rows: 1199-byte literal `b0000|...|b0199` uses pinned-source `tryGetLiteralAlternatives` → `IN`; 16-byte `b0[01][0-9][0-9]` uses anchored `match`. Exact labels/timestamps/numeric oracle and 24/24 trial requests pass; 4 phases, two warmups and four measured each.
+
+- Literal-IN wall p50 mean **63.414ms**, CPU **63.645ms**; compact-match **64.263ms**, CPU **64.183ms**. Difference +1.34% wall/+0.85% CPU, below 1.76% A/A wall drift. **NO_EFFECT** rather than a speedup; the original raw artifact's `ACCEPT_FOR_NEXT_GATE` was only an experimental gate, not scientific evidence of a performance win. [Script classifier corrected](https://github.com/moleus/ClickHouse/commit/9f79496283683e96428dc3afe6f3f88e92b762e3) to separate valid methodology from scientific effects.
+- Direct `EXPLAIN PLAN` of `timeSeriesSelector` shows the same **6400-element ID set**, **128/128** SAMPLES granules in both cases; overall `read_rows=98304` for both. Rewriting branch regex cannot prune mixed-ID SAMPLES granules on this fixture. Query tracker peak ~19.06MB literal vs17.98MB compact, descriptive only; one-run memory effect unconfirmed.
+- Do not spend more runner minutes on this exact small fixture. Test a new indexed-label physical layout or held-out branch=All fixture only with a fresh source-level bound and a new claim. No production/Grafana rewrite recommendation from 1.3% wall difference.
