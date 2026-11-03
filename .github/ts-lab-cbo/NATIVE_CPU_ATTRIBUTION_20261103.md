@@ -62,3 +62,9 @@ These findings explain why a universal choice of HASH is not justified by 1d dir
 Reproduction: original `native-join-stage` and `native-join-project` artifact ZIPs from run 41587498126, `profiles[query_id].flame_stacks` (`CPU`, `samples`, semicolon-delimited root-to-leaf stack). The quoted percentages are literal sample ratios per single query. Baseline drift checks for published median timing are separately documented in the checkpoint.
 
 No production/master changes; no cancellation/scheduled CI.
+
+## Existing capacity hook in pinned source
+
+Important source confirmation: `src/Interpreters/HashJoin/HashJoin.h` constructor already takes `size_t reserve_num_ = 0`; `src/Interpreters/HashJoin/HashJoin.cpp` stores `reserve_num` and `dataMapInit` dispatches `map_.create(data->type, reserve_num)`. Therefore the low-level HashJoin map is *already capable of taking a capacity hint*. The missing pieces are finding the production call chain that supplies it, verifying what cardinality is trustworthy, and bounding the memory cost.
+
+This changes the proposed implementation: first instrument the actual value of `reserve_num`, map reallocation counts, and actual distinct build IDs across the 1/3/7/14d native selectors. Compare to possible hints based on operator row estimates, but never preallocate to total 1.33m IDs for a selector that matches only ~35k. If `reserve_num=0` in these plans, an opt-in planner hint (not a new hash implementation) may suffice. An O1 rebuild is only justified after this source-level mapping and mathematical memory bound are established.
