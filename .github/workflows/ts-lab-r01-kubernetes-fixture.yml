@@ -1,0 +1,83 @@
+name: TimeSeries R01 deterministic Kubernetes fixture
+
+on:
+  push:
+    branches:
+      - lab/ts-cbo-adaptive-20261103
+    paths:
+      - '.github/workflows/ts-lab-r01-kubernetes-fixture.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ts-lab-r01-fixture-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  fixture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      TZ: UTC
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify fixture and lifecycle invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r01
+          python3 -m unittest discover \
+            -s .github/ts-lab/experiments \
+            -p 'test_r01_kubernetes_workload.py' -v 2>&1 | tee evidence/r01/unit-tests.log
+      - name: Build and independently reproduce the exact fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRIPT=.github/ts-lab/experiments/r01_kubernetes_workload.py
+          sha256sum "$SCRIPT" > evidence/r01/generator-sha256.txt
+          python3 "$SCRIPT" \
+            --nodes 16 --duration-seconds 21600 --scrape-seconds 60 \
+            --node-lifetime-seconds 10800 --hpa-period-seconds 3600 \
+            --base-pods 2 --stable-services 4 --seed 17 \
+            --output evidence/r01/fixture.jsonl \
+            --manifest evidence/r01/manifest.json | tee evidence/r01/generate.log
+          python3 "$SCRIPT" \
+            --nodes 16 --duration-seconds 21600 --scrape-seconds 60 \
+            --node-lifetime-seconds 10800 --hpa-period-seconds 3600 \
+            --base-pods 2 --stable-services 4 --seed 17 \
+            --output evidence/r01/repeat.jsonl \
+            --manifest evidence/r01/repeat-manifest.json
+          cmp evidence/r01/fixture.jsonl evidence/r01/repeat.jsonl
+          cmp evidence/r01/manifest.json evidence/r01/repeat-manifest.json
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          fixture = Path("evidence/r01/fixture.jsonl")
+          manifest = json.loads(Path("evidence/r01/manifest.json").read_text())
+          digest = hashlib.sha256(fixture.read_bytes()).hexdigest()
+          assert digest == manifest["sha256"], (digest, manifest["sha256"])
+          assert manifest["sample_rows"] > 0
+          assert manifest["node_turnover_count"] >= 16
+          assert manifest["high_hpa_scrapes"] > 0
+          assert manifest["distinct_series_total"] > 16
+          assert manifest["source_distribution_is_measured"] is False
+          print("R01_FINAL_CHECK", json.dumps({
+              "passed": True, "sha256": digest, "rows": manifest["sample_rows"],
+              "series": manifest["distinct_series_total"],
+              "node_turnovers": manifest["node_turnover_count"],
+              "bytes": fixture.stat().st_size
+          }, sort_keys=True))
+          PY
+          zstd -q -3 -T0 -o evidence/r01/fixture.jsonl.zst evidence/r01/fixture.jsonl
+          rm evidence/r01/fixture.jsonl evidence/r01/repeat.jsonl evidence/r01/repeat-manifest.json
+      - name: Preserve manifest, tests and compressed input fixture
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r01-kube-fixture-${{ github.run_id }}
+          path: evidence/r01/
+          retention-days: 14
+          if-no-files-found: warn
