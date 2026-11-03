@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "question_id": "R11",
+  "primary_claim_id": "R11-native-promql-query-cache-consistency-v1",
+  "owner": "chatgpt-r11-query-cache-safety-20261103",
+  "scope": "QueryResultCache correctness and freshness for native TimeSeries prometheusQueryRange before/after INSERT; explicit opt-in, stock SHA-pinned O1, synthetic table only. Not benchmark against VictoriaMetrics.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-03T10:26:00Z"
+}
