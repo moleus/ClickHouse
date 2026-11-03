@@ -57,7 +57,7 @@ def capture(qids):
             "sum(output_wait_elapsed_us) AS output_wait_us,"
             "sum(input_rows) AS input_rows,sum(output_rows) AS output_rows "
             "FROM system.processors_profile_log WHERE query_id IN "+ids+
-            " GROUP BY query_id,name,plan_step_name ORDER BY query_id,work_us DESC LIMIT 160",result,"processors")
+            " GROUP BY query_id,name,plan_step_name ORDER BY query_id,work_us DESC LIMIT 80 BY query_id",result,"processors")
     classifier="""multiIf(
       arrayExists(s -> position(s,'ReverseIndex')>0 OR position(s,'ColumnUnique')>0 OR position(s,'SerializationLowCardinality')>0 OR position(s,'ColumnLowCardinality')>0,symbols),'01_lowcard_dictionary',
       arrayExists(s -> position(s,'FillingRightJoinSide')>0 OR position(s,'HashJoin')>0 OR position(s,'JoiningTransform')>0,symbols),'02_hash_join',
@@ -69,11 +69,11 @@ def capture(qids):
       '08_other')"""
     attempt("SELECT query_id,"+classifier+" AS category,count() AS samples "
             "FROM system.trace_log WHERE trace_type='CPU' AND query_id IN "+ids+
-            " GROUP BY query_id,category ORDER BY query_id,samples DESC LIMIT 100",result,"cpu")
+            " GROUP BY query_id,category ORDER BY query_id,samples DESC LIMIT 50 BY query_id",result,"cpu")
     attempt("SELECT query_id,trace_type,arrayFirst(s -> s != '',symbols) AS leaf,"
             "count() AS samples,sum(size) AS bytes "
             "FROM system.trace_log WHERE query_id IN "+ids+" AND trace_type IN ('CPU','Memory')"
-            " GROUP BY query_id,trace_type,leaf ORDER BY query_id,samples DESC LIMIT 240",result,"leaf")
+            " GROUP BY query_id,trace_type,leaf ORDER BY query_id,samples DESC LIMIT 120 BY query_id",result,"leaf")
     return result
 def main():
     p=argparse.ArgumentParser()
