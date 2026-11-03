@@ -155,7 +155,7 @@ jobs:
           },sort_keys=True),flush=True)
           PY
 
-      - name: Compare ALP ZSTD1 and LZ4 SAMPLES.value codecs native ABBA and ingest merge
+      - name: Compare effective source codecs with quoted Delta8 SHOW CREATE normalization
         run: |
           set -euo pipefail
           mkdir -p evidence/r18
