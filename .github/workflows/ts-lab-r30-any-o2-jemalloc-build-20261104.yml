@@ -182,7 +182,7 @@ jobs:
           git diff -- src/Storages/StorageTimeSeriesSelector.cpp > evidence/r30-git-current.patch
           cmp evidence/r30-git.patch evidence/r30-git-current.patch
           sha256sum -c evidence/r30-git-patch.sha256
-          grep -E '^ENABLE_JEMALLOC(:[^=]*)?=ON
+          grep -E '^ENABLE_JEMALLOC(:[^=]*)?=ON$' build-lab/CMakeCache.txt
           grep -E '^CMAKE_BUILD_TYPE(:[^=]*)?=Release$' build-lab/CMakeCache.txt
           grep -E '^CMAKE_CXX_FLAGS_RELEASE(:[^=]*)?=.*-O2' build-lab/CMakeCache.txt
           grep -E '^(ENABLE_JEMALLOC|CMAKE_BUILD_TYPE|CMAKE_CXX_FLAGS_RELEASE)' build-lab/CMakeCache.txt > evidence/r30-any-cmake-options.txt
@@ -230,53 +230,3 @@ jobs:
           build-lab/programs/clickhouse local -q 'SELECT version()'
           build-lab/programs/clickhouse local --allow_experimental_time_series_table=1 -q 'SELECT 1' | grep -x 1
           build-lab/programs/clickhouse local --allow_experimental_time_series_table=1 -q 'SELECT toTypeName(tuple(toUInt64(1), generateUUIDv4()))'
-
- build-lab/CMakeCache.txt
-          grep -E '^CMAKE_BUILD_TYPE(:[^=]*)?=Release$' build-lab/CMakeCache.txt
-          grep -E '^CMAKE_CXX_FLAGS_RELEASE(:[^=]*)?=.*-O2' build-lab/CMakeCache.txt
-          grep -E '^(ENABLE_JEMALLOC|CMAKE_BUILD_TYPE|CMAKE_CXX_FLAGS_RELEASE)' build-lab/CMakeCache.txt > evidence/r30-any-cmake-options.txt
-          sha256sum build-lab/programs/clickhouse > evidence/r30-any-executable-sha256.txt
-          printf 'R30 LAB ONLY: source-pinned one-site TimeRanges ALL to ANY, O2 and jemalloc.\n' > evidence/r30-any-source-contract.txt
-
-      - name: Package lab binary
-        run: |
-          set -euo pipefail
-          mkdir -p output
-          cp build-lab/programs/clickhouse output/clickhouse
-          chmod +x output/clickhouse
-          printf 'source=%s\nfork=%s\nllvm=%s\noptimization=O2 USE_JEMALLOC=1 R30_TIME_RANGES_ANY=1 single source AST delta\n' "$SOURCE_SHA" "$GITHUB_SHA" "$LLVM_VERSION" > output/BUILD_INFO.txt
-          (cd output && sha256sum clickhouse > SHA256SUMS)
-          tar -C output -cf - clickhouse SHA256SUMS BUILD_INFO.txt | zstd -T2 -10 -o output/clickhouse-r30-any-o2-jemalloc-linux-amd64.tar.zst
-          (cd output && sha256sum clickhouse-r30-any-o2-jemalloc-linux-amd64.tar.zst > ARCHIVE_SHA256SUMS)
-
-      - name: Upload CI artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tslab-r30-any-stock-o2-jemalloc-binary-${{ github.sha }}
-          path: |
-            output/clickhouse-r30-any-o2-jemalloc-linux-amd64.tar.zst
-            output/ARCHIVE_SHA256SUMS
-            output/BUILD_INFO.txt
-            evidence/compile-time.txt
-            evidence/r30-any-cmake-options.txt
-            evidence/r30-any-executable-sha256.txt
-            evidence/r30-any-source-contract.txt
-          if-no-files-found: error
-          retention-days: 45
-          compression-level: 0
-
-      - name: Save partial compilation cache
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: .ccache
-          key: tslab-ccache-${{ runner.os }}-${{ env.SOURCE_SHA }}-r30-any-stock-o2-jemalloc-${{ github.run_id }}
-
-      - name: Smoke tests
-        run: |
-          set -euo pipefail
-          build-lab/programs/clickhouse local -q 'SELECT 1' | grep -x 1
-          build-lab/programs/clickhouse local -q 'SELECT version()'
-          build-lab/programs/clickhouse local --allow_experimental_time_series_table=1 -q 'SELECT 1' | grep -x 1
-          build-lab/programs/clickhouse local --allow_experimental_time_series_table=1 -q 'SELECT toTypeName(tuple(toUInt64(1), generateUUIDv4()))'
-
