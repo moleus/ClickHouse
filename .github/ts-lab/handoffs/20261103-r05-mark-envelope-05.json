@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "session_id": "r05-physical-mark-envelope-20261103-05",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "7576c01e24f6e7c1fc8769304e10fedac15ab024",
+  "last_verified_utc": "2026-11-03T09:56:00Z",
+  "question_id": "R05",
+  "summary": "Corrected actual default v11 SAMPLES index_granularity=256 rows, ORDER BY(id,bucket); added deterministic synthetic mark envelope counterexample, tests and result with no ClickHouse binary build or native performance assertion.",
+  "completed": [
+    "Source pinned 52529f0c7: StorageTimeSeries.cpp example SAMPLES ORDER BY(id,bucket), index_granularity=256 rows, index_granularity_bytes=524288. This is default not measured actual part density.",
+    "Published .github/ts-lab/experiments/r05_sparse_mark_simulation.py plus test_r05_sparse_mark_simulation.py; three unittest cases passed locally; recorded first-run OverflowError fix.",
+    "Published R05_MARK_COVERAGE_SURROGATE_20261103.json: 14 synthetic independent daily sorted parts at 95k distinct IDs each, 256 rows per mark, select 2500 IDs only from day14: 5208/5208 candidate key-range mark intervals intersect, 372/5208 mark intervals actually contain target IDs.",
+    "Updated R05_MARK_COVERAGE_FEASIBILITY_20261103.md with default row granularity and new key-range-envelope caveat.",
+    "Full current in_progress (2), queued (10), waiting (0), requested (0), pending (2) run inventories checked via GitHub API; two in_progress are jemalloc 41607779848 and LC decoder 41591617794, neither changed."
+  ],
+  "negative_results": [
+    "No measured native ClickHouse physical marks, latency or RSS; sorted mark-envelope surrogate is not ClickHouse KeyCondition.",
+    "Earlier occupancy example g=8192 was hypothetical and NOT default v11 SAMPLES granularity; source shows 256 rows; actual distinct IDs/mark can be smaller.",
+    "Sparse selected ID set cannot alone guarantee reduced marks: synthetic other-day parts have zero exact target IDs but every mark interval overlaps selected set.",
+    "First local surrogate test failed on Python huge range sampling, fixed by generating unique 64-bit values directly."
+  ],
+  "active_run_ids": [
+    41607779848,
+    41591617794
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "not used: source and Python surrogate only",
+  "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+  "relevant_paths": [
+    ".github/ts-lab/claims/roots/R05.json",
+    ".github/ts-lab/experiments/R05_MARK_COVERAGE_FEASIBILITY_20261103.md",
+    ".github/ts-lab/experiments/r05_sparse_mark_simulation.py",
+    ".github/ts-lab/experiments/test_r05_sparse_mark_simulation.py",
+    ".github/ts-lab/experiments/R05_MARK_COVERAGE_SURROGATE_20261103.json",
+    "src/Storages/StorageTimeSeries.cpp",
+    "src/Storages/StorageTimeSeriesSelector.cpp"
+  ],
+  "blocked_by": [
+    "No existing pinned ClickHouse runtime or populated physical part present in available local filesystem; GitHub connector exposes source and Actions but not remote shell execution.",
+    "Query planner actual mark selection and exact native PromQL correctness not measured; simulation is a falsifier of naive assumptions, not negative proof for native performance."
+  ],
+  "next_action": {
+    "question_id": "R05",
+    "step": "Use existing stock O1 binary and frozen fixture with persisted SAMPLES parts; record SHOW CREATE, part rows/marks, actual distinct IDs/mark, EXPLAIN indexes=1, selected mark/read bytes for candidate IDs that exist in only some parts, compare against range-envelope surrogate, demand nonempty native parity; no C++ compile until cheap measurements warrant it.",
+    "stop_condition": "If no shell/binary access, runtime EXPLAIN unavailable, duplicate agent claims R05, or output parity fails, stop and record uncertainty rather than launch expensive build."
+  }
+}
