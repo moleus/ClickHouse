@@ -1,4 +1,4 @@
-name: TimeSeries native high-cardinality UUID schema A B B A
+name: TimeSeries native high-cardinality UUID schema A B B A (v11 ID schema)
 on:
   push:
     branches: [lab/ts-cpu-attribution-20261103]
@@ -101,6 +101,29 @@ jobs:
           curl -fsS --max-time 120 --data-binary "@$RUNNER_TEMP/precision.jsonl"             'http://127.0.0.1:18191/?allow_experimental_time_series_table=1&wait_end_of_query=1&query=INSERT%20INTO%20precision_ts%20(metric_name%2Ctags%2Csamples)%20FORMAT%20JSONEachRow'             >evidence/insert-response.txt
           curl -fsS --data-binary 'SELECT metric_name,count() FROM precision_ts GROUP BY metric_name FORMAT TSV'             http://127.0.0.1:18191/ | tee evidence/fixture-count.tsv
 
+      - name: Fail-fast TimeSeries v11 raw UUID inner-column DDL smoke
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import urllib.request
+          sql = ("CREATE TABLE raw_uuid_ddl_smoke ENGINE=TimeSeries "
+                 "SETTINGS recent_samples_ttl_seconds=0 "
+                 "SAMPLES INNER COLUMNS (id Tuple(UInt64, UUID)) "
+                 "TAGS INNER COLUMNS ("
+                 "id Tuple(UInt64, UUID) DEFAULT tuple(sipHash64(metric_name),"
+                 "reinterpretAsUUID(sipHash128(tags))),"
+                 "metric_name LowCardinality(String),"
+                 "tags Map(LowCardinality(String),String),"
+                 "INDEX tags_idx tags TYPE text(tokenizer = 'keyValuePairs') GRANULARITY 100000000) "
+                 "TIME RANGES INNER COLUMNS (id Tuple(UInt64, UUID))")
+          endpoint='http://127.0.0.1:18191/?wait_end_of_query=1'
+          for statement in (sql,
+                            "SELECT count() FROM system.tables WHERE database='default' AND name='raw_uuid_ddl_smoke'",
+                            "DROP TABLE raw_uuid_ddl_smoke SYNC"):
+              with urllib.request.urlopen(urllib.request.Request(endpoint,data=statement.encode(),method='POST'),timeout=60) as response:
+                  body=response.read().decode()
+                  print('RAW_UUID_SCHEMA_SMOKE',statement[:70],body[:400],flush=True)
+          PY
       - name: Generate SHA verified 14d 95k new Jenkins IDs daily in ClickHouse
         run: |
           set -euo pipefail
