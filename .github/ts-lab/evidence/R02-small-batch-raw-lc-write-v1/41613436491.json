@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "question_id": "R02-small-batch-raw-lc-write-v1",
+  "decision": "ACCEPT_FOR_NEXT_GATE",
+  "ci_status": "success",
+  "recorded_utc": "2026-11-03T09:46:00Z",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary": {
+    "source": "unmodified stock O1",
+    "build_run_id": 41596421285,
+    "llvm": "22.1.8",
+    "sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "source_sha_verified": true,
+    "artifact_archive_sha_verified": true,
+    "inner_sha_verified": true
+  },
+  "fixture": {
+    "name": "12 chronological small inserts, 2000 stable slots and 2000 rotating slots changing generation every 3 inserts",
+    "metric": "tslab_r02_periodic",
+    "sample_points_per_table": 48000,
+    "unique_series_per_table": 10000,
+    "series_reuse_factor": 4.8,
+    "batches": 12,
+    "rows_per_insert": 4000,
+    "total_input_hashes": 12,
+    "sha256_of_concatenated_sha256_strings": "612634b8a4c99fadb8353be0ebd44b42471bba5400a71165c79922770341a412",
+    "first_batch_sha256": "f070bfd3e835b126802598254e53561cdea311b6a28dfd099ee6192863a1e3fd",
+    "last_batch_sha256": "b88d373c29d90b920fc3db8b8409ab4d3cb07e1fd7963596b63f301e24642970"
+  },
+  "method": "One matched stock O1 server; both physical TimeSeries tables share identical input bytes and hash generator, and differ only in inner ID type. 12 INSERTs/table with alternating order; after batches 4/8/12 explicit final MergeTree merges on TAGS/SAMPLES/TimeRanges per table. 24 QueryFinish and 18 MergeParts profile events present. Exact sample point parity checked by sum(length(samples)), not SAMPLES physical row count; native avg by(scope)(avg_over_time(metric[30m])) checked against independent Python mean oracle.",
+  "math_bound": "Per part with N physical ID references and D distinct IDs, raw occupies ~16N bytes before codec; dictionary layout ~16D+wN plus hash/update overhead. Data codec and part boundaries determine actual bytes. This sample has 48000 sample points, 10000 distinct IDs per table; actual final SAMPLES physical rows 10000 due v11 bucketed arrays, so any naive 48000-row assertion is invalid.",
+  "correctness": {
+    "expected_points_per_table": 48000,
+    "observed_lc_points": 48000,
+    "observed_raw_points": 48000,
+    "logical_unique_series_per_table": 10000,
+    "physical_samples_rows_per_table": 10000,
+    "matched_full_id_generator_and_index": true,
+    "full_native_label_timestamp_parity": true,
+    "independent_python_avg_oracle": true,
+    "precision": "max observed between variants <1e-12, strict float tolerance 1e-8"
+  },
+  "physical_final_bytes": {
+    "lc": {
+      "tags": 323188,
+      "samples": 388957,
+      "timeranges": 226943,
+      "total": 939088
+    },
+    "raw": {
+      "tags": 303027,
+      "samples": 367769,
+      "timeranges": 206780,
+      "total": 877576
+    },
+    "raw_fraction_smaller": 0.065502,
+    "point_counts_equal": true
+  },
+  "merge_partlog": {
+    "events": 18,
+    "per_variant": {
+      "lc": {
+        "tags_cpu_ms": 30.748,
+        "samples_cpu_ms": 69.856,
+        "timeranges_cpu_ms": 19.334,
+        "total_cpu_ms": 119.938,
+        "merge_duration_ms": 119
+      },
+      "raw": {
+        "tags_cpu_ms": 26.083,
+        "samples_cpu_ms": 62.902,
+        "timeranges_cpu_ms": 14.447,
+        "total_cpu_ms": 103.432,
+        "merge_duration_ms": 100
+      }
+    },
+    "note": "Three merges per target/variant; single run, no paired A/B/B/A; CPU totals descriptive only, not a causal speed claim"
+  },
+  "inserts": {
+    "count_per_variant": 12,
+    "lc": {
+      "client_wall_total_ms": 823.88,
+      "median_ms": 77.2505,
+      "queryfinish_wall_total_ms": 804,
+      "queryfinish_profile_cpu_ms": 15.259
+    },
+    "raw": {
+      "client_wall_total_ms": 908.114,
+      "median_ms": 75.712,
+      "queryfinish_wall_total_ms": 890,
+      "queryfinish_profile_cpu_ms": 13.415
+    },
+    "note": "QueryFinish INSERT CPU events are ~15ms across 12 requests versus ~800ms total wall and omit substantial async storage work; do not claim meaningful write CPU improvement from this metric."
+  },
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41613436491",
+    "artifact_id": 13219898011,
+    "artifact_zip_sha256": "94243bf0af3eb78d7976461af3bb2b04ead3c6640fd8828cfc0fba7151aa8574",
+    "script_path": ".github/ts-lab/experiments/r02_small_batch_write_merge.py",
+    "workflow_path": ".github/workflows/ts-lab-r02-small-batch-write-20261103.yml",
+    "workflow_commit": "07ffec7f35ad18d4707be7c9f0b71cfdc88bcc6c"
+  },
+  "limitations": [
+    "One run, 12 inserts and 3 explicit merges per table. Not continuous ingest with reads and natural background merges.",
+    "Storage size measured after full merges; no write amplification bytes over time or WAL measurement.",
+    "No matched fresh-server A/B/B/A or p95/p99; insertion CPU via query_log excludes async storage work.",
+    "Fixture uses only 10000 distinct IDs, deterministic stable/rotating distributions, not the larger 400-node/3h real workload. No production-specific jemalloc allocator control.",
+    "Native semantic oracle is for two grouped outcomes only, not NaN/late updates/ACL or regex."
+  ],
+  "stop_condition": "Accept correctness and physical footprint as a baseline only; no production performance claim until process CPU seconds, read concurrency, background merge cost and drift are tested on repeated runs.",
+  "next_action": {
+    "question_id": "R02",
+    "step": "On the same pinned stock O1 binary and fixture, add process-level CPU and background-merge accounting to each of repeated same-runner A/B/B/A write phases, then monitor native query p95 while inserts continue; validate with an explicit no-write control.",
+    "stop_condition": "Stop/promote only if exact sample/ID parity, disk/merge evidence and CPU accounting gates pass without OOM or baseline drift >25%."
+  }
+}
