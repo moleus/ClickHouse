@@ -1,0 +1,82 @@
+name: R10 exact timestamp alignment 400-node 3d phase-shift fixture audit
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r10-staggered-fixture-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tslab-r10-staggered-fixture-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Original source, root symlink and independent alignment unit tests
+        run: |
+          set -euo pipefail
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          mkdir -p evidence/r10-stagger
+          python3 -m py_compile .github/ts-lab-r01/generate_k8s_churn_fixture.py \
+            .github/ts-lab-r01/test_generate_k8s_churn_fixture.py \
+            .github/ts-lab-r10/test_bucket_alignment.py
+          python3 -m unittest discover -s .github/ts-lab-r01 \
+            -p 'test_generate_k8s_churn_fixture.py' -v \
+            2>&1 | tee evidence/r10-stagger/original-unit.log
+          python3 -m unittest discover -s .github/ts-lab-r10 \
+            -p 'test_bucket_alignment.py' -v \
+            2>&1 | tee evidence/r10-stagger/alignment-unit.log
+          git rev-parse HEAD | tee evidence/r10-stagger/commit.txt
+          sha256sum .github/ts-lab-r01/generate_k8s_churn_fixture.py \
+            | tee evidence/r10-stagger/generator-source-hash.txt
+      - name: Generate aligned original and timestamp-shifted 400-slot fixtures
+        run: |
+          set -euo pipefail
+          python3 -u .github/ts-lab-r01/generate_k8s_churn_fixture.py \
+            --days 3 --node-slots 400 \
+            --fixture "$RUNNER_TEMP/aligned.jsonl" \
+            --manifest evidence/r10-stagger/aligned-manifest.json \
+            | tee evidence/r10-stagger/aligned-generate.log
+          test "$(sha256sum "$RUNNER_TEMP/aligned.jsonl" | cut -d' ' -f1)" = \
+            "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d"
+          python3 -u .github/ts-lab-r01/generate_k8s_churn_fixture.py \
+            --days 3 --node-slots 400 --stagger-node-starts \
+            --fixture "$RUNNER_TEMP/staggered.jsonl" \
+            --manifest evidence/r10-stagger/staggered-manifest.json \
+            | tee evidence/r10-stagger/stagger-generate.log
+          sha256sum "$RUNNER_TEMP/aligned.jsonl" "$RUNNER_TEMP/staggered.jsonl" \
+            | tee evidence/r10-stagger/sha256sums.txt
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          a=json.load(open("evidence/r10-stagger/aligned-manifest.json"))
+          s=json.load(open("evidence/r10-stagger/staggered-manifest.json"))
+          assert a["sha256"]=="ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",a
+          assert a["series"]==s["series"]==28896,(a,s)
+          assert a["samples"]==s["samples"]==2488320,(a,s)
+          assert s["bucket_rows_by_step"]=={"900":368544,"3600":113760,"10800":57120},s
+          assert "stagger_policy" not in a and "stagger_policy" in s
+          assert s["sha256"]!=a["sha256"]
+          src=pathlib.Path(os.environ["RUNNER_TEMP"])/"staggered.jsonl"
+          with src.open("rb") as f: sha=hashlib.file_digest(f,"sha256").hexdigest()
+          assert s["sha256"]==sha,(s["sha256"],sha)
+          print("R10_STAGGERED_FIXTURE_VERIFIED",json.dumps({
+            "series":s["series"],"points":s["samples"],"sha256":sha,
+            "physical_bucket_row_predictions":s["bucket_rows_by_step"],
+            "aligned_original_hash_unchanged":True
+          }),flush=True)
+          PY
+      - name: Publish exact fixture hashes and counts, not raw large samples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r10-staggered-fixture-${{ github.run_id }}
+          path: evidence/r10-stagger/
+          retention-days: 45
+          if-no-files-found: warn
