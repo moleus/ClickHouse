@@ -10,6 +10,14 @@ This file is the operational source of truth for new work in `moleus/ClickHouse`
 4. Use a new workflow per expensive experiment. No shared environment, common mutable data volume, static query ID, or overlapping GitHub cache mutation. Limit runner matrix parallelism. No code changes during measurement phases.
 5. Protect ongoing builds and cache artifacts. Never cancel them when pushing or rerunning a different experiment.
 
+## Preserve repository symlinks
+
+**Root AGENTS.md is a tracked symlink (Git mode `120000`) to `.claude/CLAUDE.md`**, not a regular Markdown file. The GitHub Contents API can dereference it when reading yet write a huge replacement symlink string when updating `AGENTS.md`. This caused all workflow checkouts to fail in run [41597417015](https://github.com/moleus/ClickHouse/actions/runs/41597417015). The original symlink is restored.
+
+- Edit **`.claude/CLAUDE.md`**, never `AGENTS.md`, when changing global agent instructions.
+- Before adding a lab workflow, verify `test "$(readlink AGENTS.md)" = .claude/CLAUDE.md` and `git ls-files -s AGENTS.md` mode `120000`.
+- Use isolated `.github/ts-lab/` source files for guidance; do not mutate other upstream symlink paths through GitHub Contents API without inspecting their git mode.
+
 ## Safe GitHub Actions scheduling
 
 Recommended isolated workflow:
