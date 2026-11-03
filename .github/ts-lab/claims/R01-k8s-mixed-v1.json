@@ -1,0 +1,19 @@
+{
+  "id": "R01-k8s-mixed-v1",
+  "question": "On 400-node three-hour churn with mixed 60s, 300s and 15s samples, do RAW_UUID native TimeSeries read gains from single-sample Jenkins persist, or does LowCardinality(UUID) regain CPU/storage value?",
+  "owner": "chatgpt-native-mixed-churn-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "unmodified stock O1 ClickHouse LLVM22 41596421285, binary SHA256 f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "candidate": "RAW_UUID tuple inner ID on TAGS, SAMPLES, TimeRanges; identical hash expression and tags index, same executable and synthetic rows",
+  "fixture": "Deterministic generator, 400 active node slots, 3h life; one 60s node series, two 300s pod series and 1% 15s burst pod series each lifetime; 3d initial. SHA and distribution manifest from generation; no real customer data",
+  "single_variable": "Tuple(UInt64,LowCardinality(UUID)) versus Tuple(UInt64,UUID) across all TimeSeries inner ID columns, same source/LLVM/flags/query/data",
+  "math_bound": "A 3h life yields 180 points at 60s, 36 at 300s and 720 at 15s, unlike single-point Jenkins. LC incurs O(D) dictionary hashing/zeroing, but saves approx (16-2)*N UUID bytes when many samples reuse one ID; RAW may win CPU but lose compression for dense series; measured test must decide.",
+  "falsifier": "Full native PromQL labels/timestamps/value mismatch; invalid ID digest, wrong fixture counts/hash; drift >25%; RAW CPU wall p95 or RSS/parts regress on repeated-ID selections, or query OOM; keep negative outcome.",
+  "test_matrix": "400 slots x 8 3h lifetimes/day x3d; metric node 60s, pod 5min and 1% 15s; native avg_over_time selector exact project/namespace/pod/whole at day/3d windows; first isolated single runner 2 warmups+4 runs A/B/B/A; no code compilation; 14d/clients only if memory/correctness gates pass.",
+  "runner_budget": "One ubuntu-24.04 4-vCPU benchmark job <=90m, 1 concurrent run; 3d synthetic data 2-3m samples, with memory and physical-part ceilings; use cached stock O1 binary, no recompile.",
+  "planned_workflow": ".github/workflows/ts-lab-r01-k8s-mixed-20261103.yml self-path-only push and workflow_dispatch, unique run_id group; separate cheap fixture unit CI",
+  "dependencies": [
+    "R08-matcher-absence-regex-v1"
+  ]
+}
