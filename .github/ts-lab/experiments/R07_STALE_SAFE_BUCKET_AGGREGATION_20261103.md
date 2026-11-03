@@ -46,3 +46,20 @@ B. [Original corrected point-SQL vs corrected fused per-bucket SQL vs native, #4
 - Full range function parity for multiple grid evaluation steps at R01 scale (tiny 5-tick was checked), stale-only/ordinary NaN under all merges/late writes, cross-INSERT duplicate arbitration, regex project scopes and arbitrary group labels. Unknown selectors must use native path.
 - Native code path integration would require preserving \`timeSeriesStoreTags\`, TimeRanges eligibility, no data races or incorrect result cache, and strict source revision/ACL conditions. **No C++ compilation until semantics/CPU/memory and workload threshold hold**.
 - Independent O2/jemalloc 1/4/8 concurrent-client throughput/p95/p99 and memory with fair comparison to native, not just single-client O1 synthetic latency. Source code already implements native vectorized \`avgForEach\`; do not claim native query lacks aggregation support.
+
+## Independent aligned held-out: #41643057088 SUCCESS
+
+[GitHub Actions](https://github.com/moleus/ClickHouse/actions/runs/41643057088), [immutable machine evidence](../evidence/R07-bucket-sumcount-R01-aligned-41643057088.json), original ZIP digest \`sha256:00ae09edb1138f732957eafba483f2ebcd63e485319af856611a9a0212677331\`. Same 28,896 distinct full-ID synthetic series, 2,488,320 samples at 15s/60s/300s, same values and tags, but **node start phase aligned**: frozen source fixture SHA \`ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d\`, **86,688 physical SAMPLES bucket rows** versus 113,760 staggered, so \`P/B=28.70\`. Source and binary identical; different GitHub-hosted runner.
+
+All **18 native grid output parity checks**, 4 cases of 6-phase A/B/B/A with 2 warmup+4 measured per phase, full response parity per query, frozen parts, **all control drifts under25%**. No sidecar, C++ compilation or ACL change.
+
+| Query | Aligned native p50 | Aligned safe point p50 | Aligned safe bucket p50 | Point/bucket wall ratio | Point/bucket CPU ratio |
+|---|---:|---:|---:|---:|---:|
+| broad pod1d | 71.976ms | **36.739ms** | 37.814ms | 0.972x (**bucket 2.9% slower**) | 44.747→37.148ms (1.205x less CPU) |
+| broad pod3d | 94.929ms | 47.183ms | **42.498ms** | **1.110x** | 63.265→41.928ms (**1.509x**) |
+| broad node3d | 94.266ms | 83.112ms | **63.476ms** | **1.309x** | 108.220→63.401ms (**1.707x**) |
+| burst15 1d | 29.059ms | 24.096ms | 22.784ms | 1.058x (effect within ~10.2% bucket baseline drift) | 24.722→21.985ms (1.124x) |
+
+**Most robust new claim:** broad node3d *correct per-bucket vs correct per-point SQL on exactly the same stock data and runner* p50 **1.317x (staggered) and 1.309x (aligned)**. QueryFinish CPU **1.80x and1.71x lower**, while selected marks/rows/bytes are unchanged in each pair. This is a credible execution-path improvement independent of physical source bucket placement, not a general 22x gain. Broad pod3d bucket SQL saves CPU ~1.4–1.5x in both layouts but latency improvement is smaller, depending on context switching and the rest of the critical path. Pod1d bucket wall is not universally better, even with less CPU. **No global forced planner selection.**
+
+Next bounded gate is [1/4/8 client matched native-vs-safe-bucket ABBA #41643759040](https://github.com/moleus/ClickHouse/actions/runs/41643759040): queueing/throughput, client latency, QueryFinish CPU and coarse 4Hz RSS under parallel load; no production performance conclusion yet.
