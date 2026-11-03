@@ -99,6 +99,7 @@ jobs:
           git apply "${RUNNER_TEMP}/fastpath.patch"
           python3 "${RUNNER_TEMP}/join_override_patch.py"
           if [ "${{ matrix.variant }}" = prehash ]; then python3 "${RUNNER_TEMP}/tag_patch.py"; fi
+          python3 -m py_compile "${RUNNER_TEMP}/lock_counters_patch.py"
           python3 "${RUNNER_TEMP}/lock_counters_patch.py"
           git diff --check
           git diff --stat
