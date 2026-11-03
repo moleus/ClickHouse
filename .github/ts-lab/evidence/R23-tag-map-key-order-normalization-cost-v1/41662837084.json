@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "question_id": "R23",
+  "primary_claim_id": "R23-tag-map-key-order-normalization-cost-v1",
+  "decision": "NO_ROBUST_CPU_ORDER_EFFECT",
+  "ci_status": "success",
+  "verified_utc": "2026-11-03T15:23:00Z",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary": {
+    "sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "compiler": "LLVM22.1.8",
+    "flags": "unmodified stock O1/glibc",
+    "build_run": 41596421285
+  },
+  "source_proof": "TimeSeriesSink.cpp fillTagsColumns sorts key/value tags and injects __name__ before makeTagsBlock computes full ID; tags_deduplication_cache->filterOutWrittenRows is AFTER the sort and id hash. JSON sort order differs but stored Map canonicalization is identical.",
+  "fixture": {
+    "logical_canonical_sha256": "826f8d12e7051d8b8c0ebc2f79d201c205fdd2ee9d4ae58e69534375963cf458",
+    "sorted_wire_sha256": "ec128e6c74402d095c59c79f8f352ef4a0f48e0839dce730baa0f6ed7796ff64",
+    "shuffled_wire_sha256": "6c73ffea74efc9d92ea78996a7075e514b83c98b5f2411d7ed9839939480af49",
+    "wire_bytes_each": 39980232,
+    "rows_whose_map_order_changed": 98304,
+    "series": 4096,
+    "batches": 24,
+    "sample_points_per_phase": 98304,
+    "user_tags_per_series": 19,
+    "canonical_tags_per_series": 20,
+    "cache_size_bytes": 1048576,
+    "cache_expiration_s": 3600,
+    "cache_expected_hits": 94208,
+    "cache_expected_misses": 4096
+  },
+  "method": "One Github-hosted Ubuntu24 runner, four fresh stock-O1 servers A0 sorted/B1 shuffled/B2 shuffled/A3 sorted, same series ROW order and exact logical sample values/timestamps; only serialized JSON Map key order changes. SHA-pinned canonical content, RAW UUID v11 outer TimeSeries, three inner targets STOP MERGES, whole process watchdog+worker CPU/IO deltas, global cache event counter deltas, physical TAGS IDs+stored Map fingerprint, full native avg by(project)(avg_over_time(tslab_r23_tag_order_gauge[30m])) 3 warmups+6 measured each phase, QueryFinish CPU/read rows/bytes/peak, A/A drift <=25%; practical CPU threshold 5% or >A/A drift.",
+  "phases": {
+    "A0": {
+      "mode": "sorted",
+      "ingest_cpu_s": 0.95,
+      "ingest_write_bytes": 6692864,
+      "native_wall_p50_ms": 281.73864,
+      "cache_hits": 94208,
+      "cache_misses": 4096,
+      "tags_rows": 4096
+    },
+    "B1": {
+      "mode": "shuffled",
+      "ingest_cpu_s": 0.97,
+      "ingest_write_bytes": 6688768,
+      "native_wall_p50_ms": 270.59271,
+      "cache_hits": 94208,
+      "cache_misses": 4096,
+      "tags_rows": 4096
+    },
+    "B2": {
+      "mode": "shuffled",
+      "ingest_cpu_s": 0.97,
+      "ingest_write_bytes": 6692864,
+      "native_wall_p50_ms": 273.0164,
+      "cache_hits": 94208,
+      "cache_misses": 4096,
+      "tags_rows": 4096
+    },
+    "A3": {
+      "mode": "sorted",
+      "ingest_cpu_s": 1,
+      "ingest_write_bytes": 6692864,
+      "native_wall_p50_ms": 272.92741,
+      "cache_hits": 94208,
+      "cache_misses": 4096,
+      "tags_rows": 4096
+    }
+  },
+  "means": {
+    "ingest_cpu_s": {
+      "sorted": 0.975,
+      "shuffled": 0.97,
+      "ratio": 0.99487,
+      "AA_drift": 0.05128
+    },
+    "ingest_wall_s": {
+      "sorted": 2.22912,
+      "shuffled": 2.2047,
+      "ratio": 0.98904,
+      "AA_drift": 0.01412
+    },
+    "ingest_write_bytes": {
+      "sorted": 6692864,
+      "shuffled": 6690816,
+      "ratio": 0.99969
+    },
+    "querylog_insert_cpu_ms": {
+      "sorted": 27.5885,
+      "shuffled": 24.314,
+      "ratio": 0.88131,
+      "AA_drift": 0.14082,
+      "note": "QueryFinish pipeline CPU is not the whole process insert CPU. Do not conflate or claim the ~12% query-log difference as a source CPU saving."
+    },
+    "native_wall_p50_ms": {
+      "sorted": 277.33303,
+      "shuffled": 271.80455,
+      "ratio": 0.98007,
+      "AA_drift": 0.03177
+    },
+    "native_cpu_p50_ms": {
+      "sorted": 277.6815,
+      "shuffled": 271.83325,
+      "ratio": 0.97894,
+      "AA_drift": 0.03244
+    },
+    "native_read_rows_p50": {
+      "both": 200704
+    },
+    "native_read_bytes_p50": {
+      "both": 12349770
+    },
+    "tags_compressed_bytes": {
+      "both": 472749
+    },
+    "timeranges_compressed_bytes": {
+      "both": 1619136
+    }
+  },
+  "physical_equal": {
+    "full_id_and_canonical_map_sha256": "a3844034f95703edab7d90755222dd276d118b477979c419b9f3997edccda190",
+    "same_all_phases": true,
+    "stable_unique_ids": 4096,
+    "physical_tags_rows": 4096,
+    "cache_hits": 94208,
+    "cache_misses": 4096,
+    "full_native_labels_timestamps_float_equal": true,
+    "tags_bytes_equal": true,
+    "timeranges_bytes_equal": true,
+    "native_read_rows_bytes_equal": true
+  },
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41662837084",
+    "job_id": 126010264852,
+    "artifact_id": 13243741029,
+    "official_artifact_sha256": "799621925b1fdc239f619621c624ffe261ed39905569d020d19720760d9ab175",
+    "workflow_commit": "a389fc6308cc05023f993fe7275ff6f7d39c1c33",
+    "workflow_path": ".github/workflows/ts-lab-r23-tags-map-order-20261103.yml",
+    "script_path": ".github/ts-lab/experiments/r23_tag_map_key_order_abba.py",
+    "script_commit": "c875c54d73269e5834812a170cd73dd15111917d",
+    "helper_git_blob_sha": "fd3673d47fcdf575033bfebfaaf56ef2e2affc60",
+    "math_protocol": ".github/ts-lab/experiments/R23_TAG_MAP_NORMALIZATION_MATH_20261103.md",
+    "shared_state_contract_success": 41663027781
+  },
+  "limitations": [
+    "Only one runner with two phases each mode; 0.5% process CPU delta is below 5% practical threshold and 5.1% A/A drift; do not claim positive speedup.",
+    "Client-side pre-sorting does not remove the std::sort cost: TimeSeriesSink injects the __name__ tag at the end of the vector and sorts again.",
+    "Entire JSON parsing, canonical tag collection and id hashing remain before cache filter. This is total-write CPU, not exclusive std::sort instruction count.",
+    "Stock O1/glibc and 4096 series x24 one-point batches, 20 canonical labels, no natural merges during measured write; production optimized, multi-tenant, high-cardinal 14d not tested.",
+    "No CPU profiling stack; input map ordering alone cannot attribute individual parser or sort costs."
+  ],
+  "next_action": {
+    "question_id": "R23",
+    "step": "Reject further client Map-key reordering work for this fixture. To investigate high label-count overhead, create a separate source-pinned single-variable label cardinality experiment with equal total wire bytes and exact full native output. R21 and R22 cache working-set/expiration remain separate.",
+    "stop_condition": "Do not promote pre-sorting client tags or C++ std::sort bypass as proven from this no-effect comparison."
+  }
+}
