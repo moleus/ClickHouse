@@ -81,8 +81,10 @@ def expected_output(case, end):
     for stage, n in enumerate(counts):
         if n:
             expected.append(((("stage", f"stage-{stage:04d}"),), ((end, sums[stage] / n / 1000.0),)))
-    if not expected or (selector != "stage" and len(expected) != 38):
-        raise AssertionError(("incorrect oracle groups", case, len(expected)))
+    # project="project-00" selects only even i; gcd(8,38)=2 -> 19 stages.
+    expected_groups = {"all": 38, "stage": 1, "project": 19, "regex": 38}[selector]
+    if len(expected) != expected_groups:
+        raise AssertionError(("incorrect oracle groups", case, len(expected), expected_groups))
     return tuple(expected)
 
 
