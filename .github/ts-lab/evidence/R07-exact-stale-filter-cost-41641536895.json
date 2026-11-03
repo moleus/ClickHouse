@@ -1,0 +1,210 @@
+{
+  "schema_version": 1,
+  "question_id": "R07",
+  "state": "SUCCESS_CLOSED_LOOP_ABBA_NO_NATIVE_PLANNER_PATCH",
+  "run_id": 41641536895,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41641536895",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "workflow_head": "534ffd193f1873eae42f6b550dfe0856e2a823f0",
+  "artifact": {
+    "id": 13232613008,
+    "name": "tslab-r07-stale-cost-41641536895",
+    "digest": "sha256:e7d4f4af0e8fb7fa597ee598ab7088df77fbf94b5c3cf6275d4a48f3f7778966",
+    "bytes": 20862,
+    "full_report": "evidence/r07-cost/report.json"
+  },
+  "source_fixture_sha256": "ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a",
+  "source_rows": {
+    "series": 28896,
+    "bucket_rows": 113760,
+    "sample_points": 2488320,
+    "duration_days": 3,
+    "cadences_seconds": [
+      15,
+      60,
+      300
+    ]
+  },
+  "single_variable": "native vs raw SQL vs exact stale-safe point SQL",
+  "controls": "Exact native labels/time/values on 18 separate evaluated ticks before timing; original full stable Tuple(UInt64,UUID) IDs; same original TAGS/TimeRanges/SAMPLES, no sidecar/index, full source and stored data constant. Four selectors; 6-phase symmetrical 2 warmups +4 timed each=96 measured 48 warmups; one stock O1 server runner, controls checked for all three variants <25%. Physical parts frozen during read-only ABBA.",
+  "result": {
+    "passed": true,
+    "status": "PASS_NATIVE_RAW_STALE_SAFE_ABBA",
+    "errors": [],
+    "grid_points": 18,
+    "cases": {
+      "pod_broad_1d": {
+        "native_p50_ms": 135.291,
+        "native_p95_ms": 142.0005,
+        "native_cpu_ms": 217.00125000000003,
+        "native_marks": 302,
+        "native_read_rows": 121056,
+        "native_read_bytes": 23228216,
+        "native_peak_query_mem": 27439623,
+        "raw_sql_p50_ms": 100.0505,
+        "raw_sql_p95_ms": 103.001,
+        "raw_sql_cpu_ms": 114.7535,
+        "raw_sql_marks": 302,
+        "raw_sql_read_rows": 117184,
+        "raw_sql_read_bytes": 16626574,
+        "raw_sql_peak_query_mem": 12677609,
+        "safe_sql_p50_ms": 104.43,
+        "safe_sql_p95_ms": 107.2645,
+        "safe_sql_cpu_ms": 132.7665,
+        "safe_sql_marks": 302,
+        "safe_sql_read_rows": 117184,
+        "safe_sql_read_bytes": 16626574,
+        "safe_sql_peak_query_mem": 12817431,
+        "control_drifts": {
+          "native": 0.09064904539104604,
+          "raw_sql": 0.0198399808096911,
+          "safe_sql": 0.02935937948865257
+        },
+        "valid_control": true,
+        "raw_over_safe_wall_ratio": 0.958062817198123,
+        "native_over_safe_wall_ratio": 1.2955185291582878,
+        "filter_wall_overhead_fraction": 0.04377289468818257,
+        "filter_cpu_overhead_fraction": 0.15697124706435983
+      },
+      "pod_broad_3d": {
+        "native_p50_ms": 211.3195,
+        "native_p95_ms": 237.3225,
+        "native_cpu_ms": 404.40000000000003,
+        "native_marks": 302,
+        "native_read_rows": 121056,
+        "native_read_bytes": 23228216,
+        "native_peak_query_mem": 59922739.5,
+        "raw_sql_p50_ms": 126.244,
+        "raw_sql_p95_ms": 128.0845,
+        "raw_sql_cpu_ms": 160.08575,
+        "raw_sql_marks": 302,
+        "raw_sql_read_rows": 117184,
+        "raw_sql_read_bytes": 16626574,
+        "raw_sql_peak_query_mem": 16135581,
+        "safe_sql_p50_ms": 166.324,
+        "safe_sql_p95_ms": 172.757,
+        "safe_sql_cpu_ms": 201.687,
+        "safe_sql_marks": 302,
+        "safe_sql_read_rows": 117184,
+        "safe_sql_read_bytes": 16626574,
+        "safe_sql_peak_query_mem": 17402171.5,
+        "control_drifts": {
+          "native": 0.049342346541611126,
+          "raw_sql": 0.025601216691486323,
+          "safe_sql": 0.021367932469156598
+        },
+        "valid_control": true,
+        "raw_over_safe_wall_ratio": 0.7590245544840191,
+        "native_over_safe_wall_ratio": 1.2705292080517543,
+        "filter_wall_overhead_fraction": 0.317480434713729,
+        "filter_cpu_overhead_fraction": 0.25986853920477015
+      },
+      "node_broad_1d": {
+        "native_p50_ms": 136.236,
+        "native_p95_ms": 146.07549999999998,
+        "native_cpu_ms": 279.1685,
+        "native_marks": 154,
+        "native_read_rows": 67136,
+        "native_read_bytes": 34335928,
+        "native_peak_query_mem": 37330413,
+        "raw_sql_p50_ms": 147.5485,
+        "raw_sql_p95_ms": 149.262,
+        "raw_sql_cpu_ms": 180.10275000000001,
+        "raw_sql_marks": 154,
+        "raw_sql_read_rows": 71008,
+        "raw_sql_read_bytes": 30211070,
+        "raw_sql_peak_query_mem": 16510831,
+        "safe_sql_p50_ms": 145.084,
+        "safe_sql_p95_ms": 148.00549999999998,
+        "safe_sql_cpu_ms": 200.37525,
+        "safe_sql_marks": 154,
+        "safe_sql_read_rows": 71008,
+        "safe_sql_read_bytes": 30211070,
+        "safe_sql_peak_query_mem": 17433769,
+        "control_drifts": {
+          "native": 0.1263836284095247,
+          "raw_sql": 0.03195559426222567,
+          "safe_sql": 0.028493838052438686
+        },
+        "valid_control": true,
+        "raw_over_safe_wall_ratio": 1.016986711146646,
+        "native_over_safe_wall_ratio": 0.9390146397948773,
+        "filter_wall_overhead_fraction": -0.016702982409173894,
+        "filter_cpu_overhead_fraction": 0.11256074657383075
+      },
+      "burst15_1d": {
+        "native_p50_ms": 41.3845,
+        "native_p95_ms": 41.966499999999996,
+        "native_cpu_ms": 57.805499999999995,
+        "native_marks": 40,
+        "native_read_rows": 53984,
+        "native_read_bytes": 8930904,
+        "native_peak_query_mem": 15819769,
+        "raw_sql_p50_ms": 34.172,
+        "raw_sql_p95_ms": 34.513000000000005,
+        "raw_sql_cpu_ms": 34.618750000000006,
+        "raw_sql_marks": 88,
+        "raw_sql_read_rows": 62400,
+        "raw_sql_read_bytes": 3099886,
+        "raw_sql_peak_query_mem": 8499394,
+        "safe_sql_p50_ms": 34.641999999999996,
+        "safe_sql_p95_ms": 35.203500000000005,
+        "safe_sql_cpu_ms": 36.4595,
+        "safe_sql_marks": 88,
+        "safe_sql_read_rows": 62400,
+        "safe_sql_read_bytes": 3099886,
+        "safe_sql_peak_query_mem": 8529778,
+        "control_drifts": {
+          "native": 0.01452234532252411,
+          "raw_sql": 0.0014631862343440322,
+          "safe_sql": 0.018243750360833613
+        },
+        "valid_control": true,
+        "raw_over_safe_wall_ratio": 0.9864326540038104,
+        "native_over_safe_wall_ratio": 1.1946336816581031,
+        "filter_wall_overhead_fraction": 0.013753950602832798,
+        "filter_cpu_overhead_fraction": 0.053172052717096685
+      }
+    },
+    "physical_before": {
+      "tags": {
+        "name": ".inner_id.tags.f532b805-e24b-4cc9-aaf3-12257b12f833",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 28896,
+          "marks": 5,
+          "bytes": 1486557
+        }
+      },
+      "timeranges": {
+        "name": ".inner_id.timeranges.f532b805-e24b-4cc9-aaf3-12257b12f833",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 28896,
+          "marks": 5,
+          "bytes": 789150
+        }
+      },
+      "samples": {
+        "name": ".inner_id.samples.f532b805-e24b-4cc9-aaf3-12257b12f833",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 113760,
+          "marks": 446,
+          "bytes": 5952971
+        }
+      }
+    }
+  },
+  "interpretation": "Exact stale bit filtering is CORRECT on the already-proven 5-tick test but has nontrivial CPU/wall cost on full 2.49m R01. Conditionally useful only for select queries; broad node1d worsens. Not a generic PromQL fastpath.",
+  "limitations": [
+    "Relative p50 only within this GitHub runner, not across independent runs. Read-only 2.49m synthetic R01; no production O2/jemalloc, concurrent clients, p99, backfills/late writes or arbitrary PromQL equivalence.",
+    "Physical marks and read_rows equal between SQL variants, so gain is CPU/operator path not physical mark pruning. Input samples still O(P), not 22x end-to-end expected.",
+    "For pod1d in fused study point-SQL control A/A p50 drift ~21.9%, so its 1.124x point->bucket wall ratio is not well resolved; CPU ratio ~1.37x can be reported but not exclusive causation.",
+    "Staleness correctness exact-bit gate proven on small native multi-tick adversarial fixture #41641109486 and fused sumCount SQL #41642126884, not proof for all PromQL functions or write semantics."
+  ]
+}
