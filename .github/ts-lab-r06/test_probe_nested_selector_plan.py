@@ -1,6 +1,6 @@
 import pathlib, sys, tempfile, unittest
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
-from probe_nested_selector_plan import parse_selector_sql, extract_ids_subquery, fixture, ANCHOR
+from probe_nested_selector_plan import parse_selector_sql, extract_ids_subquery, fixture, settings_for, ANCHOR
 
 class TestNestedPlan(unittest.TestCase):
     def test_extract(self):
@@ -28,6 +28,16 @@ class TestNestedPlan(unittest.TestCase):
         self.assertIn("equals(key, 'a)b')", ids)
         self.assertIn('LEFT JOIN', ids)
         self.assertNotIn('notEmpty(samples)', ids)
+
+    def test_explain_matches_native_forced_join_settings(self):
+        for mode in ('off_merge', 'auto_merge'):
+            settings = settings_for(mode)
+            self.assertIn("join_algorithm='full_sorting_merge'", settings)
+            self.assertIn('optimize_read_in_order=1', settings)
+        for mode in ('off_hash', 'auto_hash'):
+            settings = settings_for(mode)
+            self.assertIn("join_algorithm='hash'", settings)
+            self.assertIn('optimize_read_in_order=0', settings)
 
     def test_missing_in_source(self):
         with self.assertRaisesRegex(ValueError, 'No native SAMPLES'):
