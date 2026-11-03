@@ -15,6 +15,19 @@
 | `TIME_PROJECTION_LAB` | TimeRanges projection with correct AggregatingMergeTree settings | Direct SQL/experimental CBO probes exist; verify native results and repeated-update correctness |
 | `FINAL_STACK` | `STOCK` + individually validated compatible optimizations | **Not yet built / not yet benchmarked**. Only promote after all gates below pass |
 
+## Promotion status as of 2026-11-03
+
+| Candidate | Stock-matched native performance | Promotion decision |
+|---|---|---|
+| Explicit `Tuple(UInt64,UUID)` in all three v11 inner targets for high churn | [All four stock O1 CI jobs passed #41596921882](https://github.com/moleus/ClickHouse/actions/runs/41596921882), speedups 1.14–1.43×, identical PromQL values and hashes | **Approved as opt-in new-table DDL only for this workload**: [DDL](RAW_ID_HIGH_CHURN_V11.sql). Do not change global default blindly. Dense/other churn distributions still need tests. |
+| Move `TagsKey` CityHash work before collector's exclusive mutex | [Exact lock profile #41596955580](https://github.com/moleus/ClickHouse/actions/runs/41596955580): shared waiting decreases but native project14d wall regresses slightly at 4/8 threads | **Rejected from cumulative stack**. Revisit only with lower memory/copy cost and source-exact causality. |
+| Remove TimeRanges metadata join for selective selectors | [Raw-ID TimeRanges ON/OFF factorial #41601352971](https://github.com/moleus/ClickHouse/actions/runs/41601352971) tests 1/3/7/14 days | **Pending**: no global toggle; broad short windows may regress. |
+| CBO/JOIN alternatives or optimizer statistics | Branch checkpoint and earlier SQL diagnostic tests exist; no matching full native matrix on final raw schema | **Experimental only**; do not promote without parity and read/write/RSS gates. |
+| Source-level LC dictionary decoder patch | [Build #41591617794](https://github.com/moleus/ClickHouse/actions/runs/41591617794) on historical CPU branch still running | **Not validated**. No new commits to historical branch. |
+| Full `FINAL_STACK` | Need direct stock vs combined runs across high churn, dense stable and broad 14d | **Not produced**; do not multiply isolated speedups. |
+
+Note: the **stock** baseline was built without C++ patches, same LLVM22.1.8, same source `52529f0c7`, O1: [#41596421285](https://github.com/moleus/ClickHouse/actions/runs/41596421285). Matching this baseline resolved the earlier O1-versus-O2 confounder.
+
 ## Promotion gates
 
 1. **Same binary contract:** verify source SHA, compiler version, O1/O2 options, `BUILD_INFO`, archive + binary SHA, and no unintended C++ changes.
