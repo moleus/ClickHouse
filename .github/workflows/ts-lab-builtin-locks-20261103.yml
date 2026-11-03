@@ -1,0 +1,197 @@
+name: TimeSeries native built-in scheduler and thread-pool mutex attribution
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-builtin-locks-20261103.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-builtin-locks-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  compare:
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        case: [stage, project, whole]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Preflight all heavy benchmark Python dependencies before importing 1.33m records
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/ts-lab-layout/bench_metadata_paths.py \
+            .github/ts-lab-layout/bench_layout_full.py \
+            .github/ts-lab-perf/bench_granularity_v11.py
+          python3 .github/ts-lab-layout/bench_metadata_paths.py --help >/dev/null
+          echo "LAYOUT_PREFLIGHT_IMPORTS_OK binary setup and data ingest can begin"
+
+      - name: Download SHA256 verified baseline binary without recompiling
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/ch-art" "$RUNNER_TEMP/ch-bin"
+          gh run download 41301314345 -R "$REPO" --pattern 'tslab-clickhouse-amd64-*' -D "$RUNNER_TEMP/ch-art"
+          archive="$(find "$RUNNER_TEMP/ch-art" -name 'clickhouse-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/ch-archive-hash.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
+          (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS) | tee evidence/ch-binary-hash.txt
+          chmod +x "$RUNNER_TEMP/ch-bin/clickhouse"
+          "$RUNNER_TEMP/ch-bin/clickhouse" --version | tee evidence/ch-version.txt
+
+      - name: Start isolated ClickHouse and create v11 Float64 fixture
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles"
+          cat > "$RUNNER_TEMP/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path><tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <max_server_memory_usage>5000000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions><log_queries>1</log_queries><log_processors_profiles>1</log_processors_profiles><use_statistics>1</use_statistics><predicate_statistics_sample_rate>1</predicate_statistics_sample_rate><query_profiler_cpu_time_period_ns>1000000</query_profiler_cpu_time_period_ns><query_profiler_real_time_period_ns>1000000</query_profiler_real_time_period_ns><memory_profiler_step>1048576</memory_profiler_step><max_memory_usage>4000000000</max_memory_usage></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <trace_log><database>system</database><table>trace_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></trace_log>
+            <processors_profile_log><database>system</database><table>processors_profile_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></processors_profile_log>
+            <predicate_statistics_log><database>system</database><table>predicate_statistics_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></predicate_statistics_log>
+            <query_thread_log><database>system</database><table>query_thread_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_thread_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/ch-bin/clickhouse" server --config-file="$RUNNER_TEMP/config.xml" >evidence/ch-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -fsS -X POST --data-binary 'CREATE TABLE precision_ts ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0'             'http://127.0.0.1:18191/?allow_experimental_time_series_table=1' >evidence/create.txt
+          python3 - <<'PY'
+          import datetime,json,pathlib,os
+          start=int(datetime.datetime(2026,11,1,tzinfo=datetime.timezone.utc).timestamp())
+          pathlib.Path('evidence/manifest.json').write_text(json.dumps({'start':start,'end':start+86400},indent=2))
+          series={
+              'cancel_1e18':[1e18,2.0,3.0,5.0,-1e18],
+              'cancel_1e16':[1e16,1.0,-1e16],
+              'cancel_micro':[1e18,1e-6,-1e18,1e-6],
+              'ordinary':[1.0,2.0,3.0],
+          }
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'precision.jsonl'
+          with out.open('w') as f:
+              for stage,values in series.items():
+                  samples=[['2026-10-31 01:%02d:00.000'%i,v] for i,v in enumerate(values)]
+                  f.write(json.dumps({'metric_name':'tslab_numeric_precision',
+                                      'tags':{'stage':stage,'build':'single-'+stage},
+                                      'samples':samples},separators=(',',':'))+'\n')
+          print('NUMERIC_FIXTURE',json.dumps(series,sort_keys=True),flush=True)
+          PY
+          sha256sum "$RUNNER_TEMP/precision.jsonl" >evidence/fixture-sha256.txt
+          curl -fsS --max-time 120 --data-binary "@$RUNNER_TEMP/precision.jsonl"             'http://127.0.0.1:18191/?allow_experimental_time_series_table=1&wait_end_of_query=1&query=INSERT%20INTO%20precision_ts%20(metric_name%2Ctags%2Csamples)%20FORMAT%20JSONEachRow'             >evidence/insert-response.txt
+          curl -fsS --data-binary 'SELECT metric_name,count() FROM precision_ts GROUP BY metric_name FORMAT TSV'             http://127.0.0.1:18191/ | tee evidence/fixture-count.tsv
+
+      - name: Generate SHA verified 14d 95k new Jenkins IDs daily in ClickHouse
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/ts-lab-bench/generate_95k_daily_churn_ts.py             .github/ts-lab-bench/import_95k_churn_to_vm.py             .github/ts-lab-bench/bench_95k_daily_vs_vm.py
+          python3 .github/ts-lab-bench/generate_95k_daily_churn_ts.py             --manifest evidence/95k-manifest.json             --fixture "$RUNNER_TEMP/95k-churn.jsonl" | tee evidence/95k-ingest-ch.log
+          sha256sum "$RUNNER_TEMP/95k-churn.jsonl" >evidence/95k-fixture.sha256
+
+      - name: Download SHA256 verified patched native JOIN binary
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/patch-art" "$RUNNER_TEMP/projected-bin"
+          gh run download 41531656434 -R "$REPO" --pattern 'tslab-cbo-join-override-binary-*' -D "$RUNNER_TEMP/patch-art"
+          archive="$(find "$RUNNER_TEMP/patch-art" -name 'clickhouse-cbo-join-override-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/patch-archive-hash.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/projected-bin"
+          (cd "$RUNNER_TEMP/projected-bin" && sha256sum -c SHA256SUMS) | tee evidence/patch-binary-hash.txt
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/projected-bin/BUILD_INFO.txt"
+          grep -q 'optimization=O1' "$RUNNER_TEMP/projected-bin/BUILD_INFO.txt"
+          chmod +x "$RUNNER_TEMP/projected-bin/clickhouse"
+          "$RUNNER_TEMP/projected-bin/clickhouse" --version | tee evidence/patch-version.txt
+      - name: Controlled ClickHouse restart helper, preserving the same on-disk datasets
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ch-restart.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          binary="$1"
+          phase="$2"
+          parent="$(cat "$RUNNER_TEMP/ch.pid")"
+          children="$(cat "/proc/$parent/task/$parent/children" 2>/dev/null || true)"
+          for pid in $children "$parent"; do
+            if [ -n "$pid" ]; then kill -TERM "$pid" 2>/dev/null || true; fi
+          done
+          # Do not restart just because a clickhouse watchdog has stopped:
+          # wait for both the old HTTP listener and its actual process.
+          for attempt in $(seq 1 100); do
+            if ! curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "BUCKET_PREVIOUS_SERVER_CLOSED phase=$phase attempt=$attempt"
+              break
+            fi
+            sleep 1
+          done
+          if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+            echo 'Old ClickHouse still listening; refuse unsafe restart' >&2
+            exit 1
+          fi
+          sleep 2
+          "$binary" server --config-file="$RUNNER_TEMP/config.xml" >"evidence/ch-server-$phase.log" 2>&1 &
+          echo "$!" >"$RUNNER_TEMP/ch.pid"
+          for attempt in $(seq 1 120); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "BUCKET_SERVER_STARTED phase=$phase attempt=$attempt"
+              exit 0
+            fi
+            sleep 1
+          done
+          tail -110 "evidence/ch-server-$phase.log"
+          exit 1
+          SH
+          chmod +x "$RUNNER_TEMP/ch-restart.sh"
+
+
+      - name: Verify built-in per-query scheduler profiling script and source fixture
+        run: |
+          set -euo pipefail
+          mkdir -p "evidence/builtin-locks-${{ matrix.case }}"
+          python3 -m py_compile .github/ts-lab-cpu/bench_builtin_scheduler_events.py
+          python3 .github/ts-lab-cpu/bench_builtin_scheduler_events.py --help
+          test "$(sha256sum "$RUNNER_TEMP/95k-churn.jsonl" | awk '{print $1}')" = "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858"
+      - name: Read query-native CPU runnable delay and lock ProfileEvents without /proc observer
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,sys
+          sys.path.insert(0,'.github/ts-lab-perf')
+          from bench_granularity_v11 import optimize_table,sql
+          print('BUILTIN_SCHEDULER_OPTIMIZE',json.dumps(optimize_table('churn_ts')),flush=True)
+          sql('SYSTEM STOP MERGES')
+          PY
+          "$RUNNER_TEMP/ch-restart.sh" "$RUNNER_TEMP/projected-bin/clickhouse" "builtinlocks_${{ matrix.case }}"
+          python3 .github/ts-lab-cpu/bench_builtin_scheduler_events.py \
+            --case "${{ matrix.case }}" \
+            --manifest evidence/95k-manifest.json \
+            --output "evidence/builtin-locks-${{ matrix.case }}/report.json" \
+            | tee "evidence/builtin-locks-${{ matrix.case }}.log"
+      - name: Save full physical EXPLAIN, query CPU, RSS, ingest and correctness evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-builtin-locks-${{ matrix.case }}-evidence
+          path: evidence/
+          retention-days: 45
+          compression-level: 1
