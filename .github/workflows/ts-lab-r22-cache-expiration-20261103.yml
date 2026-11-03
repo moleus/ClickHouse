@@ -1,0 +1,114 @@
+name: R22 TAGS cache 1 second versus 3600 second expiration with same 1MiB capacity ABBA
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r22-cache-expiration-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ts-lab-r22-expiration-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  r21:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      BINARY_SHA256: f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Source and preflight
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r22
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          python3 -m py_compile .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py .github/ts-lab/experiments/r22_tags_expiration_abba.py
+          python3 .github/ts-lab/experiments/r22_tags_expiration_abba.py --help > evidence/r22/help.txt
+          grep -q "system.events global worker-inclusive delta" .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py
+          grep -q "start_cache_events.get(hit_event,0)" .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py
+          git rev-parse HEAD > evidence/r22/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py .github/ts-lab/experiments/r22_tags_expiration_abba.py > evidence/r22/script-sha256.txt
+      - name: Reuse pinned SHA verified O1 binary (no recompilation)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r22-art" "$RUNNER_TEMP/r22-bin"
+          gh run download 41596421285 -R "$REPO" \
+            --pattern 'tslab-stock-clickhouse-o1-binary-*' \
+            -D "$RUNNER_TEMP/r22-art"
+          archive="$(find "$RUNNER_TEMP/r22-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r22/archive-verify.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r22-bin"
+          (cd "$RUNNER_TEMP/r22-bin" && sha256sum -c SHA256SUMS) | tee evidence/r22/binary-verify.txt
+          test "$(sha256sum "$RUNNER_TEMP/r22-bin/clickhouse" | cut -d' ' -f1)" = "$BINARY_SHA256"
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r22-bin/BUILD_INFO.txt"
+          grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/r22-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/r22-bin/BUILD_INFO.txt" evidence/r22/build-info.txt
+          chmod +x "$RUNNER_TEMP/r22-bin/clickhouse"
+          "$RUNNER_TEMP/r22-bin/clickhouse" --version | tee evidence/r22/version.txt
+      - name: Same 1MiB TAGS cache, four server phases onehour-one-second-one-second-onehour
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r22_tags_expiration_abba.py \
+            --binary "$RUNNER_TEMP/r22-bin/clickhouse" \
+            --outdir evidence/r22 --port 18191 | tee evidence/r22/console.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/r22/report.json'))
+          assert d['passed'] and not d['errors'],d['errors']
+          assert d['question_id']=='R22-tags-cache-expiration-write-amplification-v1'
+          assert d['source_sha']=='52529f0c711566d696917678bf15e7068772fdde'
+          assert d['binary_sha256']=='f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e'
+          assert d['cache_bytes']==1048576
+          assert d['input_sha256']=='052b2058e7adc280a956b083c9af7d2e636eba6ab2607c204e6f676fcc5d1883'
+          assert d['batch_delay_seconds']==1.1
+          assert len(d['phases'])==4 and len(d['comparisons'])==10
+          for phase,expire in (('A0',3600),('B1',1),('B2',1),('A3',3600)):
+              x=d['phases'][phase]
+              assert x['passed'] and not x['errors']
+              assert x['variant']=='large' and x['cache_bytes']==1048576
+              assert x['cache_expiration_seconds']==expire
+              assert x['delay_between_batches_seconds']==1.1
+              assert x['physical']['tags']['distinct_id']==4096
+              assert x['physical']['physical_samples_points']==49152
+              assert x['stats']['total_cache_hits']+x['stats']['total_cache_misses']==49152
+              assert x['stats']['total_cache_misses']==x['physical']['tags']['count']
+              assert len(x['insert_rows'])==12 and len(x['native_samples'])==9
+          assert d['scientific_decision'] in (
+              'EXPIRATION_FORCES_ALL_TAGS_REWRITES',
+              'PARTIAL_EXPIRATION_WRITE_AMPLIFICATION',
+              'EXPIRATION_NO_PHYSICAL_EFFECT',
+              'EXPIRATION_FORCES_ALL_TAGS_REWRITES_CPU_OR_WALL_INVALID',
+              'PARTIAL_EXPIRATION_WRITE_AMPLIFICATION_CPU_OR_WALL_INVALID',
+              'EXPIRATION_NO_PHYSICAL_EFFECT_CPU_OR_WALL_INVALID')
+          print('R22_EXPIRY_VALIDATED',json.dumps({'passed':True,
+             'decision':d['decision'],'cpu_valid':d['cpu_valid'],
+             'native_latency_valid':d['native_latency_valid'],
+             'ratios':d['comparisons']},separators=(',',':')))
+
+          PY
+      - name: Preserve raw correct and failed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r22-expiration-${{ github.run_id }}
+          path: |
+            evidence/r22/*.txt
+            evidence/r22/*.log
+            evidence/r22/*.json
+            evidence/r22/A*/report.json
+            evidence/r22/B*/report.json
+            evidence/r22/A*/config.xml
+            evidence/r22/B*/config.xml
+            evidence/r22/A*/server.log
+            evidence/r22/B*/server.log
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
