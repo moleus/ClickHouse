@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "question_id": "R19-expired-samples-retained-tags-timeranges-v1",
+  "subexperiment": "actual-inner-30d-TTL-expiration-late-and-resumed-old-identity",
+  "scientific_decision": "ACCEPT_FOR_NEXT_GATE",
+  "ci_status": "success",
+  "verified_utc": "2026-11-03T12:38:00Z",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary": {
+    "build_run_id": 41596421285,
+    "sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "flags": "LLVM22.1.8 -O1 stock/glibc"
+  },
+  "fixture": {
+    "old_epoch": 1786363200,
+    "live_epoch": 1792497600,
+    "created_utc": "2026-11-03T12:36:29.345696+00:00",
+    "old_series": 128,
+    "live_series": 16,
+    "old_input_sha256": "e09d4088fb9d9fdf0d7be58a2e59c7f74bddd11a48f4147b121680f96ef83daf",
+    "live_input_sha256": "751754e47ddde400a8fe08411c4311df4f808813852d0622b92413a3431f00a9",
+    "late_input_sha256": "24aecf473dd4f6f2eee4ea5468c7887e78d122ac7566e382b567e7724053ddba",
+    "resumed_input_sha256": "a9b9ee092a4e0c6e03fe0a59a522ff82119dab83aa6c7ac5fa8353a7ff4f8036",
+    "ddl_sha256": "99da18e4c83d12424898c3f0f2ef9ea9fa6b139592f47cb398e2869316a25383",
+    "sample_ttl": "TTL toDateTime(bucket,'UTC') + toIntervalDay(30); ttl_only_drop_parts=1; partitions by toDate(bucket,'UTC')",
+    "recent_samples_ttl_seconds": 0
+  },
+  "method": "Real SAMPLES INNER AggregatingMergeTree TTL. Insert 128 August10 expired series and 16 October20 live series, assert effective SHOW CREATE TTL. Synchronously MATERIALIZE TTL with mutations_sync=2; check zero *rows* in old partition and live 16 points, not disappearance of empty old part. Insert one late historical sample Aug10+120, MATERIALIZE TTL again; still 16 live points. Reinsert one previously expired series with current Oct20+120 sample; native avg by(scope)(avg_over_time(metric[1d])) at Oct20+180 returns both old=7.0 and live=100.75, physical 17 points, and after TAGS/TimeRanges FINAL they remain exactly 144 stable series. Read only synthetic localhost table; no production mutation.",
+  "results": {
+    "post_ingest": {
+      "old_partition": "20260810",
+      "old_part_rows": 0,
+      "old_part_bytes": 1244,
+      "live_partition": "20261020",
+      "live_rows": 16,
+      "tags_rows": 144,
+      "timeranges_rows": 144
+    },
+    "post_ttl": {
+      "old_part_rows": 0,
+      "old_empty_parts": 1,
+      "old_part_bytes": 1244,
+      "live_rows": 16,
+      "native": {
+        "live": 100.75000000000001
+      },
+      "tags_rows": 144,
+      "timeranges_rows": 144
+    },
+    "after_late_old_sample": {
+      "live_rows": 16,
+      "native": {
+        "live": 100.75
+      }
+    },
+    "after_resuming_expired_id": {
+      "old_empty_parts": 2,
+      "old_partition_rows": 0,
+      "old_partition_bytes": 2488,
+      "live_partition_rows": 17,
+      "native": {
+        "live": 100.75000000000001,
+        "old": 7
+      },
+      "tags_rows": 144,
+      "timeranges_rows": 144
+    },
+    "all_source_fixture_native_gates_pass": true
+  },
+  "workflow": {
+    "run_id": 41637046443,
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41637046443",
+    "job_id": 125920751280,
+    "artifact_id": 13231975692,
+    "artifact_zip_sha256": "b23a7be0be97c39b408f38762ec00e640b6bab06f7e48caf74a1a8428d6d69e5",
+    "source_script": ".github/ts-lab/experiments/r19_ttl_resurrection_semantics.py",
+    "source_script_commit": "dc1d7869912b8d3a6b9ee2e48c0944308ceb1086",
+    "workflow_file": ".github/workflows/ts-lab-r19-actual-ttl-resurrection-20261103.yml",
+    "workflow_commit": "c129453d434e12ed19ce0fb14e50a974579b2089"
+  },
+  "negative_method": {
+    "run_id": 41636600724,
+    "decision": "INVALID_METHOD",
+    "description": "Premature failure required expired partition ID to disappear, but it had 0 rows already. Corrected to assert no expired sample rows and track empty parts, not confuse with data retention.",
+    "evidence": ".github/ts-lab/evidence/R19-expired-samples-retained-tags-timeranges-v1/41636600724.json"
+  },
+  "math_bound": "Data-retention invariant is count(physical expired SAMPLES rows)=0; system.parts can retain zero-row parts. In this fixture, a late expired INSERT caused the old partition to have two zero-row parts totalling 2488B, so physical part metadata and bytes do not instantly reach zero. Do not extrapolate accumulation without a long-running background merge/restart test. The series' original TAGS ID remains, enabling new current-period samples to reappear without duplicating TAGS identity after merges.",
+  "limitations": [
+    "Static fixture dates are valid only before 2026-11-18 UTC; time relative to UTC and 30d TTL changes after this window.",
+    "Synchronous MATERIALIZE TTL run on a clean isolated single-server; does not prove automatic cleanup scheduling, replicated TTL across shards or fault tolerance.",
+    "After one late historical sample a second empty old part remained. This does not prove permanent leaked parts; further merge/restart/part lifecycle tests are required.",
+    "No native performance timing or wall/CPU ABBA; this is a semantic and physical retention proof only.",
+    "Finite gauge average, no stale NaN/counter-reset, readonly/tenant ACL or multi-tenant controls. No automatic TAGS deletion is recommended."
+  ],
+  "next_action": {
+    "question_id": "R19",
+    "step": "Investigate whether zero-row expired SAMPLES parts created by TTL are removed by natural merges and/or OPTIMIZE FINAL after restart. Require part counts and bytes at 0/15/30s and after restart. If any residual persists, measure its bound under repeated late writes before claiming persistent metadata bloat. Do not modify source or production.",
+    "stop_condition": "Any nonzero expired sample rows, native incorrect value after resumed ID, or unexpected loss of live samples is a correctness failure. Do not treat an empty part as a live sample."
+  }
+}
