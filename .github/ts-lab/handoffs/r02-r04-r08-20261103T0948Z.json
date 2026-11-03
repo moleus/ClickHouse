@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "session_id": "r02-r04-r08-20261103T0948Z",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "01181b4aa9bf410ca873044db7b0e7ce216ca05a",
+  "last_verified_utc": "2026-11-03T09:48:37Z",
+  "question_id": "R02",
+  "summary": "Verified and indexed R08 native matcher 42/42, R04 recent TTL 18/18 and R02 48k-point stock O1 24 inserts/18 merges. Corrected snapshot pagination/legacy CI branches and verified state gate. R02 saved full physical bytes but no replicated whole-process write CPU proof.",
+  "completed": [
+    "R08 CI 41610517632 SUCCESS, immutable .github/ts-lab/evidence/R08-matcher-absence-regex-v1/41610517632.json",
+    "R04 CI 41612199798 SUCCESS, immutable .github/ts-lab/evidence/R04-recent-ttl-parity-v1/41612199798.json",
+    "R02 CI 41613436491 SUCCESS, immutable .github/ts-lab/evidence/R02-small-batch-raw-lc-write-v1/41613436491.json: LC 939088 B, raw 877576 B, both 48000 sample points and identical native PromQL oracle",
+    "Shared INDEX updated in commit 01181b4aa9bf410ca873044db7b0e7ce216ca05a; atomic R02 root/claim and validators passed",
+    "ts_lab_state.py pagination and legacy branch fixes: CI 41611345003 SUCCESS"
+  ],
+  "negative_results": [
+    "R02 initial CI 41613225939 INFRA_FAIL after 24 inserts and 18 merges because query_log absent; fixed and preserved as immutable failure evidence; never claim CPU from initial run.",
+    "R02 QueryFinish CPU 15ms for 12 inserts vastly undercounts full write CPU; cannot infer write speedup; part_log one-trial merge CPU RAW103.4ms vs LC119.9ms is descriptive, not causal.",
+    "Allocator 8-phase 41607288907 default control OOM and incomplete A/A; six alternatives survived but no valid speedup because baseline lacks paired measurements.",
+    "Two R01 fixtures from other agents differ; not comparable without the exact same input SHA, data shape and physical bucket count."
+  ],
+  "active_run_ids": [
+    41607779848,
+    41591617794
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "fixture_sha256": "612634b8a4c99fadb8353be0ebd44b42471bba5400a71165c79922770341a412",
+  "relevant_paths": [
+    ".github/ts-lab/INDEX.md",
+    ".github/ts-lab/claims/roots/R02.json",
+    ".github/ts-lab/claims/R02-small-batch-raw-lc-write-v1.json",
+    ".github/ts-lab/evidence/R02-small-batch-raw-lc-write-v1/41613436491.json",
+    ".github/ts-lab/evidence/R04-recent-ttl-parity-v1/41612199798.json",
+    ".github/ts-lab/evidence/R08-matcher-absence-regex-v1/41610517632.json",
+    ".github/ts-lab/RESEARCH_COORDINATION_20261103.md"
+  ],
+  "blocked_by": [
+    "Validated jemalloc build #41607779848 still compiling; avoid expensive duplicate C++ build."
+  ],
+  "next_action": {
+    "question_id": "R02",
+    "step": "Use existing R02 root claim to compare repeated small batch writes in four same-runner fresh-server A/B/B/A phases with process-level CPU accounting (/proc/PID/stat or cgroup CPU), controlled background merges and concurrent native read p95. Reuse stock O1 binary/fixture and avoid QueryFinish-only INSERT CPU attribution.",
+    "stop_condition": "Reject if exact 48000 sample point and native output parity fails, OOM occurs, A/A drift >25%, or process CPU and merge CPU cannot be separated; publish immutable evidence first."
+  }
+}
