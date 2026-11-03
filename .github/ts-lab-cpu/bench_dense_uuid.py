@@ -92,8 +92,19 @@ def main():
     save(a.output,report)
     alt="cost_ts_raw"
     try:
-        sql("CREATE TABLE "+alt+" ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0,"
-            "id_type='Tuple(UInt64, UUID)'")
+        # v11 does not accept the legacy id_type setting. Declare the
+        # matching ID type on all three inner targets; retain the original
+        # exact hash generator and key/value-pair text index on TAGS.
+        sql("CREATE TABLE "+alt+" ENGINE=TimeSeries "
+            "SETTINGS recent_samples_ttl_seconds=0 "
+            "SAMPLES INNER COLUMNS (id Tuple(UInt64, UUID)) "
+            "TAGS INNER COLUMNS ("
+            "id Tuple(UInt64, UUID) DEFAULT tuple(sipHash64(metric_name), "
+            "reinterpretAsUUID(sipHash128(tags))), "
+            "metric_name LowCardinality(String), "
+            "tags Map(LowCardinality(String), String), "
+            "INDEX tags_idx tags TYPE text(tokenizer = 'keyValuePairs') GRANULARITY 100000000) "
+            "TIME RANGES INNER COLUMNS (id Tuple(UInt64, UUID))")
         report["ingest_raw"]=ingest(alt,a.fixture)
         report["optimization"]={t:optimize_table(t) for t in ("cost_ts",alt)}
         wait_no_merges()
