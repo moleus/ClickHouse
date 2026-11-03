@@ -1,0 +1,120 @@
+name: R21 TimeSeries TAGS cache working-set capacity and input order ABBA
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r21-dedup-cache-capacity-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ts-lab-r21-cache-capacity-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  r21:
+    name: ordering-${{ matrix.order }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        order: [fixed, rotate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      BINARY_SHA256: f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Source and preflight
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r21
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          python3 -m py_compile .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py
+          python3 .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py --help > evidence/r21/help.txt
+          git rev-parse HEAD > evidence/r21/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py > evidence/r21/script-sha256.txt
+      - name: Reuse pinned SHA verified O1 binary (no recompilation)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r21-art" "$RUNNER_TEMP/r21-bin"
+          gh run download 41596421285 -R "$REPO" \
+            --pattern 'tslab-stock-clickhouse-o1-binary-*' \
+            -D "$RUNNER_TEMP/r21-art"
+          archive="$(find "$RUNNER_TEMP/r21-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r21/archive-verify.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r21-bin"
+          (cd "$RUNNER_TEMP/r21-bin" && sha256sum -c SHA256SUMS) | tee evidence/r21/binary-verify.txt
+          test "$(sha256sum "$RUNNER_TEMP/r21-bin/clickhouse" | cut -d' ' -f1)" = "$BINARY_SHA256"
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r21-bin/BUILD_INFO.txt"
+          grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/r21-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/r21-bin/BUILD_INFO.txt" evidence/r21/build-info.txt
+          chmod +x "$RUNNER_TEMP/r21-bin/clickhouse"
+          "$RUNNER_TEMP/r21-bin/clickhouse" --version | tee evidence/r21/version.txt
+      - name: Four fresh stock servers large-small-small-large cache under identical source fixture
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py \
+            --binary "$RUNNER_TEMP/r21-bin/clickhouse" \
+            --outdir evidence/r21 --port 18191 \
+            --order "${{ matrix.order }}" | tee evidence/r21/console.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/r21/report.json'))
+          assert d['passed'] and not d['errors'],d['errors']
+          assert d['decision'] in ('PHYSICAL_CACHE_WORKING_SET_KNEE','NO_CAPACITY_KNEE')
+          assert d['source_sha']=='52529f0c711566d696917678bf15e7068772fdde'
+          assert d['binary_sha256']=='f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e'
+          assert d['fixture']['canonical_sha256']=='052b2058e7adc280a956b083c9af7d2e636eba6ab2607c204e6f676fcc5d1883'
+          assert d['fixture']['series']==4096 and d['fixture']['samples']==49152
+          assert len(d['phases'])==4 and len(d['comparison'])==6
+          for phase,cache in (('A0','large'),('B1','small'),('B2','small'),('A3','large')):
+              item=d['phases'][phase]
+              assert item['variant']==cache and item['passed'] and not item['errors']
+              assert len(item['insert_rows'])==12 and len(item['native_samples'])==9
+              assert item['physical']['physical_samples_points']==49152
+              assert item['physical']['tags']['distinct_id']==4096
+              assert item['physical']['timeranges']['distinct_id']==4096
+              assert item['physical']['samples']['distinct_id']==4096
+              assert item['stats']['native']['measured_queries']==6
+              assert item['stats']['ingest']['cpu_s']>0
+              if cache=='large':
+                  assert item['cache_bytes']==1048576
+                  assert item['stats']['total_cache_hits']==45056
+                  assert item['stats']['total_cache_misses']==4096
+                  assert item['physical']['tags']['count']==4096
+              else:
+                  assert item['cache_bytes']==32768
+                  assert item['stats']['total_cache_hits']+item['stats']['total_cache_misses']==49152
+                  assert item['stats']['raw_tags_rows']==item['stats']['total_cache_misses']
+          assert d['comparison']['process_ingest_cpu']['large_AA_drift']<=.25
+          assert d['comparison']['native_read_p50']['large_AA_drift']<=.25
+          print('R21_WORKING_SET_FINAL',json.dumps({'passed':True,'decision':d['decision'],
+               'order':d['order'],'comparison':d['comparison'],
+               'fixture_sha256':d['fixture']['canonical_sha256']},separators=(',',':')))
+
+          PY
+      - name: Preserve raw correct and failed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r21-tags-cache-${{ github.run_id }}-${{ matrix.order }}
+          path: |
+            evidence/r21/*.txt
+            evidence/r21/*.log
+            evidence/r21/*.json
+            evidence/r21/A*/report.json
+            evidence/r21/B*/report.json
+            evidence/r21/A*/config.xml
+            evidence/r21/B*/config.xml
+            evidence/r21/A*/server.log
+            evidence/r21/B*/server.log
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
