@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "question_id": "R33",
-  "primary_claim_id": "R33-grafana-http-and-jenkins-fixture-v1",
+  "primary_claim_id": "R33-grafana-real-query-fixture-contract-v1",
   "owner": "chatgpt-r33-grafana-real-query-fixture-parity-20261104",
   "scope": "E06/E03 Grafana Prometheus HTTP protocol versus SQL; build-coherent stage-series fixture and branch/job/project/result selectors, without touching E05 R32 single-bucket optimization or R30/R31.",
   "status": "CLAIMED",
@@ -29,5 +29,6 @@
     ".github/ts-lab-r33/bench_grafana_http_parity.py",
     ".github/workflows/ts-lab-r33-grafana-api-smoke-20261104.yml"
   ],
-  "conflict_resolution": "R32 root is owned by separate E05 agent as of commit 702c946e8dd8. Own Grafana work renamed R33, do not modify R32."
+  "conflict_resolution": "R32 root is owned by separate E05 agent as of commit 702c946e8dd8. Own Grafana work renamed R33, do not modify R32.",
+  "allowed_support_claims": []
 }
