@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "question_id": "R02-small-batch-raw-lc-write-v1",
+  "subexperiment": "first attempt whole-process ABBA",
+  "decision": "INFRA_FAIL",
+  "ci_status": "failure",
+  "url": "https://github.com/moleus/ClickHouse/actions/runs/41623149595",
+  "job_id": 125873698904,
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "cause": "Workflow preflight wrote evidence/r02cpucpu/help.txt but only created evidence/r02cpu directory. Python code compiled but benchmark never executed. Artifact upload failed because the wrong directory did not exist.",
+  "invalid_metrics": true,
+  "fix": "e098214a344e93081e4338ba9a06a895bfa1bdde",
+  "next": "Do not treat missing artifact or CI failure as performance evidence. Use corrected 41623694970."
+}
