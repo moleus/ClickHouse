@@ -1,0 +1,284 @@
+name: R12 matched O1 LC dictionary decode native PromQL CPU ABBA
+
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r12-lc-decoder-matched-20261103.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: tslab-r12-lc-decoder-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate checkout and fail-fast benchmark imports
+        run: |
+          set -euo pipefail
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | awk '{print $1}')" = 120000
+          python3 -m py_compile \
+            .github/ts-lab-cpu/bench_native_multiclient_stock_20261103.py \
+            .github/ts-lab-r01/generate_k8s_churn_fixture.py \
+            .github/ts-lab-r01/test_generate_k8s_churn_fixture.py \
+            .github/ts-lab-r01/bench_k8s_mixed_native.py \
+            .github/ts-lab-r10/bench_bucket_id_factorial.py \
+            .github/ts-lab-r10/bench_short_window_pruning.py \
+            .github/ts-lab-r10/bench_write_bucket_paired.py \
+            .github/ts-lab-r10/bench_bucket_concurrent_clients.py \
+            .github/ts-lab-r12/bench_lc_decoder_matched_abba.py \
+            .github/ts-lab/experiments/r02_small_batch_write_merge.py \
+            .github/ts-lab-cpu/bench_cpu_knobs.py \
+            .github/ts-lab-layout/bench_metadata_paths.py \
+            .github/ts-lab-layout/bench_layout_full.py \
+            .github/ts-lab-perf/bench_granularity_v11.py
+          python3 .github/ts-lab-layout/bench_metadata_paths.py --help >/dev/null
+          python3 .github/ts-lab-cpu/bench_native_multiclient_stock_20261103.py --help >/dev/null
+          python3 -m unittest discover -s .github/ts-lab-r01 -p 'test_generate_k8s_churn_fixture.py' -v
+          python3 .github/ts-lab-r01/bench_k8s_mixed_native.py --help >/dev/null
+          python3 .github/ts-lab-r10/bench_bucket_id_factorial.py --help >/dev/null
+          python3 .github/ts-lab-r10/bench_short_window_pruning.py --help >/dev/null
+          python3 .github/ts-lab-r10/bench_write_bucket_paired.py --help >/dev/null
+          python3 .github/ts-lab-r10/bench_bucket_concurrent_clients.py --help >/dev/null
+          python3 .github/ts-lab-r12/bench_lc_decoder_matched_abba.py --help >/dev/null
+          mkdir -p evidence
+          git rev-parse HEAD | tee evidence/workflow-commit.txt
+          uname -a | tee evidence/runner-kernel.txt
+          nproc | tee evidence/runner-logical-cpus.txt
+          grep -m1 '^model name' /proc/cpuinfo | tee evidence/runner-cpu.txt
+          free -b | tee evidence/runner-memory.txt
+
+      - name: Verify byte-identical shared C++ patches and both compiled O1 executables
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r12 "$RUNNER_TEMP/r12-base-art" "$RUNNER_TEMP/r12-patch-art" \
+            "$RUNNER_TEMP/r12-base/bin" "$RUNNER_TEMP/r12-patch/bin"
+          gh run download 41531656434 -R "$REPO" \
+            --pattern 'tslab-cbo-join-override-binary-*' \
+            -D "$RUNNER_TEMP/r12-base-art"
+          gh run download 41591617794 -R "$REPO" \
+            --pattern 'tslab-cpu-lc-decode-binary-*' \
+            -D "$RUNNER_TEMP/r12-patch-art"
+          basetar="$(find "$RUNNER_TEMP/r12-base-art" -name 'clickhouse-cbo-join-override-linux-amd64.tar.zst' -type f -print -quit)"
+          patchtar="$(find "$RUNNER_TEMP/r12-patch-art" -name 'clickhouse-cpu-lc-decode-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$basetar" && test -s "$patchtar"
+          (cd "$(dirname "$basetar")" && sha256sum -c ARCHIVE_SHA256SUMS) \
+            | tee evidence/r12/base-archive-sha.txt
+          (cd "$(dirname "$patchtar")" && sha256sum -c ARCHIVE_SHA256SUMS) \
+            | tee evidence/r12/patch-archive-sha.txt
+          zstd -dc "$basetar" | tar -xf - -C "$RUNNER_TEMP/r12-base/bin"
+          zstd -dc "$patchtar" | tar -xf - -C "$RUNNER_TEMP/r12-patch/bin"
+          (cd "$RUNNER_TEMP/r12-base/bin" && sha256sum -c SHA256SUMS) \
+            | tee evidence/r12/base-executable-sha.txt
+          (cd "$RUNNER_TEMP/r12-patch/bin" && sha256sum -c SHA256SUMS) \
+            | tee evidence/r12/patch-executable-sha.txt
+          test "$(grep '^source=' "$RUNNER_TEMP/r12-base/bin/BUILD_INFO.txt")" = \
+            'source=52529f0c711566d696917678bf15e7068772fdde'
+          test "$(grep '^source=' "$RUNNER_TEMP/r12-patch/bin/BUILD_INFO.txt")" = \
+            'source=52529f0c711566d696917678bf15e7068772fdde'
+          grep -Fx 'llvm=22.1.8' "$RUNNER_TEMP/r12-base/bin/BUILD_INFO.txt"
+          grep -Fx 'llvm=22.1.8' "$RUNNER_TEMP/r12-patch/bin/BUILD_INFO.txt"
+          grep -F 'optimization=O1 + allow explicit join_algorithm' \
+            "$RUNNER_TEMP/r12-base/bin/BUILD_INFO.txt"
+          grep -F 'optimization=O1 + native JOIN override plus lab-only' \
+            "$RUNNER_TEMP/r12-patch/bin/BUILD_INFO.txt"
+          chmod +x "$RUNNER_TEMP/r12-base/bin/clickhouse" \
+            "$RUNNER_TEMP/r12-patch/bin/clickhouse"
+          "$RUNNER_TEMP/r12-base/bin/clickhouse" --version \
+            | tee evidence/r12/base-version.txt
+          "$RUNNER_TEMP/r12-patch/bin/clickhouse" --version \
+            | tee evidence/r12/patch-version.txt
+          sha256sum "$RUNNER_TEMP/r12-base/bin/clickhouse" \
+            "$RUNNER_TEMP/r12-patch/bin/clickhouse" \
+            > evidence/r12/binary-sha256.txt
+          python3 - <<'PY'
+          import json, os, pathlib
+          base=pathlib.Path(os.environ["RUNNER_TEMP"])/"r12-base-art"
+          cand=pathlib.Path(os.environ["RUNNER_TEMP"])/"r12-patch-art"
+          def chunks(root):
+              paths=list(root.rglob("combined.patch"))
+              if len(paths)!=1:raise AssertionError(("Expected single combined patch",root,paths))
+              s=paths[0].read_text()
+              out={}
+              for part in s.split("diff --git ")[1:]:
+                  header=part.splitlines()[0].split()
+                  if len(header)!=2 or not header[0].startswith("a/") or not header[1].startswith("b/"):
+                      raise AssertionError(("Bad diff chunk",header))
+                  key=header[0][2:]
+                  if key in out:raise AssertionError("Repeated diff path: "+key)
+                  out[key]=part
+              if not out:raise AssertionError("Missing normal baseline patches")
+              return out
+          orig=chunks(base); candidate=chunks(cand)
+          new=set(candidate)-set(orig)
+          missing=set(orig)-set(candidate)
+          changed=[p for p in orig if p in candidate and orig[p]!=candidate[p]]
+          expected={"src/DataTypes/Serializations/SerializationLowCardinality.cpp"}
+          if new!=expected or missing or changed:
+              raise AssertionError(("Not a single-variable C++ delta",new,missing,changed))
+          newdiff=candidate[next(iter(new))]
+          if "column_is_empty" not in newdiff or "insertRangeFromDictionaryEncodedColumn" not in newdiff:
+              raise AssertionError("Unexpected LC fastpath diff")
+          out={
+              "build_source_sha":"52529f0c711566d696917678bf15e7068772fdde",
+              "baseline_build_run":41531656434,
+              "candidate_build_run":41591617794,
+              "baseline_shared_patched_paths":sorted(orig),
+              "only_candidate_extra_patched_path":next(iter(new)),
+              "preflight_passed":True,
+              "safety_gate":"BLOCKED known missing checkIndexesAreLimited on candidate"
+          }
+          pathlib.Path("evidence/r12/patch-identity.json").write_text(
+              json.dumps(out,indent=2)+"\n"
+          )
+          print("R12_SOURCE_PATCH_ISOLATED",json.dumps(out,sort_keys=True),flush=True)
+          PY
+      - name: Start isolated matched O1 baseline ClickHouse with native tracing and bounded memory
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles"
+          cat > "$RUNNER_TEMP/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host>
+            <http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path><tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <max_server_memory_usage>8000000000</max_server_memory_usage>
+            <users>
+              <default><password></password>
+              <networks><ip>127.0.0.1</ip></networks>
+              <profile>default</profile><quota>default</quota></default>
+            </users>
+            <profiles><default>
+              <allow_experimental_time_series_table>1</allow_experimental_time_series_table>
+              <enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions>
+              <log_queries>1</log_queries>
+              <log_processors_profiles>1</log_processors_profiles>
+              <log_query_threads>1</log_query_threads>
+              <use_statistics>1</use_statistics>
+              <query_profiler_cpu_time_period_ns>1000000</query_profiler_cpu_time_period_ns>
+              <max_memory_usage>3600000000</max_memory_usage>
+            </default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table>
+              <flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <part_log><database>system</database><table>part_log</table>
+              <flush_interval_milliseconds>1000</flush_interval_milliseconds></part_log>
+            <query_thread_log><database>system</database><table>query_thread_log</table>
+              <flush_interval_milliseconds>1000</flush_interval_milliseconds></query_thread_log>
+            <trace_log><database>system</database><table>trace_log</table>
+              <flush_interval_milliseconds>1000</flush_interval_milliseconds></trace_log>
+            <processors_profile_log><database>system</database><table>processors_profile_log</table>
+              <flush_interval_milliseconds>1000</flush_interval_milliseconds></processors_profile_log>
+            <default_profile>default</default_profile>
+            <default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/r12-base/bin/clickhouse" server --config-file="$RUNNER_TEMP/config.xml" \
+            >evidence/ch-server.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          for i in $(seq 1 100); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS --max-time 3 http://127.0.0.1:18191/ping
+          curl -fsS -X POST --data-binary 'SELECT version()' \
+            http://127.0.0.1:18191/ | tee evidence/server-version.txt
+
+      - name: Generate, ingest and SHA-verify frozen high-churn default LC UUID v11 fixture
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r12
+          python3 -u .github/ts-lab-bench/generate_95k_daily_churn_ts.py \
+            --manifest evidence/r12/manifest.json \
+            --fixture "$RUNNER_TEMP/r12-churn.jsonl" \
+            | tee evidence/r12/generate-and-ingest.log
+          sha256sum "$RUNNER_TEMP/r12-churn.jsonl" \
+            | tee evidence/r12/fixture.sha256
+          test "$(sha256sum "$RUNNER_TEMP/r12-churn.jsonl" | awk '{print $1}')" = \
+            '8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858'
+          python3 - <<'PY'
+          import json,pathlib
+          m=json.loads(pathlib.Path("evidence/r12/manifest.json").read_text())
+          assert m["series"]==1330000 and m["days"]==14 and m["per_day"]==95000
+          print("R12_FIXTURE_SHA_VERIFIED",m["sha256"],m["series"])
+          PY
+      - name: Restart baseline and patched ClickHouse executables on same frozen LC data
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ch-r12-restart.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          binary="$1"
+          phase="$2"
+          previous="$(cat "$RUNNER_TEMP/ch.pid")"
+          children="$(cat "/proc/$previous/task/$previous/children" 2>/dev/null || true)"
+          for pid in $children "$previous"; do
+            if [ -n "$pid" ]; then kill -TERM "$pid" 2>/dev/null || true; fi
+          done
+          for attempt in $(seq 1 120); do
+            if ! curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "R12_PREVIOUS_CLOSED phase=$phase"
+              break
+            fi
+            sleep 1
+          done
+          if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+            echo "R12_OLD_LISTENER_ALIVE refusing restart" >&2
+            exit 1
+          fi
+          sleep 2
+          "$binary" server --config-file="$RUNNER_TEMP/config.xml" >"evidence/ch-$phase.log" 2>&1 &
+          echo "$!" >"$RUNNER_TEMP/ch.pid"
+          for attempt in $(seq 1 120); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "R12_NEW_SERVER phase=$phase"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "R12_STARTUP_FAILED phase=$phase" >&2
+          tail -100 "evidence/ch-$phase.log" >&2
+          exit 1
+          SH
+          chmod +x "$RUNNER_TEMP/ch-r12-restart.sh"
+
+      - name: Native full-result A B B A across four Jenkins selector shapes
+        run: |
+          set -euo pipefail
+          python3 -u .github/ts-lab-r12/bench_lc_decoder_matched_abba.py \
+            --fixture "$RUNNER_TEMP/r12-churn.jsonl" \
+            --manifest evidence/r12/manifest.json \
+            --base-binary "$RUNNER_TEMP/r12-base/bin/clickhouse" \
+            --candidate-binary "$RUNNER_TEMP/r12-patch/bin/clickhouse" \
+            --pid-file "$RUNNER_TEMP/ch.pid" \
+            --restart-script "$RUNNER_TEMP/ch-r12-restart.sh" \
+            --output evidence/r12/report.json \
+            | tee evidence/r12/compare.log
+
+      - name: Preserve negative outcomes, binary identity and native correctness traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r12-lc-decoder-normal-fixture-${{ github.run_id }}
+          path: evidence/
+          retention-days: 45
+          compression-level: 1
