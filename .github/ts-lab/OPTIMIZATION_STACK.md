@@ -53,3 +53,10 @@ Note: the **stock** baseline was built without C++ patches, same LLVM22.1.8, sam
 - [Read-CPU by internal table](https://github.com/moleus/ClickHouse/actions/runs/41590864544): TAGS, TimeRanges, SAMPLES decomposed, not additive critical-path time.
 - [CPU write/merge A/B/B/A](https://github.com/moleus/ClickHouse/actions/runs/41591016459): merge CPU declines on raw UUID; does not cover constant-interval ingest.
 - [Dense/sparse counterexample](https://github.com/moleus/ClickHouse/actions/runs/41590057398): raw UUID improved dense full query ~7%, but sparse-wide ~6% worse.
+
+## R03: external VictoriaMetrics comparison, not a cumulative ClickHouse optimization
+
+[Validated 12-case full-native 64-wave A/B/B/A #41624246411](https://github.com/moleus/ClickHouse/actions/runs/41624246411),
+[exact evidence](evidence/R03-ch-vm-k8s-concurrent-41624246411.json), one same 400-node / 3d / 2.49m-point fixture and full output equivalence. VM v1.134.0 optimized release had **3.07–41.12× lower p50** than stock ClickHouse **LLVM22 -O1/glibc** on the 12 tested selector × concurrency combinations. This is a valid configuration-specific diagnostic, **not** a performance claim about production-equivalent ClickHouse versus VictoriaMetrics. Do not mix this reference with gains in `RAW_ID`, `FINAL_STACK` or C++ patch speedups.
+
+A production-like engine choice needs matched optimized build/allocator/hardware memory limits, 14d cardinality and query-limit failures, staggered node starts, read/write concurrency and cost. The [jemalloc O1 build #41607779848](https://github.com/moleus/ClickHouse/actions/runs/41607779848) is independently in progress; preserve its cache/run, do not duplicate it.
