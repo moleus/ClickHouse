@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "session_id": "r28-query-slot-admission-20261103",
+  "status": "smoke_queued",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "5b1a7c94e6376ea92820bbc2e0871701519cc185",
+  "last_verified_utc": "2026-11-03T16:36:00Z",
+  "question_id": "R28",
+  "summary": "Proposed query-slot admission control as production capacity safety optimization. Existing source ProcessList acquires a workload QUERY slot before execution; per-query memory limits alone failed 8-client project14d in prior stock-O1 tests. This experiment does not claim any speedup yet.",
+  "completed": [
+    "Read shared index, source, owner roots R01-R27 and current Actions",
+    "Created R28 canonical root and claim",
+    "Committed functional smoke Python and standalone path-scoped workflow to shared branch",
+    "Verified R28 CI run 41676439539 queued"
+  ],
+  "negative_results": [
+    "Existing R03 CH vs VM p50 gap 3.07-41.12x uses CH O1 vs VM release; no optimized parity claim",
+    "Query-slot queuing can increase client p99; cap is not an RSS guarantee"
+  ],
+  "active_run_ids": [
+    41676439539,
+    41673646832
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+  "relevant_paths": [
+    ".github/ts-lab/claims/roots/R28.json",
+    ".github/ts-lab/claims/R28-native-query-slot-admission-v1.json",
+    ".github/ts-lab-r28/admission_smoke.py",
+    ".github/workflows/ts-lab-r28-admission-smoke-20261103.yml"
+  ],
+  "blocked_by": [
+    "R28 functional smoke CI outcome",
+    "Full native 14d performance A/B/B/A with fresh process remains to be built"
+  ],
+  "next_action": {
+    "question_id": "R28",
+    "step": "Inspect CI 41676439539 logs. Fix only smoke validity errors. Then run fresh-server stock O1 RAW UUID 1.33m Jenkins project14d native 8-client workload under workload QUERY slots 8 vs 2 vs 4 with complete outputs, process RSS, error count and full arrival-to-response p99. Do not confuse queue wait with faster per-query execution.",
+    "stop_condition": "Any output mismatch, persistent OOM at cap, unsustainable queue delays, or high baseline drift rejects the proposal."
+  }
+}
