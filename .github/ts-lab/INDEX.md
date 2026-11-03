@@ -196,6 +196,8 @@ Same pinned stock O1 source/binary, same R01 fixture SHA256 `ea9a8d43c9e58ed916f
 - [Canonical root](claims/roots/R05.json), [claim](claims/R05-candidate-id-mark-bound-v1.json), [source and mathematical feasibility gate](experiments/R05_MARK_COVERAGE_FEASIBILITY_20261103.md), [create-only handoff](handoffs/20261103-r05-mark-bound-04.json).
 - No runtime improvement claimed, no new build. A uniform g-distinct-IDs/mark model predicts touched-mark fraction `1-(1-s)^g`; it is only a diagnostic prior. Next measure actual SAMPLES selected marks, ID clustering and native query parity with existing artifacts. R01/R02/R04/R08 owner boundaries remain unchanged.
 
+[Native processor-level CPU attribution for R10](../ts-lab-r10/READ_CPU_ATTRIBUTION_20261103.md): representative `MergeTreeSelect(ReadPool)` work 30,475→54,593µs and read/decode CPU samples33→57 for RAW namespace1d when SAMPLES bucket step is 3600→900s; this is compatible with extra physical read/decode work, **not** a wall critical-path or lock-contestion proof. The broad-node 10800s 1d wall regression is not explained by read processor CPU alone.
+
 ## 2026-11-03: R10 short-lookback follow-up disproves small-bucket assumption
 
 [Native 12-pair short-window A/B/B/A #41614179460](https://github.com/moleus/ClickHouse/actions/runs/41614179460),
