@@ -31,6 +31,7 @@ jobs:
           test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
           python3 -m py_compile .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r19_cache_stale_after_tags_gc.py
           python3 .github/ts-lab/experiments/r19_cache_stale_after_tags_gc.py --help > evidence/r19cache/help.txt
+          grep -q "base.sql(a.endpoint,'SYSTEM DROP TIME SERIES CACHES '+table)" .github/ts-lab/experiments/r19_cache_stale_after_tags_gc.py
           git rev-parse HEAD > evidence/r19cache/workflow-head.txt
           sha256sum .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r19_cache_stale_after_tags_gc.py > evidence/r19cache/script-sha256.txt
       - name: Reuse pinned SHA verified O1 binary (no recompilation)
