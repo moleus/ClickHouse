@@ -459,3 +459,26 @@ do not promote based on storage bytes alone.
 - Literal-IN wall p50 mean **63.414ms**, CPU **63.645ms**; compact-match **64.263ms**, CPU **64.183ms**. Difference +1.34% wall/+0.85% CPU, below 1.76% A/A wall drift. **NO_EFFECT** rather than a speedup; the original raw artifact's `ACCEPT_FOR_NEXT_GATE` was only an experimental gate, not scientific evidence of a performance win. [Script classifier corrected](https://github.com/moleus/ClickHouse/commit/9f79496283683e96428dc3afe6f3f88e92b762e3) to separate valid methodology from scientific effects.
 - Direct `EXPLAIN PLAN` of `timeSeriesSelector` shows the same **6400-element ID set**, **128/128** SAMPLES granules in both cases; overall `read_rows=98304` for both. Rewriting branch regex cannot prune mixed-ID SAMPLES granules on this fixture. Query tracker peak ~19.06MB literal vs17.98MB compact, descriptive only; one-run memory effect unconfirmed.
 - Do not spend more runner minutes on this exact small fixture. Test a new indexed-label physical layout or held-out branch=All fixture only with a fresh source-level bound and a new claim. No production/Grafana rewrite recommendation from 1.3% wall difference.
+
+## 2026-11-03: R12 matched compiled LC decoder rejected, R09 source delta audited
+
+[R12 immutable full native ABBA evidence](evidence/R12-lc-decoder-matched-41620022189.json);
+[GitHub Actions #41620022189](https://github.com/moleus/ClickHouse/actions/runs/41620022189) **SUCCESS as a valid experiment, REJECT as optimization**.
+Two SHA-verified LLVM22.1.8 O1 C++ binaries share exact pinned source, fast-sum-rate and opt-in JOIN override; the only additional patch in the experimental binary is `SerializationLowCardinality.cpp` fresh dictionary adoption. Same source fixture SHA256 `8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858`, default LC UUID v11, 1.33m series. Four fresh-server A/B/B/A workloads passed complete native PromQL label/time/value parity, physical part parity, no OOM and p50/CPU control drift below 25%.
+
+| Selector | Normal decoder p50 | Experimental p50 | Normal CPU/query | Experimental CPU/query | p50 baseline A/A drift |
+|---|---:|---:|---:|---:|---:|
+| stage14d | 916.225ms | **1022.784ms (+11.6%)** | 1694.628ms | **1876.203ms (+10.7%)** | **0.109%** |
+| project14d | 1795.351ms | 1774.902ms | 3080.300ms | 3054.194ms | 4.35% |
+| regex14d | 1956.876ms | 1919.190ms | 3417.883ms | 3353.601ms | 2.29% |
+| whole1d | 1370.533ms | 1403.063ms | 2311.228ms | 2344.173ms | 2.77% |
+
+Stage slowdown is well outside drift. Project/regex/whole changes are small relative to drift and not robust gains.
+**Do not merge or compile the unguarded LC decoder fastpath again**: it skips the stock `checkIndexesAreLimited` and assumes dictionary uniqueness. [Source safety/cost audit](../ts-lab-r12/LC_FRESH_DICTIONARY_SAFETY_AND_COST_20261103.md).
+The artifact's CPU `trace_log` categories/hot leaves are **empty** despite a complete processor profile; no direct call-site CPU or mutex conclusion is valid. Stage representative summed processor work is 1664→1666ms while median query CPU changes 1695→1876ms, indicating that this profile cannot explain the regression on its own.
+
+Independent [R09 upstream SHA-diff audit](evidence/R09-upstream-source-audit-20261103.json):
+at exact master `a79b6cefb2fafc49d04f357a7edc512e25b93753` the TimeSeries selector and sink source files have identical Git blobs to pinned `52529f0c7`. Upstream changed LowCardinality bounds validation for the **global dictionary** branch and exposed a reusable static bounds checker, **not** a fix for the experimental **no-global** branch. No latest-master performance claim or C++ rebuild.
+
+R12 is closed as **REJECT**. Preserve the separately pending jemalloc binary build [#41607779848](https://github.com/moleus/ClickHouse/actions/runs/41607779848); it is not a replacement for the unsafe LC prototype.
+
