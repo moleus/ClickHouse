@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "question_id": "R10-bucket-id-factorial-v1",
+  "decision": "REJECT_GLOBAL_10800_AND_HONOR_ALIGNMENT_INTERACTION",
+  "ci_url": "https://github.com/moleus/ClickHouse/actions/runs/41619669176",
+  "ci_conclusion": "success",
+  "ci_workflow_commit": "e8c606d834161a63f9f1310fb62bd92cb9adbd33",
+  "artifact_id": 13222667352,
+  "artifact_zip_sha256": "f6ed828df26b7409add4d587d3835458306309b61bce2db20a760fc799ed9b33",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "fixtures": {
+    "aligned": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+    "stagger": "ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a",
+    "identical_metrics_tags_values_series": true,
+    "shift": "only timestamps by (slot*317)%10800 seconds",
+    "series_each": 28896,
+    "samples_each": 2488320
+  },
+  "design": "Same one GitHub runner, four ClickHouse fresh-server processes in outer aligned/stagger/stagger/aligned order. Each process contains both RAW UUID 3600 and10800 bucket TimeSeries tables frozen to one part each. For each of four native PromQL selectors, 3600/10800/10800/3600 inner ABBA with two warmups+six measured queries per phase. Different fixture timestamps have separate native reference oracles. All 512 original query responses match full nonempty labels/timestamps/values within fixture; 16 inner ABBA comparisons and 8 outer replicate effects; no OOM, all gates pass.",
+  "scope": "3d 400-slot synthetic mixed 15s/60s/300s, single client, O1 glibc lab binary. Aligned and stagger fixture differ in timestamp alignment but not actual sample or ID count. The staggered variant can extend the final life beyond 3d query horizon; not a constant 400-active-node cluster simulator.",
+  "physical_bytes": {
+    "aligned_3600": 7424806,
+    "aligned_10800": 6833238,
+    "stagger_3600": 8228678,
+    "stagger_10800": 7689765
+  },
+  "physical_samples_bucket_rows": {
+    "aligned_3600": 86688,
+    "aligned_10800": 28896,
+    "stagger_3600": 113760,
+    "stagger_10800": 57120
+  },
+  "observations": [
+    {
+      "case": "pod_namespace",
+      "aligned": {
+        "p50_bucket10800_div3600": 0.97046,
+        "CPU_bucket10800_div3600": 0.9181,
+        "replicated_p50_effect_drift": 0.02736
+      },
+      "stagger": {
+        "p50_bucket10800_div3600": 1.25384,
+        "CPU_bucket10800_div3600": 1.29801,
+        "replicated_p50_effect_drift": 0.00522
+      },
+      "ratio_of_p50_effects_stagger_div_aligned": 1.29201,
+      "full_native_parity": true,
+      "valid": true
+    },
+    {
+      "case": "burst15",
+      "aligned": {
+        "p50_bucket10800_div3600": 1.00882,
+        "CPU_bucket10800_div3600": 1.06382,
+        "replicated_p50_effect_drift": 0.02065
+      },
+      "stagger": {
+        "p50_bucket10800_div3600": 1.23197,
+        "CPU_bucket10800_div3600": 1.35968,
+        "replicated_p50_effect_drift": 0.01146
+      },
+      "ratio_of_p50_effects_stagger_div_aligned": 1.2212,
+      "full_native_parity": true,
+      "valid": true
+    },
+    {
+      "case": "pod_broad",
+      "aligned": {
+        "p50_bucket10800_div3600": 0.93209,
+        "CPU_bucket10800_div3600": 0.91875,
+        "replicated_p50_effect_drift": 0.06107
+      },
+      "stagger": {
+        "p50_bucket10800_div3600": 1.06298,
+        "CPU_bucket10800_div3600": 1.0976,
+        "replicated_p50_effect_drift": 0.00675
+      },
+      "ratio_of_p50_effects_stagger_div_aligned": 1.14043,
+      "full_native_parity": true,
+      "valid": true
+    },
+    {
+      "case": "node_broad",
+      "aligned": {
+        "p50_bucket10800_div3600": 1.03086,
+        "CPU_bucket10800_div3600": 0.98904,
+        "replicated_p50_effect_drift": 0.01181
+      },
+      "stagger": {
+        "p50_bucket10800_div3600": 0.88253,
+        "CPU_bucket10800_div3600": 0.83675,
+        "replicated_p50_effect_drift": 0.00003
+      },
+      "ratio_of_p50_effects_stagger_div_aligned": 0.85611,
+      "full_native_parity": true,
+      "valid": true
+    }
+  ],
+  "interpretation": [
+    "On one runner, namespace 10800/3600 p50 ratio aligned0.97046 (3% faster) versus stagger1.25384 (25.4% slower); ratio of effects1.292, replicated effect drift aligned2.74%, stagger0.52%. CPU ratios aligned0.9181 vs stagger1.2980.",
+    "For 15s series, 10800/3600 p50 ratio aligned1.00882 (near equal) versus stagger1.23197 (23.2% slower); CPU ratios1.064 vs1.360.",
+    "Broad pod reverses from6.8% faster in aligned to6.3% slower in stagger. Node broad reverses from3.1% slower to11.7% faster; workload interaction sign differs by selector.",
+    "The physical sample bucket-row ratio between 10800 and3600 changes from1/3 to approximately1/2 when node start is shifted; bytes and processor CPU, not only SelectedMarks, influence query latency.",
+    "This is a measured interaction under two deterministic synthetic fixture distributions, not an estimator of production cluster average speed."
+  ],
+  "limits": [
+    "No 14d, live ingest+read, memory ceiling, late/out-of-order samples, HPA or multi-tenant tests.",
+    "A/B/B/A 16 pairs and replicated effect controls reduce runner confounding but not all physical data-distribution effects; all samples timestamps differ by slot, which changes query window overlap as well as bucket occupancy.",
+    "Same stock O1 lab glibc binary; production jemalloc and O2 not tested."
+  ],
+  "next_action": "Use source-level explanation for selective read/decode CPU increase despite lower physical marks; test a realistic staggered 14d/HPA fixture with matched 3600 vs10800 and 1/4/8 concurrency and actual write merges, then choose bucket setting by workload distribution."
+}
