@@ -22,7 +22,7 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Fail closed on source symlink or test errors
+      - name: Verify fail-closed candidate parser on native AST grammar before fixture ingest
         run: |
           set -euo pipefail
           test "$(readlink AGENTS.md)" = ".claude/CLAUDE.md"
