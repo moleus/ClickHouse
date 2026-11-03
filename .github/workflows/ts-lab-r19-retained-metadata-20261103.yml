@@ -1,0 +1,95 @@
+name: R19 native retained TAGS TimeRanges after old SAMPLES partition drop
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r19-retained-metadata-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ts-lab-r19-retention-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  r02:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      BINARY_SHA256: f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Source and preflight
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r19
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          python3 -m py_compile .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r19_expired_metadata_native.py
+          python3 .github/ts-lab/experiments/r19_expired_metadata_native.py --help > evidence/r19/help.txt
+          git rev-parse HEAD > evidence/r19/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r19_expired_metadata_native.py > evidence/r19/script-sha256.txt
+      - name: Reuse pinned SHA verified O1 binary (no recompilation)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r19-art" "$RUNNER_TEMP/r19-bin"
+          gh run download 41596421285 -R "$REPO" \
+            --pattern 'tslab-stock-clickhouse-o1-binary-*' \
+            -D "$RUNNER_TEMP/r19-art"
+          archive="$(find "$RUNNER_TEMP/r19-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r19/archive-verify.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r19-bin"
+          (cd "$RUNNER_TEMP/r19-bin" && sha256sum -c SHA256SUMS) | tee evidence/r19/binary-verify.txt
+          test "$(sha256sum "$RUNNER_TEMP/r19-bin/clickhouse" | cut -d' ' -f1)" = "$BINARY_SHA256"
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r19-bin/BUILD_INFO.txt"
+          grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/r19-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/r19-bin/BUILD_INFO.txt" evidence/r19/build-info.txt
+          chmod +x "$RUNNER_TEMP/r19-bin/clickhouse"
+          "$RUNNER_TEMP/r19-bin/clickhouse" --version | tee evidence/r19/version.txt
+      - name: Deterministic old SAMPLES retirement, retained TAGS and full native ABBA
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r19_expired_metadata_native.py \
+            --endpoint http://127.0.0.1:18191/ \
+            --out evidence/r19/report.json | tee evidence/r19/console.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/r19/report.json'))
+          assert d['passed'] and not d['errors'],d['errors']
+          assert d['retired']==48000 and d['live']==2000
+          assert d['samples_deleted_by'].startswith('explicit DROP PARTITION')
+          after=d['physical']['after']
+          assert after['tslab_r19_clean']['samples']['count']==2000
+          assert after['tslab_r19_retained']['samples']['count']==2000
+          assert after['tslab_r19_clean']['tags']['count']==2000
+          assert after['tslab_r19_clean']['timeranges']['count']==2000
+          assert after['tslab_r19_retained']['tags']['count']==50000
+          assert after['tslab_r19_retained']['timeranges']['count']==50000
+          assert len(d['trials'])==104
+          assert all(len(d['phases'][kind])==4 for kind in ('broad','project_p0'))
+          assert d['scientific_decision'] in ('ACCEPT_FOR_NEXT_GATE','NO_ROBUST_BROAD_REGRESSION')
+          print('R19_VALIDATED',json.dumps({'passed':True,
+              'decision':d['scientific_decision'],'input_sha256':d['input_sha256'],
+              'comparisons':d['comparisons']}))
+
+          PY
+      - name: Preserve raw correct and failed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r19-retained-metadata-${{ github.run_id }}
+          path: |
+            evidence/r19/*.txt
+            evidence/r19/*.log
+            evidence/r19/*.json
+            evidence/r19/phase-*/report.json
+            evidence/r19/phase-*/config.xml
+            evidence/r19/phase-*/server.log
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
