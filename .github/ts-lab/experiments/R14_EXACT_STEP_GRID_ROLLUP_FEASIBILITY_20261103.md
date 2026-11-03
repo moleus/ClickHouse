@@ -65,3 +65,13 @@ For Q repeated eligible reads, native cost \`Q*R_native\`; derived cost \`C_buil
 - [Path-scoped minimal GitHub CI](../../workflows/ts-lab-r14-rollup-math-20261103.yml) exists with 5-minute bound, sparse checkout and no C++ compiler. Its live run status must be checked separately; local PASS alone does not imply GitHub PASS.
 
 **Decision now:** pursue the exact AST and cardinality gate; **do not claim or pursue native speedup yet**. If the real dashboard query cannot be admitted or subgroup counts are too high, reject R14 for that use case without a new build.
+
+## Source-only check: do not reimplement existing native AVG fusion
+
+The pinned C++ source already has a **native streaming aggregation stage**:
+[applyOneArgumentAggregationOperator.cpp](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/TimeSeries/PrometheusQueryToSQL/applyOneArgumentAggregationOperator.cpp)
+maps PromQL \`avg\` to SQL \`avgForEach(values)\` and emits \`GROUP BY new_group\`. This means R14 **cannot** claim that ClickHouse naively computes cross-series averages in application code or lacks efficient per-step grouping. Do not propose a new GROUP BY/AVG implementation as a supposed radical optimization: it already exists.
+
+[fromSelector.cpp](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/TimeSeries/PrometheusQueryToSQL/fromSelector.cpp) converts instant selectors via \`last_over_time\` and transforms stale markers into absence; range selectors drop dedicated stale markers but retain ordinary NaNs. This supports the **strict finite-float and static-grid scope** above and explains why an unguarded numeric rollup is unsafe.
+
+The only plausible **large** R14 gain is **persisting and reusing** already computed per-grid group states for repeated, revision-equivalent requests, thereby skipping selector/TAGS/TimeRanges/SAMPLES/aggregation on the subsequent reads. Adding an \`avgForEach\` in the same query would mostly duplicate the current work. CPU and storage gain must include actual repetition frequency and freshness cost.
