@@ -20,7 +20,7 @@ class AnyMembershipTests(unittest.TestCase):
         source = ("SELECT timeSeriesStoreTags(id, tags, '__name__', metric_name)"
                   " FROM tags ALL LEFT JOIN (SELECT id FROM r) AS time_ranges_subquery USING (id)")
         named=explicit_id_alias(source)
-        self.assertIn("metric_name) AS id FROM tags",named)
+        self.assertIn("metric_name) AS r30_id FROM tags",named)
         self.assertEqual(named.count("ALL LEFT JOIN"),1)
         with self.assertRaisesRegex(ValueError,"already aliased"):
             explicit_id_alias(named)
