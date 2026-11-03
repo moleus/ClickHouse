@@ -124,3 +124,20 @@ Baseline SHA-verified O1 binary comes from successful [41531656434](https://gith
 - Consider optimized lazy read-only LowCardinality decoding that preserves original storage format, but require rigorous semantics tests.
 - Keep all SHA pins, A/B/B/A, exact nonempty output parity, and failed-run evidence.
 - NEVER just poll CI. While a build is active, design and run an independent hypothesis, capture source evidence and profile data, keep work pipelined. No production or master changes.
+
+## 2026-11-03: completed source-pinned concurrent-client campaign
+
+Primary [CI #41605951284](https://github.com/moleus/ClickHouse/actions/runs/41605951284). [Full measured results and error log](NATIVE_MULTICLIENT_STOCK_RESULTS_20261103.md).
+Pinned immutable fixture 1.33m, SHA256 `8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858`.
+Same unmodified ClickHouse O1 LLVM22 binary SHA256 `f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e`,
+source `52529f0c711566d696917678bf15e7068772fdde`. 4-vCPU runner, max_threads=2 per query.
+A/B/B/A with 2 warmup and 8 measured waves per phase, identical full native PromQL output across LC UUID and raw UUID. Actual concurrent clients, **not** `max_threads` variation.
+
+- stage14d 1/4/8-client p50 LC→RAW: **397→322 / 1172→969 / 2291→1715 ms**; all PASS. 8-client CPU/request1092→820ms and 3.294→4.356 requests/s.
+- project14d 1/4-client p50 LC→RAW: **1763→1471 / 4623→3605 ms**, PASS. At 8 clients **Code 241 MEMORY_LIMIT_EXCEEDED** at configured 4.47GiB server RSS, so **FAIL**, with no 8-client speedup claim. Retained RSS from earlier phases is a confounder.
+- whole metric1d 1/4/8-client p50 LC→RAW: **648→476 / 1699→1284 / 3396→2656 ms**, all PASS. 8-client CPU/request1575→1205ms.
+- Original LC dictionary trace CPU remains high under concurrency: e.g. stage8 LC201/1050 sampled CPU events, RAW11/738; representative queries, not medians. After RAW_ID, physical reads and hash-set membership remain dominant in samples.
+- OS runqueue delay at n8 stage LC1132ms/RAW841ms. Not mutex lock time. Pool lock ProfileEvents near zero; collector mutex per query cannot be inferred from concurrency among independent clients.
+- Full report includes verified source/binary/data hashes, complete physical parity where jobs completed, baseline control drift, p95, throughput, RSS and CPU taxonomy.
+- Isolated [fresh-process 8-client project14d #41607617562](https://github.com/moleus/ClickHouse/actions/runs/41607617562) measures whether memory retained between loads causes the OOM, with fresh server per variant ABBA; pending at checkpoint write.
+- [Source safety audit](LC_DECODER_FASTPATH_SAFETY_AUDIT_20261103.md) confirms the staged C++ LC decoder bypasses `checkIndexesAreLimited` on fresh dictionary adoption. It cannot be promoted until type/index bounds and malformed-data cases are guarded; this is a static finding, not an observed crash.
