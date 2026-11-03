@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "question_id": "R19-expired-samples-retained-tags-timeranges-v1",
+  "decision": "ACCEPT_FOR_NEXT_GATE",
+  "ci_status": "success",
+  "verified_utc": "2026-11-03T12:25:00Z",
+  "hypothesis": "With stock v11 TimeSeries, SAMPLES retention does not automatically retire original TAGS/TimeRanges metadata; old labels can inflate native PromQL metadata reads long after old physical sample partitions disappear.",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary": {
+    "build_run_id": 41596421285,
+    "sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "optimization": "O1 unmodified source glibc LLVM22.1.8",
+    "source_proof": "StorageTimeSeries.cpp ## Retention explicitly states TAGS has no TTL by default even after all samples deleted; tags_deduplication_cache_expiration_seconds is not storage TTL."
+  },
+  "fixture": {
+    "synthetic": true,
+    "active_ids": 2000,
+    "retired_ids": 48000,
+    "active_timestamp_utc": "2026-10-20T12:00:00Z",
+    "retired_timestamp_utc": "2026-08-10T12:00:00Z",
+    "old_partition": "202608",
+    "live_partition": "202610",
+    "live_fixture_sha256": "df80189979bdc9ae0ba3ec0c4103f42444d703ef5948cfa5929989ae28b115d6",
+    "retired_fixture_sha256": "fc6ff8bf4ee1842b2f31e787d8cb336801bc59601c98ff249bdb0f6d16232267",
+    "metric": "tslab_r19_retention",
+    "native_query": "avg by(project)(avg_over_time(tslab_r19_retention[1d])) and version with {project=\"p0\"}; fixed result at 2026-10-20T12:05:00Z"
+  },
+  "method": "Same runner and binary: create clean and aged v11 RAW UUID TimeSeries tables, each with exactly the same active 2000 series; aged has 48000 old series. Explicitly DROP aged SAMPLES partition ID 202608, not TTL daemon. Verify same active SAMPLES physical bytes/rows and exact native PromQL output. Before ABBA optimize both sources to one part per inner target, then stop merges. Two query selectors x four clean/aged/aged/clean phases, 3 warmups and 10 timed requests per phase; QueryFinish cpu/read_rows/read_bytes/SelectedMarks/memory p50; control drift bound 25%, no query result cache. Total 104 native queries.",
+  "physical_after": {
+    "clean": {
+      "tags": {
+        "rows": 2000,
+        "bytes": 57558,
+        "marks": 2
+      },
+      "timeranges": {
+        "rows": 2000,
+        "bytes": 33602,
+        "marks": 2
+      },
+      "samples": {
+        "rows": 2000,
+        "bytes": 42310,
+        "marks": 9,
+        "partition_id": "202610"
+      }
+    },
+    "retained": {
+      "tags": {
+        "rows": 50000,
+        "bytes": 1442598,
+        "marks": 8
+      },
+      "timeranges": {
+        "rows": 50000,
+        "bytes": 834694,
+        "marks": 8
+      },
+      "samples": {
+        "rows": 2000,
+        "bytes": 42310,
+        "marks": 9,
+        "partition_id": "202610"
+      }
+    }
+  },
+  "broad_native_query": {
+    "clean_wall_p50_ms": 36.7894,
+    "retained_wall_p50_ms": 51.97,
+    "retained_over_clean_wall": 1.412635,
+    "clean_AA_wall_drift": 0.15368,
+    "clean_cpu_p50_ms": 36.74525,
+    "retained_cpu_p50_ms": 53.14,
+    "retained_over_clean_cpu": 1.446173,
+    "clean_AA_cpu_drift": 0.17402,
+    "read_rows": {
+      "clean": 6000,
+      "retained": 102000,
+      "ratio": 17
+    },
+    "read_bytes": {
+      "clean": 454106,
+      "retained": 7894106,
+      "ratio": 17.38384
+    },
+    "selected_marks": {
+      "clean": 10,
+      "retained": 22
+    }
+  },
+  "project_p0_query": {
+    "clean_wall_p50_ms": 26.73495,
+    "retained_wall_p50_ms": 33.7496,
+    "retained_over_clean_wall": 1.26238,
+    "clean_AA_wall_drift": 0.02943,
+    "clean_cpu_p50_ms": 26.292,
+    "retained_cpu_p50_ms": 34.321,
+    "retained_over_clean_cpu": 1.30538,
+    "clean_AA_cpu_drift": 0.02693,
+    "read_rows": {
+      "clean": 6000,
+      "retained": 102000,
+      "ratio": 17
+    },
+    "read_bytes": {
+      "clean": 456106,
+      "retained": 7944106,
+      "ratio": 17.41724
+    },
+    "selected_marks": {
+      "clean": 10,
+      "retained": 22
+    }
+  },
+  "correctness": {
+    "native_label_timestamp_numeric_oracle_pass": true,
+    "same_live_sample_partition_bytes": 42310,
+    "same_live_sample_points": 2000,
+    "historical_samples_removed": true,
+    "historical_tags_and_timeranges_retained": true,
+    "matched_live_fixture_sha": true,
+    "baseline_drift_under_25pct": true,
+    "query_log_cpu_present": true
+  },
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41635340660",
+    "job_id": 125915003608,
+    "artifact_id": 13230143375,
+    "artifact_zip_sha256": "e70253bd7ca544bdc8629fc3d7426d26b21bdc267c425d0ee59b6d58a7fabdb5",
+    "workflow_commit": "8423f6da28eaa0309c3d2c38db53eee98eef45e6",
+    "workflow_path": ".github/workflows/ts-lab-r19-retained-metadata-20261103.yml",
+    "script_path": ".github/ts-lab/experiments/r19_expired_metadata_native.py",
+    "source_proof_path": ".github/ts-lab/experiments/R19_RETAINED_METADATA_COST_PROOF_20261103.md"
+  },
+  "negative_first_run": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41635086542",
+    "decision": "INFRA_FAIL",
+    "error": "Connection refused; server not started",
+    "evidence": ".github/ts-lab/evidence/R19-expired-samples-retained-tags-timeranges-v1/41635086542.json"
+  },
+  "math_bound": "One 3h-lived node metric at 400 steady slots yields 3200 distinct IDs/day; 365d metadata 1.168m versus 15d samples 48000, ~24.33x metadata to live series. Synthetic aged case is 50k/2k=25x ID ratio. Observed 17x QueryFinish rows and 17.4x read bytes, not a theoretical necessity for all label selectivities/indices.",
+  "limitations": [
+    "The experiment DROP PARTITION manually, modeling SAMPLES removal. It does not observe actual TTL scheduling, long-running ingest or cache expiry.",
+    "Only 50k single-sample IDs and one metric with four projects; no 1.33m 15d production-like distribution, privacy labels or external access controls.",
+    "Single runner ABBA; 15-17% broad control wall/CPU drift; latency effect must replicate independently.",
+    "All three inner targets are physically stable and merges explicitly stopped during timing; background behavior and concurrent readers/writes not tested.",
+    "A safe pruning strategy for TAGS requires late-arrival/resurrection, consistent TimeRanges, ID generator and ACL semantics; no automatic DELETE recommended."
+  ],
+  "next_action": {
+    "question_id": "R19",
+    "step": "Replicate same physical old-month drop on two independent runners with same fixture, source, binary and native query; require identical 17x metadata read inflation and full parity. Then test actual TTL expiration and safe metadata retention policy only after semantic proof for resumed/late series.",
+    "stop_condition": "If any binary/fixture mismatch, actual retained IDs differ, SAMPLES data change or A/A CPU/wall drift >25%, mark invalid and preserve evidence; do not promote a cleanup patch."
+  }
+}
