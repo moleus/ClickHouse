@@ -212,3 +212,36 @@ Same source, pinned stock O1 binary, SHA-verified R01 400-slot 3d fixture and th
 
 No global change to `samples_bucket_step_seconds` is justified. Next useful question: native operator-level causal attribution and ingestion/merge costs for 3600 vs10800s under varied selectors and 14d+concurrent loads; reuse R02 source-pinned write-path work rather than repeating it. Sample-array count is not physical bucket-row count.
 
+## 2026-11-03: R10 batch-write and explicit merge completed, fresh-process ABBA
+
+[Full immutable machine-readable evidence](evidence/R10-write-bucket-paired-41616086196.json) —
+[CI #41616086196](https://github.com/moleus/ClickHouse/actions/runs/41616086196) **PASS**.
+Same frozen R01 400-node/3h/3d fixture, 28,896 series and 2,488,320 points,
+unmodified source-pinned O1 executable SHA `f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e`.
+Four **fresh ClickHouse processes**, query/fixture/binary exact; RAW UUID
+only, `samples_bucket_step_seconds=3600/10800/10800/3600`.
+73 HTTP INSERT batches of up to 400 series in **each** phase, then explicit
+`OPTIMIZE FINAL` of TAGS/SAMPLES/TimeRanges with native result parity,
+`sum(length(samples))` exact count, 292/292 QueryFinish INSERT records
+and 24 `MergeParts` events. All drift gates pass.
+
+| Metric | 3600s baseline | 10800s candidate | Change | A/A drift, baseline |
+|---|---:|---:|---:|---:|
+| Server process CPU during inserts | 1.590s | 1.520s | -4.4% | 2.52% |
+| Insert elapsed wall | 5.312s | 5.218s | -1.8% | 0.24% |
+| Server process CPU in explicit merge | 0.825s | 0.720s | **-12.7%** | 1.21% |
+| Explicit merge wall | 0.581s | 0.483s | **-16.9%** | 3.29% |
+| Three-target compressed part bytes | 7,424,806 | 6,833,238 | **-8.0%** | 0% |
+
+Independent part_log MergeParts CPU corroborates merge direction:
+average ~682→587ms (-14%), six events each phase.
+This is a **controlled explicit merge**, not steady-state background
+merging with concurrent reads. `query_log` reports only ~70ms INSERT
+CPU for the 73 requests while process CPU is ~1.5s; never treat
+QueryFinish INSERT CPU as complete storage/writer CPU.
+The small 4.4% total write CPU effect is close to ~2.5% control drift
+and needs more runs. RSS snapshots do not establish variant advantage.
+**Decision: ACCEPT_FOR_NEXT_GATE** for this synthetic workload only.
+A 3h bucket helps compressed footprint/explicit merges but can be
+slower for some broad native 1d reads; no universal default change.
+
