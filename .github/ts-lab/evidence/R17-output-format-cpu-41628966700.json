@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "question_id": "R17-native-output-cost-cpu-floor-v1",
+  "status": "COMPLETE",
+  "scientific_decision": "REJECT_OUTPUT_FORMAT_AS_PRIMARY_CAUSE",
+  "run": {
+    "id": 41628966700,
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41628966700",
+    "conclusion": "success",
+    "job_id": 125893349718,
+    "head_sha": "84487f078c3743e9b67eb0eef6c6fce2090c4ba1",
+    "artifact_id": 13228015124,
+    "artifact_name": "tslab-r17-native-output-floor-41628966700",
+    "artifact_sha256": "2276b147331c9393dc57652dd907762ad03cd6caf6ef26ec3dd3a50798816892",
+    "artifact_size_bytes": 576701,
+    "artifact_contents": [
+      "r17/report.json",
+      "r17/report.compact.json",
+      "r17/output-floor.log",
+      "r01/manifest.json",
+      "BUILD_INFO.txt",
+      "clickhouse-binary-sha256.txt",
+      "runner-cpu.txt"
+    ]
+  },
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary": {
+    "stock_O1_from_run": 41596421285,
+    "sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "compiler": "LLVM22.1.8 -O1 glibc",
+    "CXX_changes": "none"
+  },
+  "fixture": {
+    "generator": ".github/ts-lab-r01/generate_k8s_churn_fixture.py",
+    "sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+    "series": 28896,
+    "points": 2488320,
+    "days": 3,
+    "active_slots": 400,
+    "aligned_three_hour_lifetimes": true
+  },
+  "experiment": {
+    "intervention": "Only native output format: FORMAT JSONEachRow vs FORMAT Null, same PromQL SQL up to FORMAT, stock RAW UUID v11",
+    "cases": [
+      "node_broad",
+      "pod_namespace",
+      "pod_broad",
+      "burst15"
+    ],
+    "expression": "avg by(project|namespace)(avg_over_time(tslab_node_cpu_ratio|tslab_pod_cpu_ratio{selector}[1d]))",
+    "evaluation": "3 daily timestamps, 3-48 points across each query case",
+    "phases": "For each case JSON/Null/Null/JSON, 2 warmups +24 measured per phase, 416 total including warmups, single request at a time",
+    "correctness": "All JSON phases compared complete nonempty PromQL labels/time/float values against initial JSON oracle; Null phases asserted zero HTTP bytes and unchanged QueryFinish read_rows and SelectedMarks. Same physical TAGS/TimeRanges/SAMPLES one-part rows, marks and bytes before/after.",
+    "controls": "All JSON/JSON p50 and CPU drift <=25%; use observed drift to avoid claiming 0-2ms effects are robust",
+    "query_logging": "QueryFinish CPU OSCPUVirtualTimeMicroseconds and memory; 4Hz RSS not used; process RSS before/after outside timed phases",
+    "profiler": "One measured CPU trace, hot leaves, folded stacks and processors_profile_log per format per case. All trace categories populated, but one representative query is not the median and operator-work sums overlap across threads."
+  },
+  "measurements": {
+    "node_broad": {
+      "json_client_p50_ms": 256.781,
+      "null_client_p50_ms": 277.783,
+      "json_cpu_p50_ms": 411.338,
+      "null_cpu_p50_ms": 440.113,
+      "baseline_wall_drift": 0.0274,
+      "baseline_cpu_drift": 0.01993,
+      "read_rows": 57728,
+      "selected_marks": 117,
+      "json_response_bytes": 1530,
+      "read_bytes": 33814072,
+      "representative_json_cpu_samples": {
+        "grid_aggregate": 128,
+        "expression": 121,
+        "read_decode": 54,
+        "tag_registration": 42,
+        "total": 413
+      },
+      "representative_json_operator_work_us": {
+        "ExpressionTransform": 165500,
+        "AdaptiveBucketMergingSource": 73300,
+        "MergeTreeSelect": 55100
+      }
+    },
+    "pod_namespace": {
+      "json_client_p50_ms": 67.257,
+      "null_client_p50_ms": 66.177,
+      "json_cpu_p50_ms": 94.337,
+      "null_cpu_p50_ms": 93.26,
+      "baseline_wall_drift": 0.0084,
+      "baseline_cpu_drift": 0.00589,
+      "read_rows": 102368,
+      "selected_marks": 229,
+      "json_response_bytes": 191,
+      "read_bytes": 21870184,
+      "representative_json_cpu_samples": {
+        "read_decode": 45,
+        "other": 27,
+        "grid_aggregate": 8,
+        "expression": 6,
+        "tag_registration": 2,
+        "total": 90
+      },
+      "representative_json_operator_work_us": {
+        "MergeTreeSelect": 40874,
+        "ExpressionTransform": 9800,
+        "AggregatingTransform": 3900
+      }
+    },
+    "pod_broad": {
+      "json_client_p50_ms": 238.737,
+      "null_client_p50_ms": 241.139,
+      "json_cpu_p50_ms": 374.139,
+      "null_cpu_p50_ms": 376.256,
+      "baseline_wall_drift": 0.00116,
+      "baseline_cpu_drift": 0.0016,
+      "read_rows": 103392,
+      "selected_marks": 233,
+      "json_response_bytes": 3057.2,
+      "read_bytes": 22275464,
+      "representative_json_cpu_samples": {
+        "grid_aggregate": 131,
+        "tag_registration": 107,
+        "expression": 67,
+        "read_decode": 51,
+        "total": 408
+      },
+      "representative_json_operator_work_us": {
+        "ExpressionTransform": 154226,
+        "AdaptiveBucketMergingSource": 80500,
+        "AggregatingTransform": 47600,
+        "MergeTreeSelect": 47100
+      }
+    },
+    "burst15": {
+      "json_client_p50_ms": 51.443,
+      "null_client_p50_ms": 50.918,
+      "json_cpu_p50_ms": 67.899,
+      "null_cpu_p50_ms": 68.01,
+      "baseline_wall_drift": 0.01403,
+      "baseline_cpu_drift": 0.00529,
+      "read_rows": 66016,
+      "selected_marks": 87,
+      "json_response_bytes": 767,
+      "read_bytes": 12854888,
+      "representative_json_cpu_samples": {
+        "read_decode": 29,
+        "other": 24,
+        "expression": 6,
+        "grid_aggregate": 1,
+        "total": 60
+      },
+      "representative_json_operator_work_us": {
+        "MergeTreeSelect": 28330,
+        "ExpressionTransform": 5700,
+        "MergeTreeSelectInOrder": 4500
+      }
+    }
+  },
+  "same_physical_pieces": {
+    "tags": {
+      "rows": 28896,
+      "marks": 5,
+      "bytes": 1486557
+    },
+    "timeranges": {
+      "rows": 28896,
+      "marks": 5,
+      "bytes": 634858
+    },
+    "samples": {
+      "bucket_rows": 86688,
+      "marks": 340,
+      "bytes": 5303391
+    }
+  },
+  "findings": [
+    "On selective namespace, suppressing 191 HTTP output bytes reduced median CPU only 1.077ms out of 94.337ms (~1.14%); 1.079ms p50 wall reduction is close to 0.84% JSON/JSON wall drift and not a universal speedup.",
+    "On burst15, suppressing 767 bytes left median CPU unchanged (67.899 vs68.010ms), while both formats read 66,016 rows and 87 selected marks.",
+    "On broad nodes, FORMAT Null was slower by 28.775ms CPU and 21.0ms wall despite equal selected rows/marks and physical parts. This is an execution/pipeline effect or measurement characteristic, not negative serializer cost; format change is not a pure serialization microbenchmark.",
+    "On all pods, median CPU differs by only 2.116ms in the direction opposite expected JSON overhead, with exactly equal query read rows/marks.",
+    "CPU trace shows selective namespace 45/90 CPU samples from read/decode and representative MergeTreeSelect(ReadPool) work 40.874ms; broad-node 128/413 samples grid aggregation, 121 expression, 54 read, 42 tag registration; broad-pod 131/408 grid and 107 tag registration. These are representative single-query statistical samples, not end-to-end wall shares.",
+    "Inspect source: NullOutputFormat::consume(Chunk) is empty but source documentation says query is still processed; output bytes ==0. JSONEachRow format converts column fields. Same read_rows/selected_marks in R17 confirms stable physical read path but not exactly identical operator execution.",
+    "R03 optimized VM1.134 is 3-41x faster than stock O1 CH on matched 3d fixture. R17 only rules out JSON output as a dominant plausible cause for the two narrow selectors. It does not explain cross-engine fixed overhead or prove compiler-normalized gap."
+  ],
+  "source_links": [
+    "https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Processors/Formats/Impl/NullFormat.h",
+    "https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Processors/Formats/Impl/JSONEachRowRowOutputFormat.cpp",
+    "https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/StorageTimeSeriesSelector.cpp"
+  ],
+  "limitations": [
+    "No production-normalized VM comparison in this run; previous R03 compares stock O1/glibc to optimized VM release.",
+    "Changing FORMAT can change output-pipeline scheduling; `cpu(json) - cpu(null)` is a diagnostic format-dependent delta, not a pure JSON function cost.",
+    "Trace sampler counts for one query per arm are statistical, while median QueryFinish CPU and wall are repeated trial metrics.",
+    "Data has aligned node starts; no staleness/late-writes; query response output 3-48 samples; results do not apply to large PromQL result payloads.",
+    "R05 owns ID mark selection, R07 owns day-cover metadata sidecar, R03 owns VM comparison, R14 owns grid rollup, R15 owns calendar partitions; R17 did not modify or duplicate those."
+  ],
+  "next_action": "Use R17 representative trace to target read/decode and grid/tag registration CPU, but do not repeat existing R05/R07/R14 tests. Investigate source-exact SAMPLES column codec efficiency or operator buffer materialization (e.g. ALP and memset) as independent bounded R18 question before new C++ build."
+}
