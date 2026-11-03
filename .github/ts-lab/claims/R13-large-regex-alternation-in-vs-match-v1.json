@@ -1,0 +1,19 @@
+{
+  "id": "R13-large-regex-alternation-in-vs-match-v1",
+  "question": "Do large literal alternation label matchers in native prometheusQueryRange perform differently from a semantically identical compact regex because ClickHouse rewrites literal alternatives to SQL IN?",
+  "owner": "chatgpt-r13-regex-plan-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Unmodified stock O1 ClickHouse source 52529f0, LLVM22.1.8, executable SHA256 f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e (CI 41596421285)",
+  "candidate": "Same series, exactly same query duration, no schema or C++ change; compact regex b0[01][0-9][0-9] vs 200-term literal alternation b0000|...|b0199 which is source-rewritten to IN",
+  "fixture": "Synthetic deterministic TimeSeries 32768 distinct ID series, 1024 branch values b0000..b1023, 16 stages, same one sample/series at T0; 200 of 1024 branches selected by both patterns; manifest and SHA persisted",
+  "single_variable": "Equivalent regex syntax choosing match vs SQL IN in TimeSeries matcherToAST; no difference in chosen label set or timestamps",
+  "math_bound": "Exactly 32768*200/1024=6400 matching series in each query. Source tryGetLiteralAlternatives returns 200 strings for literal alternation and fallback for regex metacharacters; matcherToAST maps literal list to in(...) and compact expression to match('^...$'). A/B/B/A CPU/wall differences may come from expression compilation, index use or row filtering. Require measured input rows and selected marks to attribute, not assume IN wins.",
+  "falsifier": "Expected branch set mismatch, nonempty points/labels/values differ, drift >25%, QueryFinish missing, no source plan transition, or CPU/wall no benefit; reject improvement claim and keep negative evidence",
+  "test_matrix": "A/B/B/A on one pinned O1 server, 2 warmups+4 measured native PromQL trials per phase, exact full grouped output vs independent Python oracle, 32768 one-sample IDs, selected labels 6400, EXPLAIN for both and query-log CPU/read_rows/bytes/RSS if available",
+  "runner_budget": "One path-triggered isolated ubuntu-24.04 CI job <=18m, reuse stock O1 binary/artifact, no C++ compile, no schedule",
+  "planned_workflow": ".github/workflows/ts-lab-r13-regex-literal-compact-20261103.yml; self-path push, run-unique concurrency and artifacts",
+  "dependencies": [
+    "R08-matcher-absence-regex-v1"
+  ]
+}
