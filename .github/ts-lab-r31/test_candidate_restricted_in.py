@@ -4,7 +4,7 @@ import sys
 import unittest
 
 sys.path.insert(0,str(pathlib.Path(__file__).parent))
-from candidate_restricted_in import restrict_time_ranges_in_to_candidates, top_level_comma_parts
+from candidate_restricted_in import restrict_time_ranges_in_to_candidates, top_level_comma_parts, diagnostic_alias_with_nested_tags
 
 SOURCE=(
 "SELECT timeSeriesStoreTags(id, tags, '__name__', metric_name) "
@@ -36,6 +36,15 @@ class RestrictionTests(unittest.TestCase):
         second=SOURCE.replace("'stage'","'project'").replace("'s1'","'project-00'")
         out=restrict_time_ranges_in_to_candidates(second)
         self.assertIn("equals(arrayElement(tags, 'project'), 'project-00')",out)
+
+    def test_output_alias_is_only_on_outer_tags_not_inner_candidate(self):
+        sql=restrict_time_ranges_in_to_candidates(SOURCE)
+        aliased=diagnostic_alias_with_nested_tags(sql)
+        self.assertIn("metric_name) AS r31_id FROM default.`.inner_id.tags.abc`",aliased)
+        self.assertEqual(aliased.count("AS r31_id"),1)
+        self.assertEqual(aliased.count("default.`.inner_id.tags.abc`"),2)
+        with self.assertRaises(ValueError):
+            diagnostic_alias_with_nested_tags(aliased)
 
     def test_rejects_missing_legacy_escape(self):
         with self.assertRaises(ValueError):
