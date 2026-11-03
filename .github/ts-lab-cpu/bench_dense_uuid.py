@@ -66,7 +66,7 @@ def capture(qids):
                    "sum(output_wait_elapsed_us) AS out_wait_us,"
                    "sum(input_rows) AS rows_in,sum(output_rows) AS rows_out "
                    "FROM system.processors_profile_log WHERE query_id IN "+vals+
-                   " GROUP BY query_id,name,plan_step_name ORDER BY query_id,work_us DESC LIMIT 120",
+                   " GROUP BY query_id,name,plan_step_name ORDER BY query_id,work_us DESC LIMIT 60 BY query_id",
       "cpu":"SELECT query_id,multiIf("
             "arrayExists(s -> position(s,'ReverseIndex')>0 OR position(s,'ColumnUnique')>0,symbols),'lc_reverse_index',"
             "arrayExists(s -> position(s,'timeSeriesStoreTags')>0 OR position(s,'ContextTimeSeriesTagsCollector')>0,symbols),'tag_registration',"
@@ -74,7 +74,7 @@ def capture(qids):
             "arrayExists(s -> position(s,'Aggregator')>0 OR position(s,'AdaptiveBucketMergingSource')>0,symbols),'aggregation',"
             "'other') AS component,count() AS samples "
             "FROM system.trace_log WHERE trace_type='CPU' AND query_id IN "+vals+
-            " GROUP BY query_id,component ORDER BY query_id,samples DESC LIMIT 60"
+            " GROUP BY query_id,component ORDER BY query_id,samples DESC LIMIT 30 BY query_id"
     }.items():
         try:d[key]=records(q)
         except Exception as e:d[key+"_error"]=str(e)[:1600]
