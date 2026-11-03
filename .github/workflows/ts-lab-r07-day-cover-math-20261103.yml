@@ -1,0 +1,35 @@
+name: R07 full-ID day-cover metadata oracle exactness tests
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths:
+      - '.github/workflows/ts-lab-r07-day-cover-math-20261103.yml'
+      - '.github/ts-lab/experiments/r07_day_cover_oracle.py'
+      - '.github/ts-lab/experiments/test_r07_day_cover_oracle.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tslab-r07-math-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  math:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/ts-lab/experiments/r07_day_cover_oracle.py
+            .github/ts-lab/experiments/test_r07_day_cover_oracle.py
+          sparse-checkout-cone-mode: false
+      - name: Verify semantic oracle, exceptions and reproducibility
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile .github/ts-lab/experiments/r07_day_cover_oracle.py
+          python3 -m unittest discover -s .github/ts-lab/experiments -p 'test_r07_day_cover_oracle.py' -v
+          git rev-parse HEAD
+          sha256sum .github/ts-lab/experiments/r07_day_cover_oracle.py .github/ts-lab/experiments/test_r07_day_cover_oracle.py
