@@ -1,5 +1,15 @@
 # TimeSeries performance lab — index
 
+## R35 / E05: completed native redundant-aggregation elimination (2026-11-04)
+
+- [Result and reproduction](../ts-lab-r35/README.md), [source proof](../ts-lab-r35/SOURCE_PROOF.md), [isolated C++ patch](../ts-lab-r35/apply_metric_drop.py), [optimized candidate build41732238195](https://github.com/moleus/ClickHouse/actions/runs/41732238195). Same pinned source/LLVM22.1.8/O2/jemalloc; no R32/R34/JOIN patch. Native AST proof defers metric-name removal to an immediate safe aggregation for a single exact metric, eliminating one full-series duplicate-check aggregation and copied labels. Positive plan3->2 Aggregating nodes; negative guards unchanged;147 native cases match stock, including duplicate-series error preservation.
+- [Full native1.33m/14d local A/B/B/A evidence](evidence/R35-native-1330k-local-20261104.json): whole-metric wall11974->7777ms (-35.0%), CPU11862->7644ms (-35.6%), query memory1.416->0.870GB (-38.6%). Same3.99m inner-path read rows and336024252 read bytes;532 exact output points. Whole control drifts0.63% stock/1.13% candidate. Dense native rate control179.75->148.5ms with analytic oracle. Selective latency effects require replication because of drift. **ACCEPT_FOR_NEXT_GATE, not production/VM superiority or tail-latency proof.**
+- [Two-client native memory-cap test](evidence/R35-two-client-capacity-local-20261104.json): same1.33m data,4-CPU/4GiB container,2.85GB server cap. Stock completes6/12 requests with6 total-memory-limit errors; candidate12/12, all successful outputs exact. Excluding warmups: stock4/8 vs candidate8/8. Both stock controls reproduce one failure per wave. This is a bounded capacity result, not a production failure rate.
+- [Separate R34 sparse-map result](evidence/R34-sparse-map-local-20261104.json): initial bucket-map16->2 cells cuts aggregate-only sparse memory165->53MB; full-native133k whole-query memory only292.53->281.34MB. Dense memory unchanged. Do not conflate kernel and full-query savings or multiply R34/R35 gains.
+- [R32 finalizer-only negative result](evidence/R32-local-native-133k-20261104.json): no reliable native speedup; **NO_EFFECT / DO_NOT_PROMOTE**. The R32 binary passed compilation but that alone was not a performance result.
+- Next gates: sustained open-loop mixed reads/writes, retention, ACL/tenant and distributed paths. Master/upstream/production unchanged. Original failed/censored local timing attempts are retained separately; final R35 runs completed all phases.
+
+
 ## R29 / E01: clean stock optimized O2 + jemalloc build (2026-11-03)
 
 - [Canonical R29 root](claims/roots/R29.json), [claim](claims/R29-stock-o2-jemalloc-source-parity-v1.json), [E01 owner](epics/20261103-release-parity/E01-R29-stock-o2-jemalloc-owner-20261103.json). R29 owns only a **source-unchanged release-optimized baseline artifact**, not E02 benchmark results or upstream/master changes.
