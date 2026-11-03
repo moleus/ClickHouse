@@ -125,3 +125,17 @@ Do not confuse `UUID` uniqueness per **series** with uniqueness per **sample**: 
 
 These small p50 deltas are comparable to A/A baseline drift; no robust universal gain from reducing per-query threads. At stage8 runqueue wait baseline alone changes markedly between A phases; do not assign it entirely to the thread setting. Do not use these results to claim project8 memory survival: [fresh-process project8 threads1 CI #41609140400](https://github.com/moleus/ClickHouse/actions/runs/41609140400) tests it independently.
 
+## 2026-11-03: fixed-clients project8 threads1 memory result also fails
+
+[CI #41609140400](https://github.com/moleus/ClickHouse/actions/runs/41609140400), [full source-pinned artifact analysis](../ts-lab-cpu/NATIVE_FRESH8_THREAD1_CAPACITY_20261103.md):
+same pinned stock O1 and fixture, new ClickHouse process before each LC/RAW/RAW/LC phase,
+8 concurrent project14d clients at **max_threads=1** (instead of 2).
+Phase LC A0 passes all 10 bursts (p50 5102ms, 4.01 GiB RSS peak);
+RAW B1 passes 8 bursts then Code241 OOM;
+RAW B2 passes 1 then OOM;
+LC A3 passes 3 then OOM. **Overall FAIL.**
+The second LC phase fails despite the first LC success, proving phase-dependent
+memory survival. No valid RAW/LC A/B/B/A 8-client latency comparison.
+Reducing max_threads to 1 delays the capacity failure in some phases but is **not a
+safe reliable fix**, and its capacity effects cannot be generalized to production jemalloc.
+
