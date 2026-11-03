@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "question_id": "R13-large-regex-alternation-in-vs-match-v1",
+  "decision": "NO_EFFECT",
+  "ci_status": "success",
+  "verified_utc": "2026-11-03T10:41:30Z",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary": {
+    "build_run_id": 41596421285,
+    "sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "optimizer": "O1 stock source, LLVM22.1.8",
+    "archive_verified": true,
+    "binary_verified": true
+  },
+  "hypothesis": "Literal 200-term branch alternation recognized by tryGetLiteralAlternatives and transformed by StorageTimeSeriesSelector::matcherToAST to SQL IN; compact regex b0[01][0-9][0-9] takes anchored match path. Expected selection exactly identical; test whether native CPU, IO or memory savings survive paired control.",
+  "source_evidence": [
+    "src/Storages/TimeSeries/tryGetLiteralAlternatives.cpp: recognizes literal OR terms, rejects regex metacharacters such as character classes.",
+    "src/Storages/StorageTimeSeriesSelector.cpp::matcherToAST: if literal alternatives, builds in(tag,tuple(strings)); otherwise builds anchored match(tag,regex).",
+    "src/TableFunctions/TableFunctionTimeSeriesSelector.h: native selector table function accepts selectors and bounded samples read."
+  ],
+  "fixture": {
+    "sha256": "e102f02fbffbba6df3a96e202a5b7fdf65c55108f7189068ecc5bddd5e7174d9",
+    "synthetic": true,
+    "series": 32768,
+    "distinct_branch_labels": 1024,
+    "selected_branch_labels": 200,
+    "selected_series": 6400,
+    "stage_groups": 16,
+    "one_sample_per_series": true,
+    "relative_selection": 0.1953125,
+    "regex_literal_bytes": 1199,
+    "regex_compact_bytes": 16
+  },
+  "protocol": {
+    "type": "same-runner native PromQL A/B/B/A",
+    "phases": [
+      "A0 literal_IN",
+      "B1 compact_MATCH",
+      "B2 compact_MATCH",
+      "A3 literal_IN"
+    ],
+    "warmups_per_phase": 2,
+    "measured_trials_per_phase": 4,
+    "total_query_trials": 24,
+    "all_phases_passed": true,
+    "exact_output_parity": true,
+    "independent_python_oracle": true,
+    "control_wall_drift_fraction": 0.017552110909219234,
+    "allowed_drift_fraction": 0.25,
+    "queries_with_cache": false,
+    "physical_parts": {
+      "samples": 1,
+      "samples_granules": 128
+    }
+  },
+  "results": {
+    "literal_wall_p50_mean_ms": 63.414025,
+    "compact_wall_p50_mean_ms": 64.26345,
+    "compact_minus_literal_wall_fraction": 0.0133949075145443,
+    "literal_cpu_p50_mean_ms": 63.64525,
+    "compact_cpu_p50_mean_ms": 64.18325,
+    "compact_minus_literal_cpu_fraction": 0.00845310529851,
+    "read_rows_p50_both": 98304,
+    "selected_samples_granules_both": "128/128",
+    "read_bytes_p50": {
+      "literal": 7831844,
+      "compact": 8061220
+    },
+    "query_memory_peak_p95_bytes": {
+      "literal_approx": 19056822,
+      "compact_approx": 17976831
+    },
+    "process_rss_after_p50_kib_both": 77104
+  },
+  "interpretation": "Both syntaxes produce the same source-pinned labels/timestamps and numeric outputs. The observed 1.34% wall and 0.85% CPU differences are below 1.76% A/A drift; no speed advantage is established. EXPLAIN TimeSeriesSelector shows the same 6400-ID set and all 128/128 SAMPLES granules, explaining why the regex rewrite does not prune sample reads on this mixed-label layout. Compact form used about 1.08MB less peak per-query tracker memory, but single fixture/one job does not prove a general memory benefit.",
+  "correction_to_raw_report": "The benchmark report.json scientific_decision=ACCEPT_FOR_NEXT_GATE means correctness and broad drift gates passed; it must NOT be read as an observed speedup. This immutable evidence classifies the performance result as NO_EFFECT because it falls inside control drift. Raw artifact preserved without alteration.",
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41621089700",
+    "job_id": 125866686000,
+    "artifact_id": 13223478177,
+    "artifact_zip_sha256": "bdfa7a6fd3056bd9afc3d65687da16a21b1e7f682bd6a306311398b00b06bc52",
+    "source_script": ".github/ts-lab/experiments/r13_native_regex_in_vs_match.py",
+    "workflow_path": ".github/workflows/ts-lab-r13-regex-literal-compact-20261103.yml",
+    "workflow_commit": "c7beb4784a1337d0a831aeb8e25188f3fe61be34"
+  },
+  "limitations": [
+    "One 32k one-sample high-churn fixture with branch in Map and no dedicated branch primary-key column. Not the real Grafana multi-branch stage query distribution.",
+    "One run on 4-vCPU GitHub-hosted runner; small effects are below observed control drift and no cross-runner precision is claimed.",
+    "EXPLAIN resolves 6400 candidate IDs and scans all SAMPLES granules; no structural pruning improvement observed. Parts/marks may differ at other densities.",
+    "The optimizer path is verified by pinned C++ source and semantically equivalent output. EXPLAIN does not expose original tag predicate at all operator depths; do not attribute 1.34% to a particular function."
+  ],
+  "next_action": {
+    "question_id": "R13",
+    "step": "Stop repeating this small synthetic regex-shape benchmark. Resume only if a held-out real-like branch=All fixture shows >5% pipeline CPU devoted to matcher evaluation, or a dedicated indexed label column permits measurable granule pruning; require source exact plan and A/B/B/A with matched client load.",
+    "stop_condition": "No follow-up runner without new source-level cost bound and expected effect above baseline drift."
+  }
+}
