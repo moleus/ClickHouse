@@ -30,3 +30,14 @@
 - Preserve all results as immutable evidence with `PASS/REJECT/NO_EFFECT/INCONCLUSIVE/INVALID_METHOD/CORRECTNESS_FAIL`; GitHub job SUCCESS alone is not scientific success.
 - Protect exact labels/timestamps/numeric values, stale NaN, absent labels, repeated/late samples, counter resets, ACL, memory/OOM. Do not infer production superiority from O1 vs release or multiply separate speedups.
 - Source/review work can start in parallel. CI compiles must be budgeted and must not preempt other owners.
+
+## 2026-11-03 R06 execution checkpoint: evidence and next gate
+
+**Owner/claim:** `chatgpt-e03-order-aware-20261103` / [R06 canonical root](../../claims/roots/R06.json). This is a source+plan diagnostic, not an adaptive native CBO implementation.
+
+- [Source-level planning audit](E03-R06-order-aware-native-planner-source-audit-20261103.md): selector forces `full_sorting_merge` and `optimize_read_in_order` for its inner ID query; `timeSeriesStoreTags` has query-context side effects. Do not assume SQL stats automatically fix native PromQL.
+- [Independent reduction of original 1.33m native 2×2 factorial](../../../ts-lab-r06/HISTORICAL_FACTORIAL_REDUCTION_20261103.md): projection saved ~16.6–16.8% read rows but merge JOIN wall worsened 32.7–36.2%. Stage/project interaction +357/+142 ms; concurrent operator work is NOT wall time. Not optimized-release parity.
+- [Actual inner ID SELECT/EXPLAIN capture](../../../ts-lab-r06/NATIVE_ID_PLAN_CAPTURE_20261103.md), [CI 41673047398](https://github.com/moleus/ClickHouse/actions/runs/41673047398): exact source/binary pin, 8192 synthetic IDs, 8/8 output parity; confirmed standalone `FullSortingMergeJoin` vs hash with matched settings. A one-mark projection was considered but not chosen. Preserve first [INVALID_METHOD 41670929674](../../evidence/R06-nested-plan-invalid-method-41670929674.json) and wrongly configured standalone [41672454144](https://github.com/moleus/ClickHouse/actions/runs/41672454144).
+- [JOIN cardinality estimates falsified](../../../ts-lab-r06/CARDINALITY_ESTIMATE_AUDIT_20261103.md), [CI 41673788133](https://github.com/moleus/ClickHouse/actions/runs/41673788133), [immutable evidence](../../evidence/R06-native-join-cardinality-41673788133.json): `EXPLAIN` estimated TAGS left 1350 for both stage/project but exact counts are 216/410; TimeRanges right estimate 892 vs actual8192 (underestimate 9.18×). This **invalidates estimate-only hash admission on this fixture**, not all CBO estimates.
+
+**Next experiment:** measure full-query native operators and true cardinality on held-out 1.33m/14d and 400-node/mixed-cadence fixtures. Estimate a conservative right-hand build-row upper bound and sort-work/peak per selected physical plan. Do not enable new hash/projection choice until E06/R08 oracle and 1/4/8-client CPU/RSS/OOM gates. No C++ modification or optimized release result yet.
