@@ -201,7 +201,20 @@ def assert_physical(endpoint, variant):
 
 
 def check_native(endpoint):
-    actual = base.native(endpoint, TABLE, STEPS)['values']
+    # Full source history must be visible at 96 x 1m steps. The original
+    # 30-minute selector was only equivalent for 12 steps.
+    end_epoch = base.BASE + (STEPS-1)*60
+    expr = f'avg by(scope)(avg_over_time({base.METRIC}[4h]))'
+    qtext = (f'SELECT * FROM prometheusQueryRange({TABLE},{base.q(expr)},'
+             f'{end_epoch},{end_epoch},60) SETTINGS max_threads=2,use_query_cache=0 FORMAT JSONEachRow')
+    samples = base.normalize(base.sql(endpoint,qtext))
+    actual = {}
+    for (scope, time_str), value in samples.items():
+        parsed_epoch = int(base.dt.datetime.fromisoformat(time_str.replace(' ','T'))
+                           .replace(tzinfo=base.dt.timezone.utc).timestamp())
+        if parsed_epoch != end_epoch or scope in actual:
+            raise AssertionError('Wrong native timestamp or duplicate scope')
+        actual[scope] = value
     expected = base.expected(SLOTS, STEPS)
     if set(actual) != set(expected):
         raise AssertionError(f'Native labels differ: actual {actual}, expected {expected}')
@@ -352,7 +365,12 @@ def main():
     p.add_argument('--binary',required=True)
     p.add_argument('--outdir',required=True)
     p.add_argument('--port',type=int,default=18191)
+    p.add_argument('--batches',type=int,default=12)
     a=p.parse_args()
+    if a.batches not in (12,96):
+        raise AssertionError('Only pinned 12 or 96 chronological batches allowed')
+    global STEPS
+    STEPS = a.batches
     root=pathlib.Path(a.outdir)
     root.mkdir(parents=True,exist_ok=True)
     if not pathlib.Path(a.binary).exists():
@@ -361,7 +379,7 @@ def main():
     hashes=[hashlib.sha256(block.encode()).hexdigest() for block in blocks]
     all_sha=hashlib.sha256(''.join(blocks).encode()).hexdigest()
     report={'schema_version':1,'question_id':'R02-small-batch-raw-lc-write-v1',
-            'subexperiment':'fresh-process-whole-CPU-ABBA-v2',
+            'subexperiment':'fresh-process-whole-CPU-ABBA-'+str(STEPS)+'batches-v3',
             'source_sha':SOURCE,'slots_per_scope':SLOTS,'batches':STEPS,
             'physical_points_per_phase':2*SLOTS*STEPS,
             'input_sha256':hashes,'combined_fixture_sha256':all_sha,
