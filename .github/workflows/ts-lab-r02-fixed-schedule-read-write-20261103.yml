@@ -1,0 +1,96 @@
+name: R02 fixed arrivals native PromQL and inserts natural merges LC RAW ABBA
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r02-fixed-schedule-read-write-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ts-lab-r02-fixed-arrivals-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  r02:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      BINARY_SHA256: f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Source and preflight
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r02fixed
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          python3 -m py_compile .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py .github/ts-lab/experiments/r02_fixed_schedule_read_write.py
+          python3 .github/ts-lab/experiments/r02_fixed_schedule_read_write.py --help > evidence/r02fixed/help.txt
+          git rev-parse HEAD > evidence/r02fixed/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py .github/ts-lab/experiments/r02_fixed_schedule_read_write.py > evidence/r02fixed/script-sha256.txt
+      - name: Reuse pinned SHA verified O1 binary (no recompilation)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r02fixed-art" "$RUNNER_TEMP/r02fixed-bin"
+          gh run download 41596421285 -R "$REPO" \
+            --pattern 'tslab-stock-clickhouse-o1-binary-*' \
+            -D "$RUNNER_TEMP/r02fixed-art"
+          archive="$(find "$RUNNER_TEMP/r02fixed-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r02fixed/archive-verify.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r02fixed-bin"
+          (cd "$RUNNER_TEMP/r02fixed-bin" && sha256sum -c SHA256SUMS) | tee evidence/r02fixed/binary-verify.txt
+          test "$(sha256sum "$RUNNER_TEMP/r02fixed-bin/clickhouse" | cut -d' ' -f1)" = "$BINARY_SHA256"
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r02fixed-bin/BUILD_INFO.txt"
+          grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/r02fixed-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/r02fixed-bin/BUILD_INFO.txt" evidence/r02fixed/build-info.txt
+          chmod +x "$RUNNER_TEMP/r02fixed-bin/clickhouse"
+          "$RUNNER_TEMP/r02fixed-bin/clickhouse" --version | tee evidence/r02fixed/version.txt
+      - name: Absolute fixed 200ms insert 400ms native query arrivals under natural merges ABBA
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r02_fixed_schedule_read_write.py \
+            --binary "$RUNNER_TEMP/r02fixed-bin/clickhouse" \
+            --outdir evidence/r02fixed --port 18191 | tee evidence/r02fixed/console.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/r02fixed/report.json'))
+          assert d['passed'] and not d['errors'],d['errors']
+          assert d['fixture_sha256']=='dd2dd55ee8fcf3c11c1fef94ebdd54ac8b3a6a53cea6deaae991b3b94c88b931'
+          assert len(d['phases'])==4 and d['comparison']['method_valid']
+          assert d['comparison']['decision'] in ('NO_EFFECT','INCONCLUSIVE_REPLICATION_NEEDED')
+          for phase,mode in (('A0','lc'),('B1','raw'),('B2','raw'),('A3','lc')):
+              x=d['phases'][phase]
+              assert x['mode']==mode and x['passed']
+              assert len(x['insert_records'])==84 and len(x['valid_reader_samples'])==40
+              assert x['physical']['physical_sample_points']==384000
+              assert x['metrics']['native_read']['count']==40
+              assert x['metrics']['mixed_read_write_server_process']['cpu_s']>0
+              assert len(x['read_progress_quartiles'])==4
+              assert x['schedule']['max_read_late_ms']<=75
+              assert x['schedule']['max_write_late_ms']<=75
+              assert x['schedule']['max_progress_batch_deviation']<=2
+          print('R02_FIXED_FINAL',json.dumps({'passed':True,
+            'decision':d['comparison']['decision'],'metrics':d['comparison']['metrics'],
+            'fixture':d['fixture_sha256']},separators=(',',':')))
+          PY
+      - name: Preserve raw correct and failed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r02-fixed-arrivals-${{ github.run_id }}
+          path: |
+            evidence/r02fixed/*.txt
+            evidence/r02fixed/*.log
+            evidence/r02fixed/*.json
+            evidence/r02fixed/phase-*/report.json
+            evidence/r02fixed/phase-*/config.xml
+            evidence/r02fixed/phase-*/server.log
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
