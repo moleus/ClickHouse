@@ -15,10 +15,10 @@ import sys
 
 sys.path[:0]=[".github/ts-lab-r31",".github/ts-lab-r30",".github/ts-lab-r06",
               ".github/ts-lab-perf",".github/ts-lab-bench"]
-from candidate_restricted_in import restrict_time_ranges_in_to_candidates
+from candidate_restricted_in import restrict_time_ranges_in_to_candidates, diagnostic_alias_with_nested_tags
 from bench_large_membership_in import (
     FIXTURE_SHA,SOURCE,CASES,DRIFT_CAP,SETTINGS,TABLE,DAY,inspect_parts,
-    native_query, type_safe_fingerprint, sampled_output_digest
+    native_query, type_safe_fingerprint, sampled_output_digest, fetch_one
 )
 from bench_membership_in import convert_join_to_in,diagnostic_alias
 from bench_timeranges_any_sql import request,quoted,rewritten as any_join,read_query_logs,save
@@ -40,7 +40,16 @@ def compare_three(ids,case,runid):
     candidates["restricted"]=restrict_time_ranges_in_to_candidates(candidates["in"])
     values={}
     for mode,stmt in candidates.items():
-        result=type_safe_fingerprint(stmt,case,mode,runid)
+        if mode=="restricted":
+            named=diagnostic_alias_with_nested_tags(stmt)
+            result=fetch_one(
+                "SELECT count() AS rows,uniqExact(r31_id) AS ids,"
+                "sum(sipHash64(r31_id)) AS hash_sum,"
+                "sum(sipHash64(r31_id, 'r31-independent')) AS hash_sum_alt "
+                f"FROM ({named}) SETTINGS {SETTINGS}",
+                f"r31large_fp_{case}_{mode}_{runid}")
+        else:
+            result=type_safe_fingerprint(stmt,case,mode,runid)
         values[mode]=result
     for field in ("ids","hash_sum","hash_sum_alt"):
         hashes={name:str(v[field]) for name,v in values.items()}
@@ -54,7 +63,9 @@ def bench(candidates,case,runid):
     qids=[]
     for phase,mode in enumerate(ORDER):
         trials=[]
-        sql="SELECT count() AS n,uniqExact(r31_id) AS u FROM ("+diagnostic_alias(candidates[mode])+") SETTINGS "+SETTINGS
+        named=(diagnostic_alias_with_nested_tags(candidates[mode])
+               if mode=="restricted" else diagnostic_alias(candidates[mode]))
+        sql="SELECT count() AS n,uniqExact(r31_id) AS u FROM ("+named+") SETTINGS "+SETTINGS
         for i in range(7):
             qid=f"r31cand_{case}_{phase}_{mode}_{i}_{runid}"
             result=query_one(sql,qid)
