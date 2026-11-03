@@ -1,0 +1,22 @@
+{
+  "id": "R06-native-order-aware-plan-cost-v1",
+  "question": "Can native TimeSeries planning avoid projection-induced sorting and make a conservative choice between ordered merge and other joins without causing OOM?",
+  "owner": "chatgpt-e03-order-aware-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Pinned stock O1 source; historical native factorial run 41589798782, no binary build initiated here",
+  "candidate": "Source-backed order-aware analytical cost gate; no C++ change until held-out native proof",
+  "fixture": "Historical 1.33m 14d Jenkins SHA256 8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858; hold-out fixture not yet pinned",
+  "single_variable": "Physical order/projection setting in matched same-source native A/B/B/A comparison after analytical feasibility",
+  "math_bound": "Any projected-row scan saving must exceed additional sorting and join build work; M_hash_peak must fit per-query and server RSS headroom with safety factor",
+  "falsifier": "Fewer selected rows without net CPU/latency gain; query semantic mismatch; model mispredicts held-out crossover; candidate raises memory/OOM",
+  "test_matrix": "First source and historical paired evidence; future narrow/broad 1/3/7/14d high-churn and dense stable with 1/4/8 clients",
+  "runner_budget": "0 jobs and 0 CI minutes in this phase; expensive follow-up only after E06 oracle and R06 preregistered budget",
+  "planned_workflow": "none; no schedule",
+  "dependencies": [
+    "R08",
+    "E06",
+    "E04"
+  ],
+  "notes": "Scope excludes R05 ID-set mark analysis and R07 metadata layout."
+}
