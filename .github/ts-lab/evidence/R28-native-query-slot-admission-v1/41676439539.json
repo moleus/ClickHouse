@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "question_id": "R28",
+  "claim_id": "R28-native-query-slot-admission-v1",
+  "run_id": 41676439539,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41676439539",
+  "workflow_commit": "5b1a7c94e6376ea92820bbc2e0871701519cc185",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "binary_build_run": 41596421285,
+  "fixture_sha256": null,
+  "fixture": "SELECT sleepEachRow(0.2) FROM numbers(1), eight synchronized requests per phase; no TimeSeries data",
+  "experiment_kind": "functional smoke for QUERY-slot admission; not throughput benchmark",
+  "status": "PASSED",
+  "scientific_decision": "ACCEPT_FOR_NEXT_GATE",
+  "phases": [
+    {
+      "slots": 8,
+      "clients": 8,
+      "wall_ms": 210.19,
+      "request_p50_ms": 207.86,
+      "request_max_ms": 209.55,
+      "success": 8
+    },
+    {
+      "slots": 2,
+      "clients": 8,
+      "wall_ms": 812.3,
+      "request_p50_ms": 508.69,
+      "request_max_ms": 810.3,
+      "success": 8
+    },
+    {
+      "slots": 2,
+      "clients": 8,
+      "wall_ms": 810.76,
+      "request_p50_ms": 506.81,
+      "request_max_ms": 810.18,
+      "success": 8
+    },
+    {
+      "slots": 8,
+      "clients": 8,
+      "wall_ms": 209,
+      "request_p50_ms": 207.69,
+      "request_max_ms": 208.54,
+      "success": 8
+    }
+  ],
+  "timeout_check": {
+    "holder_query_ms": 2003.2,
+    "waiting_request_ms": 103.87,
+    "timeout_ms": 100,
+    "expected_error": "QUERY_SLOT_ACQUISITION_TIMEOUT",
+    "actual_error_code": 1019,
+    "passed": true
+  },
+  "parity": "All 32 200ms sleep queries returned exact TSV 0, slow holder returned 0, timed out request was rejected before query start.",
+  "a_a_drift": {
+    "eight_slot_wall_percent": 0.57,
+    "two_slot_wall_percent": 0.19
+  },
+  "limitations": [
+    "No TimeSeries native query and no effect on per-query CPU established",
+    "Sleep releases CPU, so benchmark measures deterministic queueing, not resource contention",
+    "No memory measurements or process-RSS upper bound established",
+    "No comparison with VictoriaMetrics or optimized release binary"
+  ],
+  "next_gate": "Fresh-process eight-client 1.33m/14d RAW UUID native PromQL ABBA at admitted slots unlimited/2/4; compare exact output, full latency including queue, completed QPS, errors, process peak RSS, and CPU. Reject candidate if OOM persists or queueing violates p95/p99 budget."
+}
