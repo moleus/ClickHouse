@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "session_id": "r28-native-admission-20261103-02",
+  "status": "waiting_ci",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "18d956d6bf41ccd3f838df36a1ec39220e9ad26f",
+  "last_verified_utc": "2026-11-03T17:20:34Z",
+  "question_id": "R28",
+  "summary": "Isolated full native TimeSeries experiment launched to test whether workload QUERY admission slots prevent stock O1 eight-client project14d OOM; no optimization claim until full six-phase completion.",
+  "completed": [
+    "Fixed previously invalid R28 handoff status and verified lab state contract run 41682508542 PASS",
+    "R28 functional smoke CI 41676439539 PASS with exact admission queue and timeout behavior",
+    "Registered R28 native six-phase matched fresh-process benchmark script, test and source cost model",
+    "Offline contract tests passed in R28 workflow 41683302083; verified pinned stock binary restoration and 4.8GB server startup",
+    "Observed independent E04 R27 CI 41673646832 PASS for VM per-day/global index crossover, not R28 work"
+  ],
+  "negative_results": [
+    "Historical stock O1 8-client fresh-process project14d OOM reproducible in all four phases CI 41607617562",
+    "max_threads=1 does not guarantee survival CI 41609140400",
+    "Sleep-request smoke only validates queueing; cannot infer native PromQL performance or process-RSS safety"
+  ],
+  "active_run_ids": [
+    41683302083
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+  "relevant_paths": [
+    ".github/ts-lab-r28/bench_native_admission_capacity.py",
+    ".github/ts-lab-r28/test_native_admission_capacity.py",
+    ".github/ts-lab-r28/ADMISSION_CAPACITY_MODEL_20261103.md",
+    ".github/workflows/ts-lab-r28-native-capacity-20261103.yml",
+    ".github/ts-lab/claims/R28-native-query-slot-admission-v1.json"
+  ],
+  "blocked_by": [
+    "R28 CI 41683302083 must finish all six phases; no runtime conclusion yet"
+  ],
+  "next_action": {
+    "question_id": "R28",
+    "step": "Inspect CI 41683302083 after fixture load and each phase. Classify OOM, timeouts, exact 266-point native output, A/A drift, arrival-to-response p95/p99, completed QPS, tracked and process RSS. Preserve full artifact and commit immutable outcome evidence; reject/correct methodological bugs before any production or optimized stack promotion.",
+    "stop_condition": "Incomplete phases, bad oracle, process cap failure, missing query logs or >25% control drift prohibit performance claims."
+  }
+}
