@@ -3,6 +3,10 @@
 **Depends on:** E06 frozen fixtures; informs E03/E05.
 **Goal:** explain *why* VictoriaMetrics scans/decodes fewer or different bytes/IDs for the same label/time selector, and determine which techniques transfer to ClickHouse TimeSeries without unacceptable ingest and HA costs.
 
+## Progress: source audit 01 (2026-11-03)
+
+[Source-verified E04 audit](E04-source-audit-20261103.md) committed: VM per-day tag postings, adaptive per-day filter-loop ranking, ID-set caching, TSID+time block lookup, CH existing TAGS text postings and sparse SAMPLES marks, source-derived per-day write-entry lower bound, and links to successful R03/R15/R19/R07 results. **No new benchmark or claimed runtime gain.** Next gated action is a same-run VM index/cache tracer versus CH native TAGS/TimeRanges/SAMPLES CPU attribution, coordinated with R03/E02. R05/R07 keep mark/metadata ownership.
+
 ## Source-verified entrypoints
 - [VM v1.134 indexDB searchMetricIDs](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/storage/index_db.go#L1689-L1723) checks cached matching metricIDs and then searches index; [SearchTSIDs](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/storage/index_db.go#L1725-L1755) maps to TSIDs; [filter intersection](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/storage/index_db.go#L2655-L2702) intersects candidate metricID sets.
 - [CH v11 selector read](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/StorageTimeSeriesSelector.cpp#L1219-L1340) forms TAGS/TimeRanges IDs and then SAMPLES primary-key set analysis. Existing v11 bucketed path does NOT use its unbucketed whole-metric range probe.
