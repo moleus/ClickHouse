@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "question_id": "R23",
+  "primary_claim_id": "R23-tag-map-key-order-normalization-cost-v1",
+  "owner": "chatgpt-r23-tag-order-20261103",
+  "scope": "Pinned-source stock-O1 TimeSeries v11 JSONEachRow per-series label Map key order normalization before TAGS dedup cache. Same logical label pairs (at least 16 labels/series), exact IDs, canonicalized physical TAGS, 4096 stable series x 24 chronological INSERTs; compare key-value map serialized lexicographic versus deterministic scrambled key order across A/B/B/A fresh servers with unchanged 1MiB tags cache and full source/fixture/native oracle. Capture global hits/misses, process-tree CPU, physical TAGS/TimeRanges/SAMPLES and QueryFinish. No C++ changes, no production change, no extra label-local index, no row-order variation. Distinct from R21 series-row input ordering and cache capacity, R22 cache TTL, R19 historical metadata, R07 day-sidecar, R20 native sum/count.",
+  "allowed_support_claims": [],
+  "source_proof": "src/Storages/TimeSeries/TimeSeriesSink.cpp: fillTagsColumns calls std::sort(tags.begin(),tags.end()) per input series and canonicalizes duplicate/empty tags before makeTagsBlock computes IDs, then TimeSeriesDeduplicationCache::filterOutWrittenRows runs. Check that identical key-value pairs in differing Map order still produce exactly 4096 stable IDs and 4096 misses/94208 hits and that any CPU difference is not storage-layout or cache-hit noise.",
+  "falsifiers": "If physical TAGS IDs differ or cache misses vary, the canonicalization hypothesis is false or fixture wrong. If CPU/perf difference does not exceed 5% and A/A drift, report NO_EFFECT, not a speedup. Raw input bytes length and row count must match; canonical logical SHA must match, while wire SHA is intentionally different.",
+  "created_utc": "2026-11-03T15:07:00Z"
+}
