@@ -54,6 +54,49 @@ def parse_selector_sql(chunk):
     return stmt
 
 
+def extract_ids_subquery(generated):
+    """Extract the SELECT used as the second argument of SAMPLES id IN set.
+
+    This is a diagnostic SQL subquery. Its standalone EXPLAIN may still differ
+    from planning in the original IN-set context. SQL strings/backticks are
+    handled so nested function parentheses do not break matching.
+    """
+    anchor = 'in(id, (SELECT '
+    at = generated.find(anchor)
+    if at < 0: raise ValueError('No native SAMPLES id IN (SELECT ...) source')
+    start = at + len('in(id, ')
+    depth = 0
+    quote = None
+    escaped = False
+    index = start
+    while index < len(generated):
+        ch = generated[index]
+        if quote:
+            if escaped:
+                escaped = False
+            elif ch == chr(92):
+                escaped = True
+            elif ch == quote:
+                if index + 1 < len(generated) and generated[index + 1] == quote:
+                    index += 1
+                else:
+                    quote = None
+        elif ch in (chr(39), chr(34), chr(96)):
+            quote = ch
+        elif ch == '(':
+            depth += 1
+        elif ch == ')':
+            depth -= 1
+            if depth == 0:
+                statement = generated[start + 1:index].strip()
+                if not statement.startswith('SELECT timeSeriesStoreTags(') or 'LEFT JOIN' not in statement:
+                    raise ValueError('Unexpected native TAGS/TimeRanges subquery')
+                return statement
+            if depth < 0:
+                raise ValueError('Unbalanced ID selector parentheses')
+        index += 1
+    raise ValueError('Unclosed ID selector parentheses')
+
 def capture(logfile, start_offset):
     for _ in range(40):
         with pathlib.Path(logfile).open('rb') as stream:
@@ -156,17 +199,21 @@ def main():
                 if reference is None: reference = rows
                 else: parity = assert_same(reference, rows, case, mode)
                 nested = capture(args.log, start_offset)
+                ids = extract_ids_subquery(nested)
                 item = {'query_id': qid, 'native_sql': native, 'points': len(rows),
                         'max_abs_error': parity['max_abs_error'], 'requested_settings': settings,
                         'generated_sql_sha256': hashlib.sha256(nested.encode()).hexdigest(),
-                        'generated_selector_sql': nested, 'explain': explain(nested, settings)}
+                        'generated_selector_sql': nested, 'ids_selector_sql': ids,
+                        'explain': explain(nested, settings), 'explain_ids': explain(ids, settings)}
                 report['cases'][case][mode] = item
                 (folder / f'{case}-{mode}-selector.sql').write_text(nested + '\n')
+                (folder / f'{case}-{mode}-ids.sql').write_text(ids + '\n')
                 (folder / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
                 print('R06_CAPTURE', case, mode, 'points', len(rows),
                       'plan', bool(item['explain'].get('plan')), 'pipeline', bool(item['explain'].get('pipeline')), flush=True)
-        report['status'] = 'PASS' if all(not any(k.endswith('_error') for k in item['explain'])
-            for matrix in report['cases'].values() for item in matrix.values()) else 'INCONCLUSIVE'
+        report['status'] = 'PASS' if all(not any(k.endswith('_error') for k in item[field])
+            for matrix in report['cases'].values() for item in matrix.values()
+            for field in ('explain', 'explain_ids')) else 'INCONCLUSIVE'
     except Exception as exc:
         report['errors'].append(str(exc))
         report['status'] = 'INCONCLUSIVE'
