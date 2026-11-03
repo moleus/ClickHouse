@@ -63,3 +63,30 @@ All **18 native grid output parity checks**, 4 cases of 6-phase A/B/B/A with 2 w
 **Most robust new claim:** broad node3d *correct per-bucket vs correct per-point SQL on exactly the same stock data and runner* p50 **1.317x (staggered) and 1.309x (aligned)**. QueryFinish CPU **1.80x and1.71x lower**, while selected marks/rows/bytes are unchanged in each pair. This is a credible execution-path improvement independent of physical source bucket placement, not a general 22x gain. Broad pod3d bucket SQL saves CPU ~1.4–1.5x in both layouts but latency improvement is smaller, depending on context switching and the rest of the critical path. Pod1d bucket wall is not universally better, even with less CPU. **No global forced planner selection.**
 
 Next bounded gate is [1/4/8 client matched native-vs-safe-bucket ABBA #41643759040](https://github.com/moleus/ClickHouse/actions/runs/41643759040): queueing/throughput, client latency, QueryFinish CPU and coarse 4Hz RSS under parallel load; no production performance conclusion yet.
+
+## 2026-11-03 capacity gate: 1/4/8 synchronized clients, same stock O1
+
+[GitHub Actions #41643759040](https://github.com/moleus/ClickHouse/actions/runs/41643759040) **SUCCESS**, [immutable evidence](../evidence/R07-bucket-sumcount-capacity-41643759040.json), ZIP artifact digest \`sha256:33581b3e54217dcf4e394c257d55c73d71c07b60a1fc59252b39ce2272d88d9c\`. This **new** same-runner experiment uses the frozen staggered 2.488m R01 fixture, one stock O1 ClickHouse instance, original full-ID TAGS/SAMPLES, no new index/sidecar/C++ build, 2 broad three-day native PromQL selectors, and **exact stale-safe bucket SQL** from the validated source/math gate.
+
+For each of **2 selectors × (1,4,8 clients)**, \`native/bucket/bucket/native\` A/B/B/A, **5 synchronized waves per phase (first warmup, 4 measured)**. Every single request checks the **entire native label/time/value output**, plus **18 separate time-grid correctness checks before stress**. This totals **520 client calls, 104 warmups, 416 measured calls and 120 synchronized waves**. All six A/B/B/A baseline drifts under 25%; no OOM or fatal errors; frozen physical parts.
+
+The reported QPS equals \`n/(latest client completion - earliest client start)\` **for a synchronized wave** and is the median of measured wave rates. It is a *short burst capacity estimate*, **NOT** sustained throughput, production rate limits, long-run arrival load or a stable latency percentile. For each n, the p95 is computed on only 8/32/64 client timings **per variant** across repeated A/B/B/A phases, so it is not a p99/SLA measurement.
+
+| Selector | Clients | Native p50 → bucket p50 ms | Native p95 → bucket p95 ms | Native → bucket wave QPS | Native/bucket p50 |
+|---|---:|---:|---:|---:|---:|
+| node broad3d | 1 | 143.32→80.34 | 146.46→81.29 | 6.97→12.43 | **1.784x** |
+| node broad3d | 4 | 419.51→117.81 | 460.42→130.46 | 9.16→32.77 | **3.561x** |
+| node broad3d | 8 | 845.61→273.41 | 964.68→328.62 | 8.39→26.17 | **3.093x** |
+| pod broad3d | 1 | 135.76→48.65 | 139.13→53.31 | 7.36→20.54 | **2.790x** |
+| pod broad3d | 4 | 296.75→94.09 | 358.25→108.56 | 12.44→37.73 | **3.154x** |
+| pod broad3d | 8 | 549.93→135.61 | 615.22→154.42 | 13.13→52.17 | **4.055x** |
+
+At eight clients, pod native QueryFinish CPU **263.47ms** versus fused **69.34ms per query** (CPU ratio **3.80x**), while synchronized burst QPS rises **3.97x**. Node eight-client CPU **378.85→115.66ms** (3.28x), QPS8.39→26.17 (3.12x). This is *consistent with* CPU saturation and reduced per-ID aggregation/grid materialization work, but **does not isolate a specific CPU stage** and cannot prove saturation without CPU utilization/off-CPU profiling. Physical SAMPLES marks are **302 both** for broad pod and **154 both** for broad node. This is not a mark-pruning or storage-codec effect. The full multi-client evidence includes per-query QueryFinish CPU/bytes/query tracked memory and whole-server 4Hz RSS; **allocator retention means do not infer production RSS savings from observed per-phase maxima**.
+
+### Updated decision
+
+**Research acceptance, not an upstream or production deploy:** independently verified 22/22 challenging native grid outputs, 18/18 exact R01 grids in two 2.49m physical layouts, 4-case single-client matched A/B/B/A, and 1/4/8 concurrent-client same-stock source with full output checks. For the narrow tested query family \`avg by(project|namespace)(avg_over_time(metric{literal filter}[1d|3d]))\`, exact stale-NaN bit filtering and original full-ID aggregation are necessary.
+
+Before any C++ patch, a source-level integration plan must preserve (i) native time-series grid behavior, (ii) TimeRanges/tag and duplicate-ID semantics, (iii) stale-NaN vs ordinary NaN and duplicate timestamps across inserts, (iv) read safety during concurrent writes/TTL/backfill, (v) access control and arbitrary matcher fallback. Then a pre-registered admission rule must select the fused path only when \`P/B\`, matched series count, range width and label group cardinality predict a benefit. Broad pod1d showed an **aligned-layout per-bucket wall regression** relative to point SQL even though CPU fell; general force-routing is wrong. Need independent **optimized production allocator O2/jemalloc**, sustained randomized read/write arrivals, independent replicated result and p99 before any default change.
+
+Do not touch R02/R05/R18/R19 question-owner claims. No master, scheduled workflows, production infrastructure, force push, build cancellations or private dataset was modified.
