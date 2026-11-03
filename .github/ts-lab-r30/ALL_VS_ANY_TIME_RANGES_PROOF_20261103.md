@@ -1,6 +1,6 @@
 # R30 — TimeRanges ALL LEFT → ANY LEFT membership JOIN
 
-Date 2026-11-03. Status: **SOURCE-SUPPORTED HYPOTHESIS + SQL AND C++ PROTOTYPES; native C++ performance not measured**. Canonical claim [R30](../ts-lab/claims/roots/R30.json), [experiment](../ts-lab/claims/R30-time-ranges-any-semi-join-v1.json), owner `chatgpt-e03-r30-any-time-ranges-20261103`.
+Date 2026-11-03. Status: **SQL_EQUIVALENCE_AND_DIRECT_COST_PASS**, native C++ performance **not measured**. Canonical claim [R30](../ts-lab/claims/roots/R30.json), [experiment](../ts-lab/claims/R30-time-ranges-any-semi-join-v1.json), owner `chatgpt-e03-r30-any-time-ranges-20261103`.
 
 ## Why this is a different optimization than R06 and R05
 
@@ -34,6 +34,34 @@ Remaining semantic gates: `timeSeriesStoreTags` is stateful; duplicate left TAGS
 - [SQL differential A/B/B/A probe](bench_timeranges_any_sql.py): one isolated ClickHouse server, same pinned O1 lab binary with source intact. Stop merges; stream 16 batches over 4096 identical series IDs plus before/after nonmatching cohorts; verify distinct ID set, `SELECT id,samples`, physical TimeRanges multiplicity, and nested `EXPLAIN` strictness. Four phases ALL/ANY/ANY/ALL with 3 warmups + 4 measured each, query-log wall/CPU/memory, control-drift gate. **This is NOT modified native PromQL**.
 - [Isolated source-pinned workflow](../workflows/ts-lab-r30-timeranges-any-sql-probe-20261103.yml) [run 41713474075](https://github.com/moleus/ClickHouse/actions/runs/41713474075) launched; do not infer pass before report is inspected.
 - [Optional C++ patch script](apply_any_join_cpp.py) changes only the single `table_join->strictness` in the source function when explicitly invoked with `--apply`. It defaults to dry-run, checks the source context and is **not applied to any shared source checkout or production**. Unit tests constrain its one-site diff. No patched build started while [E01 optimized stock R29 build](https://github.com/moleus/ClickHouse/actions/runs/41685467438) is running.
+
+## Completed pre-merge diagnostic: 16x row multiplicity; CPU and memory reduction
+
+[CI #41714502297](https://github.com/moleus/ClickHouse/actions/runs/41714502297) **PASS**, immutable [SHA-verified full evidence](../ts-lab/evidence/R30-any-sql-premerge-41714502297.json). The earlier [INVALID_METHOD run #41713474075](../ts-lab/evidence/R30-any-sql-invalid-method-41713474075.json) stopped before comparison due unaliased storeTags output; corrected standalone-only alias `r30_id` avoids shadowing physical `id`. The candidate source C++ remains untouched.
+
+Input: 4096 stable IDs × 16 chronologically distinct INSERT batches, 512 IDs with only before-window samples and 512 only after-window. `SYSTEM STOP MERGES` prevents physical range collapse. Full fixed source 52529f0c7115; O1 lab binary SHA `3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221`; fixture SHA `613b3b1f1835d46e2845ebc60ae073f3bc41818236a23a6ae885e0ff83bf34a5`. TAGS 5120 rows/IDs over 3 parts; TimeRanges **66,560 physical rows, 5120 IDs, 18 parts**. The 4096 hot IDs each have 16 right-hand rows before merges.
+
+| Selector | ALL JOIN result rows | ANY JOIN result rows | Distinct ID set | Exact SAMPLES rows/timestamps/values |
+|---|---:|---:|---:|---|
+| stage | 16,384 | 1,024 | 1,024 equal | 16,384 rows, matching full hash |
+| project | 32,768 | 2,048 | 2,048 equal | 32,768 rows, matching full hash |
+| whole | 65,536 | 4,096 | 4,096 equal | 65,536 rows, matching full hash |
+
+ClickHouse's standalone ID `EXPLAIN` rewrote the *physical* join direction and printed `Type: right` in both cases, but retained `Strictness: all` or `Strictness: any`, with `Algorithm: FullSortingMergeJoin`. The rewrite is not a hash-vs-merge confounder. **The SQL source logically remains LEFT**. Check actual source rows and native operator logs before attributing how much CPU comes from dedup, tag registration or join output materialization.
+
+Direct ID-selector SQL, same binary and frozen parts, `ALL/ANY/ANY/ALL`, 3 warmups + 4 measured per phase, paired phase-median averages:
+
+| Project metadata ID query | ALL | ANY | Difference |
+|---|---:|---:|---:|
+| QueryFinish wall | 73.75 ms | 50.50 ms | **-31.5%** |
+| Query CPU | 94.259 ms | 70.044 ms | **-25.7%** |
+| Query tracker peak memory | 26,716,442 B | 14,268,661 B | **-46.6%** |
+| Read rows | 70,656 | 70,656 | 0 |
+| Read bytes | 3,421,276 | 3,421,276 | 0 |
+
+Controls: ALL A/A wall drift 0.68%, ANY A/A 1.98%, no query errors. The 8 per-variant measured wall samples are separated with no overlap (ALL 73–79 ms, ANY 50–52 ms), but all were executed on **one** GitHub runner. This is a robust SQL-stage gain for this fixture, **not a full native PromQL or production speedup**. The unchanged physical read counters support an output-multiplicity mechanism, not lower storage IO.
+
+The first necessary condition for an actual production gain is high physical duplicate density. Next negative control must explicitly `OPTIMIZE TABLE TimeRanges FINAL` and compare when the right side has one row per logical ID. After that, only a matched C++ A/B/B/A with native labels/timestamp/value and multi-client memory checks can promote the patch.
 
 ## Strict gates before production-oriented work
 
