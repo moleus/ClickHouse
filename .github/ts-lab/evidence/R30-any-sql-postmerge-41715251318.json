@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "question_id": "R30",
+  "primary_claim_id": "R30-time-ranges-any-semi-join-v1",
+  "decision": "PASS_SQL_MULTIPLICITY_CAUSAL_NEGATIVE_CONTROL",
+  "promotion": "NOT_PROMOTED_NATIVE_CPP_UNTESTED",
+  "workflow_url": "https://github.com/moleus/ClickHouse/actions/runs/41715251318",
+  "workflow_commit_sha": "2d2d9385861643b247f64595f03ffc7f4bf4c178",
+  "run_id": 41715251318,
+  "artifact_id": 13269332553,
+  "archive_sha256": "7b2206daa01d15771282aadd1dddef56c360b0f3078b74cc9eefd51f5a01aaa2",
+  "artifact_size_bytes": 440919,
+  "artifact_name": "tslab-r30-any-membership-sql-evidence",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221",
+  "binary_kind": "O1 lab JOIN-override binary, native C++ ALL unmodified",
+  "fixture": {
+    "sha256": "613b3b1f1835d46e2845ebc60ae073f3bc41818236a23a6ae885e0ff83bf34a5",
+    "stable_ids": 4096,
+    "updates_per_id": 16,
+    "cold_ids": 1024,
+    "samples": 66560
+  },
+  "before": {
+    "physical_timeranges_rows": 66560,
+    "unique_ids": 5120,
+    "parts": 18,
+    "rows_per_id_mean": 13,
+    "join_multiplicity": {
+      "stage": {
+        "all": 16384,
+        "any": 1024,
+        "ratio": 16
+      },
+      "project": {
+        "all": 32768,
+        "any": 2048,
+        "ratio": 16
+      },
+      "whole": {
+        "all": 65536,
+        "any": 4096,
+        "ratio": 16
+      }
+    },
+    "abba": {
+      "all": {
+        "wall_ms": 84.25,
+        "cpu_ms": 104.1755,
+        "query_peak_bytes": 26793184.25,
+        "read_rows": 70656,
+        "read_bytes": 3421276,
+        "a_a_wall_drift": 0.005934718100890208
+      },
+      "any": {
+        "wall_ms": 55.5,
+        "cpu_ms": 75.58675,
+        "query_peak_bytes": 14268371,
+        "read_rows": 70656,
+        "read_bytes": 3421276,
+        "a_a_wall_drift": 0.05405405405405406
+      }
+    },
+    "parity": "Exact distinct ID set and complete SAMPLES columns equal across three selectors"
+  },
+  "control_operation": "SYSTEM START MERGES <TimeRanges>; OPTIMIZE TABLE <TimeRanges> FINAL; SYSTEM STOP MERGES <TimeRanges>. TAGS and SAMPLES left untouched.",
+  "after": {
+    "physical_timeranges_rows": 5120,
+    "unique_ids": 5120,
+    "parts": 1,
+    "rows_per_id_mean": 1,
+    "join_multiplicity": {
+      "stage": {
+        "all": 1024,
+        "any": 1024,
+        "ratio": 1
+      },
+      "project": {
+        "all": 2048,
+        "any": 2048,
+        "ratio": 1
+      },
+      "whole": {
+        "all": 4096,
+        "any": 4096,
+        "ratio": 1
+      }
+    },
+    "abba": {
+      "all": {
+        "wall_ms": 23,
+        "cpu_ms": 25.862,
+        "query_peak_bytes": 9615925,
+        "read_rows": 10240,
+        "read_bytes": 883564,
+        "a_a_wall_drift": 0.043478260869565216
+      },
+      "any": {
+        "wall_ms": 20.5,
+        "cpu_ms": 23.59525,
+        "query_peak_bytes": 9958786,
+        "read_rows": 10240,
+        "read_bytes": 883564,
+        "a_a_wall_drift": 0.04878048780487805
+      }
+    },
+    "parity": "Exact ID set and SAMPLES rows equal between ALL/ANY after merge and equal to premerge hashes"
+  },
+  "relative_differences": {
+    "premerge_wall_reduction_pct": 34.124629080118694,
+    "premerge_cpu_reduction_pct": 27.4428728443828,
+    "premerge_query_peak_memory_reduction_pct": 46.746266263592766,
+    "postmerge_wall_reduction_pct": 10.869565217391305,
+    "postmerge_cpu_reduction_pct": 8.764790039440099,
+    "postmerge_query_peak_memory_change_pct": 3.5655540158643086
+  },
+  "warnings": [
+    "SQL-only direct ID selector, not modified native ClickHouse C++ or native end-to-end PromQL.",
+    "Full compressed bytes and row reads shrink after merge because physical table is smaller; do not compare pre/post raw wall to isolate JOIN strictness.",
+    "Postmerge 2.5ms p50 gap has no replication and is near control drift/noise; no stable speedup claim.",
+    "Actual source merges in background; density and benefit vary with ingest cadence, merge completion and part count.",
+    "No workload with multiple metrics/generator collisions, missing or negative labels, counter resets, late samples, ACL, concurrent clients or release-like O2/jemalloc tested.",
+    "Per-query tracker bytes not total process RSS."
+  ]
+}
