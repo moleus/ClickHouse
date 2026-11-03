@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "question_id": "R18-timeseries-samples-value-codec-v1",
+  "decision": "ACCEPT_NEXT_GATE_ONLY_KEEP_DEFAULT_GLOBAL",
+  "ci_conclusion": "SUCCESS",
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41630585794",
+    "commit": "d6fd0889b1f68d5bd996a7e92fd857fc79ec7d4c",
+    "job_id": 125898824860,
+    "artifact_id": 13228102138,
+    "artifact_name": "tslab-r18-samples-value-codec-41630585794",
+    "zip_sha256": "6d2723031f822b3aa9838cef66002b83291c133235f78d08e9ddc24d4f694a89",
+    "raw_report": "r18/report.json",
+    "compact_report": "r18/report.compact.json",
+    "bytes": 818162
+  },
+  "source": {
+    "sha": "52529f0c711566d696917678bf15e7068772fdde",
+    "compiler": "LLVM22.1.8 -O1 unmodified stock",
+    "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "binary_build_run": 41596421285,
+    "runner_cpu": "AMD EPYC 9V45 96-Core Processor",
+    "runner_logical_cpus": 4
+  },
+  "fixture": {
+    "sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+    "synthetic": true,
+    "node_slots": 400,
+    "days": 3,
+    "node_lifetime_seconds": 10800,
+    "distinct_series": 28896,
+    "total_sample_points": 2488320,
+    "samples_hourly_bucket_rows": 86688,
+    "source_file": ".github/ts-lab-r01/generate_k8s_churn_fixture.py"
+  },
+  "schema": {
+    "engine": "TimeSeries v11",
+    "same_raw_uuid_id": "Tuple(UInt64,UUID) in TAGS,TimeRanges,SAMPLES",
+    "timestamp_codec": "Delta(8),T64,ZSTD(3) all three",
+    "value_codec_candidates": [
+      "ALP,ZSTD(3)",
+      "ZSTD(1)",
+      "LZ4"
+    ],
+    "samples_bucket_step_seconds": 3600,
+    "recent_samples_ttl_seconds": 0,
+    "one_active_part_per_inner_layer": true,
+    "full_inner_ddl_confirmed": true,
+    "physical_rows_marks_stable_between_phases": true,
+    "canonical_tags_id_digest": "3199471147651921930"
+  },
+  "method": {
+    "read": "Four full native PromQL avg_over_time() queries, 3 daily instants, per-case independent ALP/ZSTD1/ZSTD1/ALP and ALP/LZ4/LZ4/ALP, 2 warmups +8 measured queries per phase. QueryFinish wall, CPU, RSS snapshots, marks/rows, sampled processor + disjoint CPU stacks; all JSON labels/time/floats compared with default codec oracle.",
+    "read_requests_measured_and_warmup": 324,
+    "read_requests_excluding_oracle": 320,
+    "write": "One unpaired ingestion and one OPTIMIZE FINAL per table, process-wide CPU start/end snapshots and wall; NOT a write/merge CPU ABBA or steady workload; do not assign process CPU solely to codec.",
+    "validity": "No OOM, all eight codec-pair ABBA p50/CPU baseline drift <=25%, full native result parity, all 2,488,320 values and 86,688 buckets per table and identical tag digest. Actual samples.value codec in SHOW CREATE verified. Input SHA and binary SHA verified."
+  },
+  "storage_and_unpaired_write": {
+    "alp": {
+      "samples_bytes": 5303391,
+      "tags_bytes": 1486557,
+      "time_ranges_bytes": 634858,
+      "samples_rows": 86688,
+      "samples_marks": 340,
+      "total_bytes": 7424806,
+      "ingest_wall_s": 1.5892,
+      "ingest_whole_server_cpu_s": 0.9686,
+      "optimize_wall_s": 0.2202,
+      "optimize_whole_server_cpu_s": 0.2533,
+      "samples_bytes_change_pct": 0,
+      "total_bytes_change_pct": 0
+    },
+    "zstd1": {
+      "samples_bytes": 3414486,
+      "tags_bytes": 1486557,
+      "time_ranges_bytes": 634858,
+      "samples_rows": 86688,
+      "samples_marks": 340,
+      "total_bytes": 5535901,
+      "ingest_wall_s": 1.5029,
+      "ingest_whole_server_cpu_s": 0.8815,
+      "optimize_wall_s": 0.1724,
+      "optimize_whole_server_cpu_s": 0.171,
+      "samples_bytes_change_pct": -35.617,
+      "total_bytes_change_pct": -25.44
+    },
+    "lz4": {
+      "samples_bytes": 3773263,
+      "tags_bytes": 1486557,
+      "time_ranges_bytes": 634858,
+      "samples_rows": 86688,
+      "samples_marks": 340,
+      "total_bytes": 5894678,
+      "ingest_wall_s": 1.5063,
+      "ingest_whole_server_cpu_s": 0.8855,
+      "optimize_wall_s": 0.1718,
+      "optimize_whole_server_cpu_s": 0.201,
+      "samples_bytes_change_pct": -28.852,
+      "total_bytes_change_pct": -20.608
+    }
+  },
+  "read_abba": {
+    "node_broad": {
+      "zstd1": {
+        "alp_wall": 75.744,
+        "codec_wall": 72.347,
+        "alp_cpu": 115.136,
+        "codec_cpu": 108.109,
+        "alp_p95": 92.011,
+        "codec_p95": 77.882,
+        "wall_drift": 0.01316,
+        "cpu_drift": 0.03852,
+        "read_rows": 57728,
+        "selected_marks": 117,
+        "alp_compressed_bytes": 4128460,
+        "codec_compressed_bytes": 2724696.8,
+        "wall_change_pct": -4.485,
+        "cpu_change_pct": -6.103,
+        "valid_abba": true
+      },
+      "lz4": {
+        "alp_wall": 72.906,
+        "codec_wall": 71.525,
+        "alp_cpu": 108.827,
+        "codec_cpu": 107.138,
+        "alp_p95": 77.557,
+        "codec_p95": 76.161,
+        "wall_drift": 0.0258,
+        "cpu_drift": 0.03005,
+        "read_rows": 57728,
+        "selected_marks": 117,
+        "alp_compressed_bytes": 4128456.2,
+        "codec_compressed_bytes": 2956988,
+        "wall_change_pct": -1.894,
+        "cpu_change_pct": -1.552,
+        "valid_abba": true
+      }
+    },
+    "pod_namespace": {
+      "zstd1": {
+        "alp_wall": 27.94,
+        "codec_wall": 29.73,
+        "alp_cpu": 36.886,
+        "codec_cpu": 40.558,
+        "alp_p95": 31.026,
+        "codec_p95": 31.371,
+        "wall_drift": 0.02097,
+        "cpu_drift": 0.00797,
+        "read_rows": 102368,
+        "selected_marks": 229,
+        "alp_compressed_bytes": 4286519.8,
+        "codec_compressed_bytes": 3780507,
+        "wall_change_pct": 6.407,
+        "cpu_change_pct": 9.955,
+        "valid_abba": true
+      },
+      "lz4": {
+        "alp_wall": 29.111,
+        "codec_wall": 29.003,
+        "alp_cpu": 39,
+        "codec_cpu": 38.91,
+        "alp_p95": 35.009,
+        "codec_p95": 31.913,
+        "wall_drift": 0.04153,
+        "cpu_drift": 0.08277,
+        "read_rows": 102368,
+        "selected_marks": 229,
+        "alp_compressed_bytes": 4286518,
+        "codec_compressed_bytes": 3912332.2,
+        "wall_change_pct": -0.371,
+        "cpu_change_pct": -0.231,
+        "valid_abba": true
+      }
+    },
+    "pod_broad": {
+      "zstd1": {
+        "alp_wall": 81.79,
+        "codec_wall": 77.555,
+        "alp_cpu": 124.929,
+        "codec_cpu": 117.763,
+        "alp_p95": 88.167,
+        "codec_p95": 82.331,
+        "wall_drift": 0.04282,
+        "cpu_drift": 0.08416,
+        "read_rows": 103392,
+        "selected_marks": 233,
+        "alp_compressed_bytes": 4287142.8,
+        "codec_compressed_bytes": 3781120.2,
+        "wall_change_pct": -5.178,
+        "cpu_change_pct": -5.736,
+        "valid_abba": true
+      },
+      "lz4": {
+        "alp_wall": 87.602,
+        "codec_wall": 87.936,
+        "alp_cpu": 131.662,
+        "codec_cpu": 133.156,
+        "alp_p95": 94.951,
+        "codec_p95": 91.538,
+        "wall_drift": 0.05204,
+        "cpu_drift": 0.06062,
+        "read_rows": 103392,
+        "selected_marks": 233,
+        "alp_compressed_bytes": 4466583.2,
+        "codec_compressed_bytes": 4009251.5,
+        "wall_change_pct": 0.381,
+        "cpu_change_pct": 1.135,
+        "valid_abba": true
+      }
+    },
+    "burst15": {
+      "zstd1": {
+        "alp_wall": 24.939,
+        "codec_wall": 25.835,
+        "alp_cpu": 31.552,
+        "codec_cpu": 32.954,
+        "alp_p95": 29.988,
+        "codec_p95": 28.785,
+        "wall_drift": 0.08569,
+        "cpu_drift": 0.06643,
+        "read_rows": 66016,
+        "selected_marks": 87,
+        "alp_compressed_bytes": 3801566.8,
+        "codec_compressed_bytes": 3447389.2,
+        "wall_change_pct": 3.593,
+        "cpu_change_pct": 4.443,
+        "valid_abba": true
+      },
+      "lz4": {
+        "alp_wall": 26.686,
+        "codec_wall": 25.625,
+        "alp_cpu": 33.357,
+        "codec_cpu": 32.255,
+        "alp_p95": 29.307,
+        "codec_p95": 29.267,
+        "wall_drift": 0.02706,
+        "cpu_drift": 0.01277,
+        "read_rows": 66016,
+        "selected_marks": 87,
+        "alp_compressed_bytes": 3783404,
+        "codec_compressed_bytes": 3546356.5,
+        "wall_change_pct": -3.976,
+        "cpu_change_pct": -3.304,
+        "valid_abba": true
+      }
+    }
+  },
+  "source_mechanism": [
+    "Default TimeSeries v11 SAMPLES uses `CODEC samples.timestamp (Delta,T64,ZSTD(3))` and `CODEC samples.value (ALP,ZSTD(3))`, and allows inner CODEC override in stock source StorageTimeSeries.cpp lines 1055-1117.",
+    "ALP is lossless floating-point transform; ZSTD1 and LZ4 are also lossless for Float64. All 2,488,320 sample elements and exact native numeric results matched.",
+    "On this synthetic small-range gauge wave dataset, ZSTD(1) stores SAMPLES 35.62% smaller than ALP+ZSTD3, LZ4 28.85% smaller, with identical bucket rows and marks; compressed read bytes also fall on broad selector.",
+    "Matched performance crosses over: ZSTD1 namespace CPU +9.96% vs A/A CPU drift 0.80% (robust regression) despite smaller physical data; broad-node CPU -6.10% vs A/A CPU drift 3.85% (potential but modest); pod-broad CPU -5.74% vs drift 8.42% (inconclusive); burst CPU+4.45% vs drift6.64% (inconclusive).",
+    "LZ4 mostly changes CPU by <3.3% near A/A drift in tested cases. No stable universal speedup.",
+    "Cross-run R17 host model was AMD EPYC 9V74, this R18 runner is AMD EPYC 9V45; do not compare absolute R17/R18 p50/CPU across these runners. All R18 codec comparisons are same runner."
+  ],
+  "limitations": [
+    "One synthetic aligned Kubernetes gauge input with deterministic value pattern. It is not production noise, counter resets, sparse NaN/Inf, realistic jitter or high-cardinality 14d CI.",
+    "No concurrent 1/4/8 client performance; server has stock O1/glibc rather than optimized jemalloc ClickHouse. Do not infer production global codec tradeoff or VM parity.",
+    "Single unpaired write and one optimize per codec: descriptive wall/CPU snapshots only. Natural rolling inserts/merges, write amplification and cold tier not measured.",
+    "Output parity of native PromQL and matching sample-element counts, not independent byte-for-byte raw sample-array values after all merges; lossless codec contract is source-defined.",
+    "CPU hot stack categories from one representative query per arm are diagnostic, not median or causal per-function work; pipeline may cause nonlocal CPU changes.",
+    "Number of SAMPLES rows and marks does not change in this sample; the value codec does change compressed bytes, which can affect read caching."
+  ],
+  "invalid_first_run": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41630357537",
+    "artifact_id": 13227059043,
+    "classification": "INVALID_BENCHMARK_PREFLIGHT",
+    "reason": "SHOW CREATE prints backticks on samples.value and expands Delta to Delta(8); first parser required unquoted Delta token, rejected correct default DDL before ingest. Corrected normalizer removed backticks and accepted Delta(8). No ClickHouse data or speed result from first run."
+  },
+  "next_action": "R18 dependent follow-up with orthogonal value distributions (constant, monotonic, high-entropy random finite, counter resets) on same 400-node R01 label/timestamp shape to decide whether ALP loses storage only on repeated low-range gauges. Require independent exact value hashes, true codec effective DDL, same-runner A/B/B/A and write/merge under naturally repeated updates. Prefer cheap preflight simulation/source math before another runner. Do not alter TimeSeries global default from current case."
+}
