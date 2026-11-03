@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "question_id": "R30",
+  "evidence_type": "CI_WORKFLOW_VALIDATION_FAILURE",
+  "decision": "INVALID_METHOD",
+  "run_ids": [
+    41722930194,
+    41722986602,
+    41722996298
+  ],
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41722930194",
+  "failure": "Invalid YAML from string replacement while adapting R29 build workflow; CMake check shell regexp ended at ^ENABLE_JEMALLOC(:[^=]*)?=ON and rest of file duplicated after Smoke tests.",
+  "cause": "JavaScript String.replace replacement token sequence $' expanded source suffix while processing a CMake grep regex. Created invalid workflow, no job/compile.",
+  "corrective_commit": "ad43b2be52816530b212e350e14c654cba8e2243",
+  "corrected_run_url": "https://github.com/moleus/ClickHouse/actions/runs/41723209512",
+  "action": "Restored literal grep line with $' in source text via exact indexed line replacement; removed all duplicate trailing job blocks; verified GitHub parsed workflow and started real Actions job.",
+  "performance_conclusion": "NONE",
+  "binary_status": "NONE",
+  "master_untouched": true,
+  "production_untouched": true,
+  "prevention": "Never use JavaScript String.replace with raw replacement strings containing $' or $& when templating shell regular expressions. Use index-based line splicing or callback replacers, then check YAML parse and unique job steps before committing."
+}
