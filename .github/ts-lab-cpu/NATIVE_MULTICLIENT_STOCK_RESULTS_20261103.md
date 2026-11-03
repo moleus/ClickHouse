@@ -35,6 +35,19 @@ Times in ms. `CPU` is mean QueryFinish `OSCPUVirtualTimeMicroseconds` per reques
 | whole 1d | 4 | 1699.160 | 1284.119 | 1.3232 | 1790.108 | 1402.992 | 1538.777 | 1148.283 | 2.260 | 2.916 | 0.10% | PASS |
 | whole 1d | 8 | 3396.162 | 2655.913 | 1.2787 | 3676.419 | 2899.880 | 1574.802 | 1204.642 | 2.187 | 2.794 | 1.65% | PASS |
 
+### Physical footprint of the two ID types (frozen 1.33m fixture)
+
+All inner tables had one active part each and equal rows/marks. Measured `system.parts.bytes_on_disk` for the same full dataset:
+
+| Inner table | LC UUID bytes | RAW UUID bytes | RAW minus LC |
+|---|---:|---:|---:|
+| TAGS | 61,869,152 | 61,182,298 | -686,854 |
+| SAMPLES | 49,532,596 | 48,830,819 | -701,777 |
+| TimeRanges | 37,864,849 | 37,177,995 | -686,854 |
+| **Total** | **149,266,597** | **147,191,112** | **-2,075,485 (-1.39%)** |
+
+The raw UUID schema is slightly **smaller on disk** for this extreme high-churn fixture (one sample per series). This is **not** a generic size result for dense time series with repeated series IDs. Read bytes per query differ by only ~1-2%, while CPU and latency differences are larger; physical IO savings alone do not account for the full effect.
+
 ### Validated CPU attribution
 
 On a **single representative native query trace for each variant**, the disjoint `01_lowcard_dictionary` CPU category had the following sampled counts:
