@@ -6,7 +6,7 @@ moving pending TagsKey hash computation outside the collector exclusive lock.
 Controls are fresh-process A/B/B/A per max_threads. Same frozen v11 data,
 ID generator, source SHA, settings, PromQL semantics, compiler and ABI.
 """
-import argparse,collections,json,os,pathlib,statistics,subprocess,sys
+import argparse,collections,json,os,pathlib,statistics,subprocess,sys,time
 sys.path[:0]=[".github/ts-lab-perf",".github/ts-lab-bench"]
 from bench_granularity_v11 import querylogs,sql
 from bench_bucket_cxx_abca import post,normalize_any,assert_same
@@ -39,10 +39,17 @@ def make_sql(case,days,end,threads):
             "max_memory_usage=3500000000,log_queries=1,log_processors_profiles=1,"
             "query_profiler_cpu_time_period_ns=1000000 FORMAT JSONEachRow")
 def query_log(qids):
-    out={x["query_id"]:x for x in querylogs("taglock_profile_") if x.get("type")=="QueryFinish"}
-    missing=[x for x in qids if x not in out]
-    if missing:raise AssertionError(("Missing QueryFinish",missing))
-    return out
+    # HTTP completion and query_log insertion are asynchronous. SYSTEM FLUSH LOGS
+    # may finish before a just-completed query's log entry is enqueued.
+    # Retry instead of treating a one-off last-request race as query failure.
+    missing=list(qids)
+    for attempt in range(10):
+        out={x["query_id"]:x for x in querylogs("taglock_profile_") if x.get("type")=="QueryFinish"}
+        missing=[x for x in qids if x not in out]
+        if not missing:return out
+        print("TAGLOCK_QUERYLOG_RETRY",json.dumps({"attempt":attempt+1,"missing":missing}),flush=True)
+        time.sleep(0.35+0.15*attempt)
+    raise AssertionError(("Missing QueryFinish after retries",missing))
 def profiles(qids):
     sql("SYSTEM FLUSH LOGS")
     ids="("+",".join(sql_string(q) for q in qids)+")"
