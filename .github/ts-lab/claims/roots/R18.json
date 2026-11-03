@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "question_id": "R18",
+  "primary_claim_id": "R18-timeseries-samples-value-codec-v1",
+  "owner": "chatgpt-r18-samples-value-codec-20261103",
+  "scope": "Opt-in TimeSeries v11 SAMPLES subcolumn samples.value codec ALP+ZSTD(3) vs ZSTD(1) vs LZ4 with same pinned stock-O1 binary, RAW_UUID, 3600-second bucket, same 400-node mixed-cadence 3-day gauge fixture; measure native full-PromQL CPU/latency, sampled read_decode work, merge/write wall and physical bytes under A/B/B/A. Distinct from R10 bucket width, R15 partitions, R05 sparse IDs, R07 metadata, R03 cross-engine and R17 output format.",
+  "allowed_support_claims": [],
+  "based_on": "R17 41628966700 normal-data CPU trace pod_namespace 45/90 and burst15 29/60 samples in read_decode; pinned StorageTimeSeries.cpp source explicitly supports inner samples.value CODEC override. No C++ builds.",
+  "created_utc": "2026-11-03T11:45:00Z"
+}
