@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "session_id": "web-recovery-20261103-02",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "ba9638cf0f92c1915131d9351aade9256eb6a5a3",
+  "last_verified_utc": "2026-11-03T09:21:38.003Z",
+  "question_id": "W01",
+  "summary": "ChatGPT web restart workflow implemented and validated in GitHub. One existing hourly automation has been enabled with public-read fallback, but unattended GitHub writes remain subject to fresh-chat authorization. This work did not change any ClickHouse production default.",
+  "completed": [
+    "SESSION_BOOTSTRAP.md explains new-chat MCP approval, public HTTP fallback, local VM scratch, context-limit handoff, security and workflow isolation; linked from TS_LAB_INDEX.md, .github/ts-lab/INDEX.md and real .claude/CLAUDE.md.",
+    "ts_lab_state.py offers snapshot, validate-handoff, validate-claim and validate-tree; test_ts_lab_state.py passed eight local unit tests. Live REST requests could not be tested in this VM due blocked GitHub DNS.",
+    "Added a path-scoped, unscheduled GitHub Actions validator .github/workflows/ts-lab-state-validate.yml. CI run 41610033734 completed SUCCESS.",
+    "Created append-only handoff example and session checkpoints. Evidence R03-project8-thread1-41609140400.json records a max_threads=1 project8 memory failure. Another agent independently recorded M34 and R08 source work; do not duplicate."
+  ],
+  "negative_results": [
+    "An earlier hourly ChatGPT task ended requires_user_action=true. Future runs may still need user approval for connector writes; do not promise autonomous push.",
+    "Fresh-server 8-client project14d at max_threads=1: 41609140400 has one LC phase measured and three phases OOM. No valid LC vs RAW 8-client performance comparison.",
+    "A previous failed 8-client run 41607617562 also reached process RSS cap with fresh phases. Lowering per-query threads alone is not sufficient proof of capacity safety."
+  ],
+  "active_run_ids": [
+    41607779848,
+    41591617794
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+  "relevant_paths": [
+    ".github/ts-lab/SESSION_BOOTSTRAP.md",
+    ".github/ts-lab/ts_lab_state.py",
+    ".github/ts-lab/test_ts_lab_state.py",
+    ".github/ts-lab/HANDOFF_EXAMPLE.json",
+    ".github/ts-lab/evidence/R03-project8-thread1-41609140400.json",
+    ".github/workflows/ts-lab-state-validate.yml",
+    ".github/ts-lab/METHODOLOGY_AND_FAILURES.md"
+  ],
+  "blocked_by": [
+    "GitHub MCP authorization in a new ChatGPT chat or scheduled run may require user approval.",
+    "Temporary VM cannot resolve github.com; use authenticated GitHub connector or external web for remote reads."
+  ],
+  "next_action": {
+    "question_id": "W01",
+    "step": "Read latest HEAD/claims before any change. Verify outcome and artifact of jemalloc build 41607779848 and historical LC decoder build 41591617794 without duplicate build. Do not repeat R08 work already started by another agent. If further coordination changes are needed, improve claim/evidence validity and collision checks using cheap tests, not another expensive runner.",
+    "stop_condition": "Stop if another agent owns the hypothesis or the connector requests user approval; publish a short verified checkpoint and do not claim a GitHub write succeeded."
+  }
+}
