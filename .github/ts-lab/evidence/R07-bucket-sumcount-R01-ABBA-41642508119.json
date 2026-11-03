@@ -1,0 +1,238 @@
+{
+  "schema_version": 1,
+  "question_id": "R07",
+  "state": "SUCCESS_CLOSED_LOOP_ABBA_NO_NATIVE_PLANNER_PATCH",
+  "run_id": 41642508119,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41642508119",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "workflow_head": "65eba4e636810e9c830a3755b5f92ea752d43548",
+  "artifact": {
+    "id": 13233746284,
+    "name": "tslab-r07-bucket-fused-41642508119",
+    "digest": "sha256:374b32df59c06abca85ba758a726d377ee364970542cf2790877aa189cd91009",
+    "bytes": 31704,
+    "full_report": "evidence/r07-fused/report.json"
+  },
+  "source_fixture_sha256": "ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a",
+  "source_rows": {
+    "series": 28896,
+    "bucket_rows": 113760,
+    "sample_points": 2488320,
+    "duration_days": 3,
+    "cadences_seconds": [
+      15,
+      60,
+      300
+    ]
+  },
+  "single_variable": "native PromQL vs exact stale-safe point SQL vs exact stale-safe per-bucket sumCount SQL",
+  "controls": "Exact native labels/time/values on 18 separate evaluated ticks before timing; original full stable Tuple(UInt64,UUID) IDs; same original TAGS/TimeRanges/SAMPLES, no sidecar/index, full source and stored data constant. Four selectors; 6-phase symmetrical 2 warmups +4 timed each=96 measured 48 warmups; one stock O1 server runner, controls checked for all three variants <25%. Physical parts frozen during read-only ABBA.",
+  "result": {
+    "passed": true,
+    "status": "PASS_FUSED_BUCKET_SQL_ABBA",
+    "errors": [],
+    "grid_checks": 18,
+    "cases": {
+      "pod_broad_1d": {
+        "native_p50_ms": 59.458,
+        "native_p95_ms": 61.275999999999996,
+        "native_cpu_ms": 95.24275,
+        "native_marks": 302,
+        "native_read_rows": 121056,
+        "native_read_bytes": 23228216,
+        "native_peak_memory_bytes": 29987409,
+        "point_sql_p50_ms": 32.18,
+        "point_sql_p95_ms": 36.5265,
+        "point_sql_cpu_ms": 38.35125,
+        "point_sql_marks": 302,
+        "point_sql_read_rows": 117184,
+        "point_sql_read_bytes": 16626574,
+        "point_sql_peak_memory_bytes": 12333267,
+        "bucket_sql_p50_ms": 28.6235,
+        "bucket_sql_p95_ms": 29.415,
+        "bucket_sql_cpu_ms": 27.979750000000003,
+        "bucket_sql_marks": 302,
+        "bucket_sql_read_rows": 117184,
+        "bucket_sql_read_bytes": 16626574,
+        "bucket_sql_peak_memory_bytes": 12657876.5,
+        "control_drifts": {
+          "native": 0.1004406471795217,
+          "point_sql": 0.2188315724052207,
+          "bucket_sql": 0.026446800705713765
+        },
+        "valid_control": true,
+        "native_over_bucket_wall_ratio": 2.0772442224046674,
+        "point_over_bucket_wall_ratio": 1.1242510524568974,
+        "point_over_bucket_cpu_ratio": 1.3706787944852972
+      },
+      "pod_broad_3d": {
+        "native_p50_ms": 76.79650000000001,
+        "native_p95_ms": 79.50399999999999,
+        "native_cpu_ms": 148.6585,
+        "native_marks": 302,
+        "native_read_rows": 121056,
+        "native_read_bytes": 23228216,
+        "native_peak_memory_bytes": 60774689.5,
+        "point_sql_p50_ms": 34.071,
+        "point_sql_p95_ms": 35.063,
+        "point_sql_cpu_ms": 44.83525,
+        "point_sql_marks": 302,
+        "point_sql_read_rows": 117184,
+        "point_sql_read_bytes": 16626574,
+        "point_sql_peak_memory_bytes": 17153079,
+        "bucket_sql_p50_ms": 32.493,
+        "bucket_sql_p95_ms": 33.171499999999995,
+        "bucket_sql_cpu_ms": 31.9055,
+        "bucket_sql_marks": 302,
+        "bucket_sql_read_rows": 117184,
+        "bucket_sql_read_bytes": 16626574,
+        "bucket_sql_peak_memory_bytes": 13082956,
+        "control_drifts": {
+          "native": 0.029597703020320068,
+          "point_sql": 0.03234422235919101,
+          "bucket_sql": 0.01366448158064822
+        },
+        "valid_control": true,
+        "native_over_bucket_wall_ratio": 2.363478287631182,
+        "point_over_bucket_wall_ratio": 1.0485643061582492,
+        "point_over_bucket_cpu_ratio": 1.4052514456755105
+      },
+      "node_broad_3d": {
+        "native_p50_ms": 110.9015,
+        "native_p95_ms": 116.81,
+        "native_cpu_ms": 239.62075,
+        "native_marks": 154,
+        "native_read_rows": 67136,
+        "native_read_bytes": 34335928,
+        "native_peak_memory_bytes": 81826428,
+        "point_sql_p50_ms": 76.8785,
+        "point_sql_p95_ms": 81.239,
+        "point_sql_cpu_ms": 105.134,
+        "point_sql_marks": 154,
+        "point_sql_read_rows": 71008,
+        "point_sql_read_bytes": 30211070,
+        "point_sql_peak_memory_bytes": 21840054.5,
+        "bucket_sql_p50_ms": 58.357,
+        "bucket_sql_p95_ms": 62.376000000000005,
+        "bucket_sql_cpu_ms": 58.413000000000004,
+        "bucket_sql_marks": 154,
+        "bucket_sql_read_rows": 71008,
+        "bucket_sql_read_bytes": 30211070,
+        "bucket_sql_peak_memory_bytes": 19620164.5,
+        "control_drifts": {
+          "native": 0.000027051031771437842,
+          "point_sql": 0.022333942519690144,
+          "bucket_sql": 0.06336857617766507
+        },
+        "valid_control": true,
+        "native_over_bucket_wall_ratio": 1.9003975529927857,
+        "point_over_bucket_wall_ratio": 1.3173826618914612,
+        "point_over_bucket_cpu_ratio": 1.7998390769178092
+      },
+      "burst15_1d": {
+        "native_p50_ms": 22.9835,
+        "native_p95_ms": 23.458,
+        "native_cpu_ms": 30.708,
+        "native_marks": 40,
+        "native_read_rows": 53984,
+        "native_read_bytes": 8930904,
+        "native_peak_memory_bytes": 15819927,
+        "point_sql_p50_ms": 17.986,
+        "point_sql_p95_ms": 19.941000000000003,
+        "point_sql_cpu_ms": 18.2145,
+        "point_sql_marks": 88,
+        "point_sql_read_rows": 62400,
+        "point_sql_read_bytes": 3099886,
+        "point_sql_peak_memory_bytes": 8530514,
+        "bucket_sql_p50_ms": 18.258499999999998,
+        "bucket_sql_p95_ms": 18.904,
+        "bucket_sql_cpu_ms": 17.60475,
+        "bucket_sql_marks": 88,
+        "bucket_sql_read_rows": 62400,
+        "bucket_sql_read_bytes": 3099886,
+        "bucket_sql_peak_memory_bytes": 8542642,
+        "control_drifts": {
+          "native": 0.021972284464942198,
+          "point_sql": 0.05937951740242398,
+          "bucket_sql": 0.07826491770955986
+        },
+        "valid_control": true,
+        "native_over_bucket_wall_ratio": 1.2587835802502945,
+        "point_over_bucket_wall_ratio": 0.9850754443136075,
+        "point_over_bucket_cpu_ratio": 1.0346355387040431
+      }
+    },
+    "physical_before": {
+      "tags": {
+        "name": ".inner_id.tags.8f3f466b-97cf-472e-a8cd-4890dacde09d",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 28896,
+          "marks": 5,
+          "bytes": 1486557
+        }
+      },
+      "timeranges": {
+        "name": ".inner_id.timeranges.8f3f466b-97cf-472e-a8cd-4890dacde09d",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 28896,
+          "marks": 5,
+          "bytes": 789150
+        }
+      },
+      "samples": {
+        "name": ".inner_id.samples.8f3f466b-97cf-472e-a8cd-4890dacde09d",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 113760,
+          "marks": 446,
+          "bytes": 5952971
+        }
+      }
+    },
+    "physical_after": {
+      "tags": {
+        "name": ".inner_id.tags.8f3f466b-97cf-472e-a8cd-4890dacde09d",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 28896,
+          "marks": 5,
+          "bytes": 1486557
+        }
+      },
+      "timeranges": {
+        "name": ".inner_id.timeranges.8f3f466b-97cf-472e-a8cd-4890dacde09d",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 28896,
+          "marks": 5,
+          "bytes": 789150
+        }
+      },
+      "samples": {
+        "name": ".inner_id.samples.8f3f466b-97cf-472e-a8cd-4890dacde09d",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 113760,
+          "marks": 446,
+          "bytes": 5952971
+        }
+      }
+    }
+  },
+  "interpretation": "Native/point/bucket same runner + same tags/physical SAMPLES, 18 strict native parity grids, four 6-phase ABBA cases. Per-bucket fused SQL reduces per-series group aggregation inputs from 2.488m points to113760 bucket rows but must still inspect every point, so O(P) scan; broad node3d 1.317x better point->bucket wall and 1.80x lower query CPU; other wall gains smaller, 15s slightly slower. No native C++ patch.",
+  "limitations": [
+    "Relative p50 only within this GitHub runner, not across independent runs. Read-only 2.49m synthetic R01; no production O2/jemalloc, concurrent clients, p99, backfills/late writes or arbitrary PromQL equivalence.",
+    "Physical marks and read_rows equal between SQL variants, so gain is CPU/operator path not physical mark pruning. Input samples still O(P), not 22x end-to-end expected.",
+    "For pod1d in fused study point-SQL control A/A p50 drift ~21.9%, so its 1.124x point->bucket wall ratio is not well resolved; CPU ratio ~1.37x can be reported but not exclusive causation.",
+    "Staleness correctness exact-bit gate proven on small native multi-tick adversarial fixture #41641109486 and fused sumCount SQL #41642126884, not proof for all PromQL functions or write semantics."
+  ]
+}
