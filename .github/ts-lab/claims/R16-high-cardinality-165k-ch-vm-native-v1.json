@@ -1,0 +1,20 @@
+{
+  "id": "R16-high-cardinality-165k-ch-vm-native-v1",
+  "question": "Can VictoriaMetrics v1.134.0 enforce its 165k matching-series cap on 14d high-cardinality Jenkins metric while ClickHouse pinned RAW_UUID TimeSeries returns exact full native PromQL values, and how do below-cap stage queries compare under 1/4/8 clients?",
+  "owner": "chatgpt-r16-highcard-vm-constraint-20261103",
+  "state": "claimed",
+  "baseline": "VictoriaMetrics single-node v1.134.0 optimized release, pinned archive SHA256 cd6e109bae85ff7c138d838b32be9a7fe2a6d7a9b3a387a7cf9234f22991da10, query response cache disabled and -search.maxUniqueTimeseries=165000. This is a study of the VM query cap, not production migration approval.",
+  "candidate": "Pinned stock ClickHouse source52529f0c711566d696917678bf15e7068772fdde compiled LLVM22.1.8 O1 glibc (binary SHA256 f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e), v11 TimeSeries opted-in RAW UUID ID across TAGS, SAMPLES, TimeRanges and recent_samples_ttl_seconds=0.",
+  "fixture": "Canonical generator .github/ts-lab-bench/generate_95k_daily_churn_ts.py exact SHA256 8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858, 14d x95000=1330000 distinct series each with one timestamp/value, same original records replayed into VM with import_95k_churn_to_vm.py.",
+  "single_variable": "Cross-engine query selector and memory/cap result: VM with actual -search.maxUniqueTimeseries=165000 versus CH RAW_UUID for exact same full 14d PromQL; stage0007 selects 35000 series, project00 selects 166250, whole metric selects 1330000. Below-cap stage queries compare 1/4/8-client full native responses; above cap report VM failures and CH outputs separately, never assign errors low latency.",
+  "math_bound": "In each of14 days stage=(i mod38), 95000/38=2500 => selected stage0007 unique series=35000; i mod8 selects project00 exactly 11875/day => 166250>165000 over 14 days; whole=1330000. These are source-record cardinalities. VM actual flag semantics and prefetch/cache may differ; prove by runtime evidence, not only arithmetic. If stage returns 14 nonempty daily values, exact VM/CH label/time numeric parity required.",
+  "falsifier": "VM accepts project/whole over165k unexpectedly or errors differently; report falsification without inventing cap. If stage query outputs differ, vm ingest is incomplete, 14d no samples, A/B/B/A drift>25%, 8-client CH OOM or VM errors, do not claim valid throughput for that case. Compare only completed success queries, preserve non-success result and memory.",
+  "test_matrix": "Source SHA verification and 14d 1330000 source points -> VM import -> VM last-day visibility=95000. VM cap diagnostic stage/project/whole 14d query_range and CH same native queries. Then stage14d 1/4/8 client ABBA VM/CH/CH/VM, two warmups+24 measured waves, full 14 timestamp label/numeric parity, process schedstat CPU, p50/p95/p99, throughput, RSS snapshots, QueryFinish CH CPU, both-engine drift<=25%. Stop after OOM or invalid results, preserve all data.",
+  "runner_budget": "One ubuntu-24.04 isolated runner, 130min timeout; existing stock CH O1 archive41596421285 and pinned VM release41288854734, no new C++ compiles or runner matrix, paths-only trigger and no cancellation.",
+  "planned_workflow": ".github/workflows/ts-lab-r16-highcard165k-20261103.yml (one run, paths-only push to unified branch, run-id unique concurrency, no schedule, no old-branch push).",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "dependencies": [
+    "R03-k8s-400node-native-vm-concurrency-v1",
+    "R01-k8s-mixed-v1"
+  ]
+}
