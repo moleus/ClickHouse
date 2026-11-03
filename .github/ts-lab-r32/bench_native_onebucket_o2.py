@@ -202,7 +202,7 @@ def inner_parts():
 
 def stock_sql(case):
     expr=f"avg by(stage)(avg_over_time({METRIC}{SELECTORS[case]}[1d]))"
-    return (f"SELECT * FROM prometheusQueryRange(r32_ts,{quoted(expr)},"
+    return (f"SELECT * FROM prometheusQueryRange(r30_ts,{quoted(expr)},"
             f"{END},{END},86400) SETTINGS {QUERY_SETTINGS} FORMAT JSONEachRow")
 
 
