@@ -1,0 +1,19 @@
+{
+  "id": "R18-timeseries-samples-value-codec-v1",
+  "question": "For v11 TimeSeries SAMPLES Array(Tuple(timestamp,value)), does replacing the default samples.value CODEC(ALP,ZSTD(3)) by ZSTD(1) or LZ4 reduce native query CPU at an acceptable write, merge, disk and memory cost?",
+  "owner": "chatgpt-r18-samples-value-codec-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Unmodified stock O1 binary f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e. Default SAMPLES samples.value CODEC(ALP,ZSTD(3)), samples.timestamp CODEC(Delta,T64,ZSTD(3)); RAW UUID on all three inner tables, 3600s bucket, no recent samples.",
+  "candidate": "Two opt-in new table value codec overrides: samples.value CODEC(ZSTD(1)) and CODEC(LZ4), keep timestamp CODEC(Delta,T64,ZSTD(3)), exactly same Float64, id, tags and bucket. Confirm actual SHOW CREATE and system.parts/columns; do not rely on DDL text alone.",
+  "fixture": "Deterministic R01 aligned 400-node/3d/15s+60s+300s gauge fixture SHA ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d; 28896 distinct series, 2488320 points, 86688 SAMPLES bucket rows.",
+  "single_variable": "Physical samples.value codec only, first run DDL preflight confirming effective CODEC; same C++ source/optimizer/O1/RAW_UUID/Float64 and TimeSeries settings.",
+  "math_bound": "R17 representative CPU trace read_decode 45/90 (namespace) and 29/60 (15s burst) samples, theoretical maximum CPU savings if all entire read/decode work vanished ~50% for those traces (unrealistic; codec is only part of read path). Broad node read_decode 54/413 ~13%, so larger gains there are unlikely without pipeline changes. Removing ALP may reduce CPU but increase stored bytes; no performance prior asserted.",
+  "falsifier": "Codec override unsupported, actual inner DDL not different, logical IDs/point arrays not byte/numerically equal, full native result mismatch, OOM, control drift >25%, read path/part structure unexpectedly different, write or disk cost dominates read gain, trace missing. Preserve even invalid CI; do not promote production global default.",
+  "test_matrix": "One isolated 4-core runner and SHA-pinned O1. Create 3 TimeSeries v11 RAW_UUID tables with default vs ZSTD(1) vs LZ4 samples.value, same timestamp codec and 1h bucket, three optimize FINAL one-part targets each. Measure ingest/OPTIMIZE wall and process CPU delta + SAMPLES/total disk and count exact sample elements and hash IDs. Full native PromQL 4 selectors node_broad,pod_namespace,pod_broad,burst15 × 2 codecs, baseline/candidate/candidate/baseline, 2 warmups + 8 measured requests per phase; QueryFinish CPU, selected marks/read rows/compressed bytes, p50/p95 and sampled CPU processors, exact labels/time/float output.",
+  "runner_budget": "One ubuntu-24.04 GitHub Actions job <=90min, 3×97MB fixture ingest, ~320 full native queries, no compile, no schedules; no parallel jobs or cancelling existing jemalloc C++ build.",
+  "planned_workflow": ".github/workflows/ts-lab-r18-samples-value-codec-20261103.yml self-path push and workflow_dispatch, run-unique concurrency, cancel false",
+  "dependencies": [
+    "R17-native-output-cost-cpu-floor-v1"
+  ]
+}
