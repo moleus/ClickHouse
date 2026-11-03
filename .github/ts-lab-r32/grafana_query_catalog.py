@@ -92,7 +92,10 @@ def normalize_sql(rows):
                 if epoch>100_000_000_000:epoch/=1000
             else:
                 import datetime as dt
-                epoch=dt.datetime.fromisoformat(str(stamp).replace("Z","+00:00")).timestamp()
+                parsed=dt.datetime.fromisoformat(str(stamp).replace("Z","+00:00"))
+                if parsed.tzinfo is None:
+                    parsed=parsed.replace(tzinfo=dt.timezone.utc)
+                epoch=parsed.timestamp()
             key=(labels,round(epoch,3))
             if key in result:raise ValueError("Duplicate SQL (labels,time)")
             result[key]=float(value)
@@ -135,7 +138,8 @@ def exact_response_parity(sql_rows,api_payload,case):
 
 
 def quote_sql_string(value):
-    return "'"+str(value).replace("\\","\\\\").replace("'","\\'")+"'"
+    # Standard SQL literal escape, not Python shell quoting.
+    return "'"+str(value).replace("'","''")+"'"
 
 
 def sql_statement(table,case):
