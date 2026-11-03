@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "question_id": "R30",
+  "decision": "INVALID_METHOD",
+  "result": "NO_PERFORMANCE_CONCLUSION",
+  "run_id": 41713474075,
+  "url": "https://github.com/moleus/ClickHouse/actions/runs/41713474075",
+  "artifact_id": 13269720920,
+  "archive_sha256": "4fa756e0d817665a732c1e6cecb32d1e5abdae8f55d8e9565b773f4fcd8890fa",
+  "pinned_source": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221",
+  "fixture_sha256": "613b3b1f1835d46e2845ebc60ae073f3bc41818236a23a6ae885e0ff83bf34a5",
+  "fixture": {
+    "hot_distinct_ids": 4096,
+    "repeat_batches": 16,
+    "cold_before": 512,
+    "cold_after": 512,
+    "bytes": 10390461
+  },
+  "physical_proof": {
+    "timeranges_rows": 66560,
+    "timeranges_distinct_ids": 5120,
+    "timeranges_active_parts": 18,
+    "tags_rows": 5120,
+    "physical_multiplicity_avg": 13,
+    "per_hot_id_multiplicity": 16
+  },
+  "failure": "Extracted generated SELECT projects timeSeriesStoreTags(...) without alias; standalone SELECT DISTINCT id FROM (...) failed UNKNOWN_IDENTIFIER (47) / HTTP 404. No ALL/ANY SQL comparison was executed.",
+  "repair_commits": [
+    "99331b276f18c7a133adfacff744ac3021f6f357",
+    "93b70dcf71c05b218ad395528786dee4fea11325",
+    "98fa97311960fdce395578ba0edf3c0560eb1944"
+  ],
+  "valid_scope": "Physical rows and repeated TimeRanges ID multiplicity measured on isolated frozen fixture; nothing inferred about JOIN runtime advantage or native semantic parity.",
+  "safety": "No C++ patch applied, no compilation, no master/production change; existing R29 build untouched."
+}
