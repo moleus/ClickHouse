@@ -1,0 +1,20 @@
+{
+  "id": "R19-expired-samples-retained-tags-timeranges-v1",
+  "question": "After deleting 48k old SAMPLES via a deterministic old-month partition drop, do original TAGS and TimeRanges entries remain and increase full native PromQL CPU/IO on an otherwise identical 2k-live-series read?",
+  "owner": "chatgpt-r19-metadata-retention-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "SHA verified unpatched ClickHouse 26.11.1.1 stock LLVM22.1.8 O1/glibc artifact from GitHub CI 41596421285, binary sha256 f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e; 2000 live one-point series and no retired metadata",
+  "candidate": "Same stock binary/RAW_UUID TimeSeries inner DDL and exact 2000 live samples, with an additional 48000 historical ID TAGS+TimeRanges records whose SAMPLES partition is physically dropped; native PromQL fixed query",
+  "fixture": "Deterministic 2000 live / 48000 old single-point series with same metric, four project values, 2026-10-20 active / 2026-08-10 retired timestamps, identical live JSONEachRow SHA in clean and aged tables; old-month SAMPLES DROP PARTITION by exact system.parts.partition_id",
+  "single_variable": "Retained old TAGS and TimeRanges rows after physical SAMPLES retention deletion. Schema, query, active samples, metric, compiler, binary, memory cap fixed. Historical ingestion occurred only in aged variant as required to create old metadata.",
+  "math_bound": "At 400 three-hour ephemeral nodes and one metric per node, distinct logical node series are 400*24/3=3200 per day. Under 15d sample retention current 48000 series may coexist with about 1,168,000 retained year-old TAGS ids, 24.3x ratio, if never compacted/purged. The extra IDs may cost up to O(H) broad metadata reads for history H but TimeRanges/skip indexes could prune; must measure QueryFinish and EXPLAIN. TTL of in-memory dedup cache != TTL of TAGS disk table.",
+  "falsifier": "Sample partition does not actually drop, live sample partition shape differs materially from clean, query labels/timestamps/numerical values differ, TAGS/TimeRanges do not persist, p95/CPU difference within A/A drift (then NO_EFFECT on this fixture), or read plan scans only live metadata; do not assert production regression without heldout and replication",
+  "test_matrix": "One small cheap CI source+DDL check, 48k old and 2k active IDs. Construct both same-schema tables, insert old, physically DROP old-month SAMPLES partition, assert aged TAGS/TimeRanges=50k versus clean=2k but SAMPLES=2k each. Full native PromQL identical labels/time/values, EXPLAIN and QueryFinish read_rows/bytes/marks, 4-phase clean/aged/aged/clean with warmups and 6+ repeated queries, A/A drift <=25%. Explicitly distinguish deterministic partition drop from asynchronous TTL runner.",
+  "runner_budget": "one path-isolated stock O1 job <=20min with no C++ build and max 3GiB RSS; if invalid, preserve artifact and do not promote",
+  "planned_workflow": ".github/workflows/ts-lab-r19-retained-metadata-20261103.yml path-only push, single runner, run-unique concurrency; no schedule",
+  "dependencies": [
+    "R08-matcher-absence-regex-v1",
+    "R02-small-batch-raw-lc-write-v1"
+  ]
+}
