@@ -1,0 +1,125 @@
+name: R23 same-label tags Map key-order source normalization native CPU ABBA
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r23-tags-map-order-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ts-lab-r23-tag-map-order-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  r23:
+    name: canonical-vs-shuffled-label-keys
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      BINARY_SHA256: f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Source and preflight
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r23
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          python3 -m py_compile .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py .github/ts-lab/experiments/r23_tag_map_key_order_abba.py
+          python3 .github/ts-lab/experiments/r23_tag_map_key_order_abba.py --help > evidence/r23/help.txt
+          test "$(git hash-object .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py)" = fd3673d47fcdf575033bfebfaaf56ef2e2affc60
+          grep -q 'EXPECTED_CANONICAL_SHA=' .github/ts-lab/experiments/r23_tag_map_key_order_abba.py
+          grep -q "system.events global worker-inclusive delta" .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py
+          grep -q "start_cache_events.get(hit_event,0)" .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py
+          git rev-parse HEAD > evidence/r23/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py .github/ts-lab/experiments/r23_tag_map_key_order_abba.py > evidence/r23/script-sha256.txt
+      - name: Reuse pinned SHA verified O1 binary (no recompilation)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r23-art" "$RUNNER_TEMP/r23-bin"
+          gh run download 41596421285 -R "$REPO" \
+            --pattern 'tslab-stock-clickhouse-o1-binary-*' \
+            -D "$RUNNER_TEMP/r23-art"
+          archive="$(find "$RUNNER_TEMP/r23-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r23/archive-verify.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r23-bin"
+          (cd "$RUNNER_TEMP/r23-bin" && sha256sum -c SHA256SUMS) | tee evidence/r23/binary-verify.txt
+          test "$(sha256sum "$RUNNER_TEMP/r23-bin/clickhouse" | cut -d' ' -f1)" = "$BINARY_SHA256"
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r23-bin/BUILD_INFO.txt"
+          grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/r23-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/r23-bin/BUILD_INFO.txt" evidence/r23/build-info.txt
+          chmod +x "$RUNNER_TEMP/r23-bin/clickhouse"
+          "$RUNNER_TEMP/r23-bin/clickhouse" --version | tee evidence/r23/version.txt
+      - name: Four fresh stock servers sorted-shuffled-shuffled-sorted label Map keys with same 1MiB cache
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r23_tag_map_key_order_abba.py \
+            --binary "$RUNNER_TEMP/r23-bin/clickhouse" \
+            --outdir evidence/r23 --port 18191 | tee evidence/r23/console.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/r23/report.json'))
+          assert d['passed'] and not d['errors'],d['errors']
+          assert d['decision'] in ('NO_ROBUST_CPU_ORDER_EFFECT',
+              'INPUT_MAP_ORDER_CPU_PENALTY_REPLICATION_NEEDED',
+              'INPUT_MAP_ORDER_CPU_BENEFIT_REPLICATION_NEEDED')
+          assert d['source_sha']=='52529f0c711566d696917678bf15e7068772fdde'
+          assert d['binary_sha256']=='f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e'
+          f=d['fixture']
+          assert f['canonical_sha256']=='826f8d12e7051d8b8c0ebc2f79d201c205fdd2ee9d4ae58e69534375963cf458'
+          assert f['wire_sha256']['sorted']=='ec128e6c74402d095c59c79f8f352ef4a0f48e0839dce730baa0f6ed7796ff64'
+          assert f['wire_sha256']['shuffled']=='6c73ffea74efc9d92ea78996a7075e514b83c98b5f2411d7ed9839939480af49'
+          assert f['wire_bytes']['sorted']==f['wire_bytes']['shuffled']==39980232
+          assert f['changed_order_rows']==98304
+          assert f['series']==4096 and f['batches']==24 and f['sample_points_per_phase']==98304
+          assert f['input_tags']==19 and f['canonical_stored_tags']==20
+          assert len(d['phases'])==4 and len(d['comparison'])==10
+          fingerprint=set()
+          for phase,order in (('A0','sorted'),('B1','shuffled'),('B2','shuffled'),('A3','sorted')):
+              item=d['phases'][phase]
+              assert item['passed'] and not item['errors']
+              assert item['tag_map_key_order']==order and item['variant']=='large'
+              assert item['input_sha256']==f['wire_sha256'][order]
+              assert len(item['insert_rows'])==24 and len(item['native_samples'])==9
+              assert item['physical']['physical_samples_points']==98304
+              assert item['physical']['tags']['count']==4096
+              assert item['physical']['tags']['distinct_id']==4096
+              assert item['physical']['tags']['normalized_map_labels']==20
+              assert item['stats']['total_cache_hits']==94208
+              assert item['stats']['total_cache_misses']==4096
+              assert item['cache_bytes']==1048576 and item['cache_expiration_seconds']==3600
+              assert item['stats']['native']['measured_queries']==6
+              assert item['stats']['ingest']['cpu_s']>0
+              fingerprint.add(item['physical']['tags']['canonical_id_and_tags_sha256'])
+          assert len(fingerprint)==1
+          for key in ('ingest_process_cpu_s','native_wall_p50_ms','native_cpu_p50_ms'):
+              assert d['comparison'][key]['sorted_AA_drift']<=.25
+          print('R23_TAGS_MAP_ORDER_VALIDATED',json.dumps({'passed':True,
+             'decision':d['decision'],'canonical_sha256':f['canonical_sha256'],
+             'comparison':d['comparison']},separators=(',',':')))
+
+          PY
+      - name: Preserve raw correct and failed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r23-tag-map-order-${{ github.run_id }}
+          path: |
+            evidence/r23/*.txt
+            evidence/r23/*.log
+            evidence/r23/*.json
+            evidence/r23/A*/report.json
+            evidence/r23/B*/report.json
+            evidence/r23/A*/config.xml
+            evidence/r23/B*/config.xml
+            evidence/r23/A*/server.log
+            evidence/r23/B*/server.log
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
