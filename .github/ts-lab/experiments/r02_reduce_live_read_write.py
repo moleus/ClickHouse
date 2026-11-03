@@ -65,7 +65,10 @@ def load(p):
             reads=entry.get('valid_reader_samples',[])
             if len(reads)<12 or entry['metrics']['native_read']['count']!=len(reads):
                 raise AssertionError(f'{p}: too few fully overlapping reads {name}')
-            if any(rec.get('native')!=FIXED_EXPECTED for rec in reads):
+            if any(set(rec.get('native',{})) != set(FIXED_EXPECTED) or
+                   any(not math.isclose(rec['native'][label],value,
+                                        rel_tol=1e-11,abs_tol=1e-8)
+                       for label,value in FIXED_EXPECTED.items()) for rec in reads):
                 raise AssertionError(f'{p}: native oracle mismatch {name}')
             if any(rec.get('cpu_ms',0)<=0 or rec.get('wall_ms',0)<=0 for rec in reads):
                 raise AssertionError(f'{p}: missing native CPU/wall {name}')
