@@ -1,0 +1,19 @@
+{
+  "id": "R02-small-batch-raw-lc-write-v1",
+  "question": "What is continuous small-batch v11 TimeSeries write and merge amplification for default LowCardinality(UUID) versus raw UUID ID when most series repeat across batches?",
+  "owner": "chatgpt-r02-write-merge-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Unmodified stock O1 ClickHouse 26.11.1.1, build 41596421285, executable SHA256 f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e; TimeSeries v11 default LowCardinality UUID ID",
+  "candidate": "Same binary and source, only explicit Tuple(UInt64,UUID) inner ID type on TAGS/SAMPLES/TimeRanges; hash expression and text index unchanged",
+  "fixture": "Deterministic synthetic input, 400 stable slots, 400 rotating slots, 12 batches, 60s steps, rotating quarter-life at batch 3/6/9; generator SHA and exact sample/series oracle; two tables read identical input",
+  "single_variable": "Only internal ID column type LC UUID vs raw UUID; same stock O1 binary, same data, no source patch",
+  "math_bound": "For N physical ID references in each part and D distinct IDs, uncompressed dictionary encodes roughly 16D+wN vs raw 16N bytes (w index width). Benefit requires D/N << 1 and actual compressed bytes; CPU for dictionary decoding, insert and merges can negate byte saving. Counting inserted sample points != bucketed SAMPLES rows; require sum(length(samples)) and exact native query parity.",
+  "falsifier": "Different physical sample points, wrong UUID identity or native values; >25% paired baseline drift; unexpected global RSS OOM; candidate worsens write CPU/merge CPU/disk at high repeat ratio, or true background merge cost unmeasurable",
+  "test_matrix": "12 chronological small batches of stable/rotating IDs, two v11 TimeSeries physical schemas, each batch interleaved A/B, forced merge controls, query_log per INSERT, system.part_log merge stats if available, physical part bytes, sum(length(samples)), native avg-over-time parity on stage and whole queries before/after merges",
+  "runner_budget": "One small local source+binary smoke, then <=25min isolated GitHub Actions measurement with stock O1 SHA-verified binary, 1 job, no compilation",
+  "planned_workflow": ".github/workflows/ts-lab-r02-small-batch-write-20261103.yml path-isolated push, run-unique concurrency, no schedule",
+  "dependencies": [
+    "R08-matcher-absence-regex-v1"
+  ]
+}
