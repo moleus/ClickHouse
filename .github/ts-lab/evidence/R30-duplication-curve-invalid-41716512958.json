@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "question_id": "R30",
+  "decision": "INVALID_METHOD_PARTIAL",
+  "result": "NO_FULL_CURVE_CONCLUSION",
+  "run_id": 41716512958,
+  "url": "https://github.com/moleus/ClickHouse/actions/runs/41716512958",
+  "artifact_id": 13269818075,
+  "artifact_name": "tslab-r30-duplication-curve-evidence",
+  "zip_sha256": "da32e7bf367c5cf826a1e7defed79d338ee70f259c764bfd9f4f7487dfca7380",
+  "zip_bytes": 281213,
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221",
+  "workflow_commit": "e85e78d1005b51d735de3881575639458b8000e0",
+  "fixture_sha256": "6a81d5b9b218a9e86b3dd4aed4ff68a028458d51f944af0296cf4ebaccb98367",
+  "inserted_only_sha256": "f8ad35a7c56e153796ccbd39d20515fbef6b480fb108501ab52e555bc26dece8",
+  "problem": "An unscoped SYSTEM STOP MERGES issued before CREATE TABLE did not prevent background merges on newly-created TimeRanges targets. Expected 16,384 rows for 8*2048 inserts but observed 8192 (IDs 2048). The level-8 checkpoint failed closed before any misleading join timing.",
+  "valid_partial_levels": {
+    "1": {
+      "timeranges_rows": 2048,
+      "ids": 2048,
+      "all_wall_ms": 13.5,
+      "any_wall_ms": 13,
+      "all_cpu_ms": 14.9755,
+      "any_cpu_ms": 14.35075,
+      "all_query_peak_bytes": 8587358,
+      "any_query_peak_bytes": 8699351,
+      "control_drift_all": 0.074074,
+      "control_drift_any": 0
+    },
+    "2": {
+      "timeranges_rows": 4096,
+      "ids": 2048,
+      "all_wall_ms": 15,
+      "any_wall_ms": 13.5,
+      "all_cpu_ms": 16.673,
+      "any_cpu_ms": 15.32275,
+      "all_query_peak_bytes": 8825552,
+      "any_query_peak_bytes": 8993425,
+      "control_drift_all": 0,
+      "control_drift_any": 0
+    },
+    "4": {
+      "timeranges_rows": 8192,
+      "ids": 2048,
+      "all_wall_ms": 20.75,
+      "any_wall_ms": 16.25,
+      "all_cpu_ms": 23.41225,
+      "any_cpu_ms": 18.83075,
+      "all_query_peak_bytes": 9091826,
+      "any_query_peak_bytes": 9337751,
+      "control_drift_all": 0.1686747,
+      "control_drift_any": 0.03076923
+    }
+  },
+  "fix": "For each TimeSeries table, resolve .inner_id.timeranges.<uuid> immediately after CREATE and run SYSTEM STOP MERGES <table> before any INSERT. Keep exact physical rows=N*2048 and unique IDs=2048 as preflight. Fail closed if it does not hold.",
+  "repair_commits": [
+    "548643e059a1421114f571e96d6e9cd7c3302241",
+    "14e7010ed3913c687e534454ffd3d780aa14cf2e"
+  ],
+  "limitations": [
+    "Do not use any k8 or k16 measurements from this run; neither exists.",
+    "k1-k4 are source-pinned complete small-frozen cases but not a full validated 5-level curve.",
+    "Absolute times across independent tables/physical right-row counts are not paired; within-level A/B/B/A is.",
+    "No compiled native ANY patch or production effect."
+  ]
+}
