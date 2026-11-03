@@ -56,7 +56,7 @@ variable is the whole query engine and storage implementation.
   one namespace; broad pod gauges grouped by namespace; and 15-second
   burst gauges.
 - For 1, 4, 8 synchronous independent HTTP clients, use engine order
-  VM/CH/CH/VM. Each phase has 2 warmup waves and 8 measured waves;
+  VM/CH/CH/VM. The **corrected 41624246411** run uses 2 warmup waves and **64 measured waves** (the first 8-wave attempt was censored by a 4Hz RSS observer and A/A CPU clock granularity);
   each wave releases clients with one `threading.Barrier`.
 - Compare full native results after **each** request: identical sorted
   labels, all expected evaluation timestamps and finite numeric
@@ -64,11 +64,13 @@ variable is the whole query engine and storage implementation.
   timed out, or error responses invalidate that comparison.
 - Metrics: HTTP p50/p95/p99 over completed measured requests,
   wave-based throughput QPS, Linux process CPU delta per request
-  (including background worker work), server RSS peak from 4 Hz
-  `/proc/<pid>/status`, ClickHouse QueryFinish CPU/rows/bytes and
+  (including background worker work), high-resolution per-thread
+  `/proc/<pid>/task/<tid>/schedstat` CPU delta around measured waves,
+  RSS snapshots *outside* timed queries and cumulative (not phase-local)
+  VmHWM, ClickHouse QueryFinish CPU/rows/bytes and
   query-memory peak. No false "VM per-query CPU" claim: VM does not
   provide the exact same query-log counter.
-- CI must reject any VM A/A p50, CPU/request or QPS drift >25% and
+- CI must reject A/A p50, schedstat CPU/request or QPS drift >25% **for both engines**, and
   retain all partial logs. Fixed ClickHouse physical parts are compared
   before/after. Report whether VM had background compaction during
   the same phase.
