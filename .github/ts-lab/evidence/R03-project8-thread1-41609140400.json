@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "question_id": "R03",
+  "run_id": 41609140400,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41609140400",
+  "artifact_url": "https://github.com/moleus/ClickHouse/actions/runs/41609140400/artifacts/13218426569",
+  "recorded_at_utc": "2026-11-03T09:20:08.063Z",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+  "configuration": "stock ClickHouse 26.11.1.1 O1; project14d; eight concurrent clients, max_threads=1 per query; fresh server per phase; memory cap about 4.47 GiB; LC/RAW/RAW/LC phases",
+  "scientific_decision": "INCONCLUSIVE_FOR_PERFORMANCE; VALID_MEMORY_CAPACITY_FAILURE",
+  "facts": [
+    "Phase 0 LC completed eight measured 8-client waves after warmups, p50 client 5102.359 ms, p95 5713.395 ms, max observed RSS 4308443136 bytes.",
+    "Phase 1 RAW produced HTTP 500 MEMORY_LIMIT_EXCEEDED at 4.47 GiB total RSS; phase 2 RAW at 4.48 GiB; phase 3 LC at 4.49 GiB.",
+    "No complete A/B/B/A timing or throughput comparison exists for RAW versus LC at eight project clients, because three phases failed.",
+    "The error site AggregatingTransform is where OOM surfaced; it does not identify the root source of allocations."
+  ],
+  "next_action": "Do not rerun client8 or vary max_threads alone without a memory capacity hypothesis. First inspect already running jemalloc build 41607779848 and any other agent's memory work. Measure retained/live RSS and per-query memory on one coherent capacity matrix, with no broad-query OOM before promotion."
+}
