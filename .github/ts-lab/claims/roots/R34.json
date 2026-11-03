@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "question_id": "R34",
+  "primary_claim_id": "R34-sparse-grid-map-capacity-v1",
+  "owner": "chatgpt-e05-r34-sparse-grid-capacity-20261104",
+  "scope": "E05 aggregate-state storage only: reduce initial TimeSeries bucket-map capacity from 16 cells to 2, retaining the 3/4 load limit for maps of at least 4 cells and one empty cell at capacity 2. Test sparse and dense aggregation, zero keys, growth, merges, state serialization and native PromQL. Independent of R32 finalization (no R32 patch in the primary candidate), R33 Grafana fixtures, R30/R31 metadata joins, R20 SQL sum/count, and R05/R07 physical layout. No master or production changes.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-03T22:20:00Z",
+  "reason": "Pinned TimeSeriesBucketsHashTableGrower starts at degree 4 and allocates 16 cells even for a one-bucket aggregate state. For a nonzero-key singleton, reducing to two cells can remove 14 times sizeof(cell) allocated and zeroed bytes per state. This is a source-derived upper bound, not a measured native gain. Dense maps can pay additional growth and must be measured."
+}
