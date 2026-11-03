@@ -39,5 +39,20 @@
       "No master/production/scheduled workflow edits"
     ]
   },
-  "stop_conditions": "Any unequal logical SHA, input byte length, ID+tags fingerprint, native labels/timestamp/float, 4096 distinct IDs, 94208/4096 cache counters, 98304 SAMPLES points or >25% A/A control drift => INVALID_METHOD; preserve raw evidence."
+  "stop_conditions": "Any unequal logical SHA, input byte length, ID+tags fingerprint, native labels/timestamp/float, 4096 distinct IDs, 94208/4096 cache counters, 98304 SAMPLES points or >25% A/A control drift => INVALID_METHOD; preserve raw evidence.",
+  "id": "R23-tag-map-key-order-normalization-cost-v1",
+  "source": "src/Storages/TimeSeries/TimeSeriesSink.cpp pinned 52529f0c711566d696917678bf15e7068772fdde; sortTagsAndRemoveDuplicates runs before makeTagsBlock id_generator and TimeSeriesTagsDeduplicationCache",
+  "baseline": "stock LLVM22 O1 unmodified binary f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e; 4096 stable series, tags Map 19 key/value pairs in sorted lexical order, 24 chronological 4096-row INSERTs, fixed 1MiB/3600s TAGS cache and v11 RAW UUID inner schema",
+  "candidate": "Same source/binary/schema/labels/values/time/series-row order, 1MiB/3600s cache, 24 batches; only permute serialized JSON Map key order by deterministic (series,batch) pseudo-random shuffle; same string byte lengths.",
+  "fixture": "4096 stable series ×24 batches =98304 samples; 19 user labels+injected __name__=20 normalized labels per series; exact same canonical semantic SHA256 826f8d12e7051d8b8c0ebc2f79d201c205fdd2ee9d4ae58e69534375963cf458; raw sorted wire ec128e6c74402d095c59c79f8f352ef4a0f48e0839dce730baa0f6ed7796ff64 and shuffled wire 6c73ffea74efc9d92ea78996a7075e514b83c98b5f2411d7ed9839939480af49; 39980232 equal bytes each phase, 98304 permuted rows",
+  "single_variable": "Only JSON Map key serialization order, not order of rows, cache size, cache expiration, id representation, metric name, timestamps, stored input labels, binary, compiler or native query",
+  "math_bound": "Per phase 4096*24*19=1867776 input label pairs before source adds __name__; source performs std::sort on 20 pairs per row BEFORE the TAGS cache check. With 1MiB cache nominal 7281>4096 entries and 3600s TTL, expected 4096 misses and 4096*23=94208 hits, 4096 physical TAGS rows, 98304 sample points; if permuted logical data has more IDs/cache misses, source normalization or input generation incorrect. Any CPU timing gain from pre-sorted input is an upper bound for a source code optimization and includes JSON parsing effects.",
+  "falsifier": "Reject if canonical SHA differs, raw wire byte lengths differ, any physical ID+Map ordered hash differs, TAGS rows !=4096, 94208/4096 global cache hit/miss fail, full native avg by(project) labels/timestamp/value differ, sources differ or process CPU/native p50 A/A control drift >25%; report NO_ROBUST_CPU_ORDER_EFFECT when difference <=max(5%,drift).",
+  "test_matrix": "Single path-scoped GitHub ubuntu24 O1/glibc job 4 fresh-server A0 sorted/B1 shuffled/B2 shuffled/A3 sorted, exactly 24 batches of 4096 rows per phase, merges OFF, process-tree CPU and write_bytes, global worker cache hits/misses, physical ID+Map fingerprint/raw TAGS bytes/TimeRanges/SAMPLES, native avg by(project) 3 warmups+6 measured per phase, 25% control drift and 5% magnitude gate",
+  "runner_budget": "One GitHub-hosted ubuntu-24.04 runner, 32 minutes timeout, 4 sequential local stock O1 CH servers; no recompile, no expensive CI matrix, no scheduled workflow; artifact SHA and binary/source pins verified before measurements.",
+  "planned_workflow": ".github/workflows/ts-lab-r23-tags-map-order-20261103.yml",
+  "dependencies": [
+    "R21-tags-dedup-cache-working-set-knee-v1",
+    "R02-small-batch-raw-lc-write-v1"
+  ]
 }
