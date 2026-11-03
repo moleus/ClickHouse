@@ -38,6 +38,14 @@ This changes the VM-vs-CH comparison: **VM is not an unconditional per-day-index
 
 The exact source condition is on the difference between the extreme day numbers, **not** on a rounded user-facing `range=40d` string. For a 1–14d benchmark, log the actual `indexDB` and selected path from VM querytracer rather than assuming one.
 
+## Additional source proof: VM retention drops metadata with its data partition
+
+VM's indexDB is **owned by each storage partition** ([`partition::newPartition`](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/storage/partition.go#L307-L318)); partitions usually cover one calendar month ([partition.h](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/storage/partition.go#L103-L114)). The [retention watcher](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/storage/table.go#L423-L470) marks partitions for deletion only when the partition's **maximum timestamp** is older than retention. [`partition.Drop`](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/storage/partition.go#L247-L257) removes the partition's small-data, big-data **and indexDB** directories.
+
+**Consequence:** VM's historical tag-index footprint is tied to partition lifecycle, not an indefinitely accumulating global TAGS table. However, the partition can persist until its entire time span expires, and partial old metadata inside a still-active partition can remain. This is **not** proof that VM immediately deletes every expired posting list; it is a source-proven lifecycle mechanism.
+
+In pinned ClickHouse v11, old SAMPLES may expire while global TAGS/TimeRanges remain; [R19](https://github.com/moleus/ClickHouse/actions/runs/41635997049) measured extra read CPU for aged metadata, and [R19 TAGS-cache safety](https://github.com/moleus/ClickHouse/actions/runs/41642999590) showed why directly deleting TAGS during writes is unsafe. Any CH time-local metadata candidate (R07 owner) must have a safe partition/TTL strategy with late writes and distributed replicas; VM's index partition deletion is a relevant reference, but cannot simply be copied into CH.
+
 ## Two important source-derived algorithms
 
 ### A. VM learns per-date costs of matchers
