@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "session_id": "web-root-coordination-20261103-03",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "b11cd77aad0459e16a2893baad86aa5dac1a1823",
+  "last_verified_utc": "2026-11-03T09:38:53.983Z",
+  "question_id": "W02",
+  "summary": "Recovered shared ClickHouse lab, verified R08 matcher, R01 mixed Kubernetes native 3d, R04 recent TTL semantics. Created a small deterministic HPA/node lifecycle fixture; corrected duplicate R01 claims with create-only canonical root locks R01/R04/R08, and passed 15 root/claim/handoff CI tests. Updated hourly automation restart prompt. No upstream/master/production changes or build cancellation.",
+  "completed": [
+    "R01 small fixture .github/ts-lab/experiments/r01_kubernetes_workload.py + tests + workflow 41611408671: 8 tests pass; 16 nodes 6h/60s; 53280 rows, 474 distinct series, 31 replacements, SHA 03096e07026eb39cab69309417353eb7a1e64535acda1ccaa88c627f609c8668.",
+    "Other agent primary R01 41611534144 generated mixed cadence 400 node, 3h node life, 3d, 2,488,320 samples, 28,896 series, fixture SHA ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d.",
+    "R01 stock O1 native LC/RAW same fixture ABBA run 41612120162 PASSED: raw p50 speeds 1.1117x node_broad, 1.1354x pod_namespace, 1.0924x pod_broad, 1.1584x burst15, all control drift <9%, native output parity. Not production proof or total write cost.",
+    "R08 native matcher 41610517632 PASSED 42 cases across pre- and post-merge, SHA 6ece3bbbaf5b861ba9df907b378891af31eff66f8964e8161eda8680e4fe496e.",
+    "R04 native recent table preference 41612199798 PASSED 18 cases across initial/late insert/merged, 6 hot/cold/TTL windows with actual read target check.",
+    "Reconciled concurrent overlapping R01 claims: .github/ts-lab/claims/roots/R01.json has one primary owner R01-k8s-mixed-v1 and one support-only small fixture. Added R04 and R08 roots.",
+    "Extended ts_lab_state.py to reject absent root reservations and unauthorized duplicate variants; restored from passing source after a bad string replacement. 15 unit tests + claim tree VALID in CI 41612252018.",
+    "Added M35/M36 negative methodology notes, indexed root locks, and updated SESSION_BOOTSTRAP.md, AGENT_GUIDE.md, coordination instructions, and the enabled hourly ChatGPT automation prompt."
+  ],
+  "negative_results": [
+    "Two agents wrote overlapping R01 claims under different suffixes before a root lock existed; variant-level atomic claims were insufficient. Future owners must create the canonical RNN root first.",
+    "Root validator CI 41611750521/41611793411 failed because literal JS replacement expanded a special $-quote sequence and damaged Python source; 41612052454 initially failed because another agent's R04 claim lacked a root. All addressed, CI 41612252018 success.",
+    "Original 400-node native R01 41611838191 invalid: checked bucketed sample rows instead of sum(length(samples)); corrected and full 41612120162 valid.",
+    "No new production-grade or 14d concurrent write/read conclusions; do not promote raw UUID globally."
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "fixture_sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+  "active_run_ids": [
+    41607779848,
+    41591617794
+  ],
+  "relevant_paths": [
+    "TS_LAB_INDEX.md",
+    ".github/ts-lab/SESSION_BOOTSTRAP.md",
+    ".github/ts-lab/RESEARCH_COORDINATION_20261103.md",
+    ".github/ts-lab/claims/roots/R01.json",
+    ".github/ts-lab/claims/roots/R04.json",
+    ".github/ts-lab/claims/roots/R08.json",
+    ".github/ts-lab/experiments/r01_kubernetes_workload.py",
+    ".github/ts-lab/METHODOLOGY_AND_FAILURES.md",
+    ".github/ts-lab/ts_lab_state.py"
+  ],
+  "blocked_by": [
+    "ChatGPT hourly run may need manual GitHub MCP authorization; public read-only research is available without approval.",
+    "Do not cancel/modify active jemalloc and LC decoder builds; wait for their artifact checks.",
+    "No validated continuous-ingest write and merge amplification test on the new 3d mixed Kubernetes fixture yet."
+  ],
+  "next_action": {
+    "question_id": "R02",
+    "step": "Refresh current root claims and recent CI. If R02 root is still absent, atomically reserve R02 for a single owner. Reuse verified R01 mixed 3d fixture and stock O1 binary, design a bounded native A/B/B/A on continuous small-batch ingest, merges, storage bytes/sample and read p95. Do not launch broad 14d concurrency until memory and output checks pass; use the existing primary R01 benchmark as baseline. If another agent already owns R02, inspect their work and instead analyze the active jemalloc/LC artifacts when complete.",
+    "stop_condition": "If R02 root exists, if auth is not approved, if full native output differs, if server RSS/OOM or drift fail, or if an overlapping run is active, do not launch duplicate CI; publish new evidence or a handoff instead."
+  }
+}
