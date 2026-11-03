@@ -1,0 +1,178 @@
+name: R31 candidate restricted TimeRanges IN set 1.33m O2 jemalloc
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r31-candidate-filter-1330k-20261104.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-r31-candidate-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  curve:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 140
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Fail closed on source symlink or test errors
+        run: |
+          set -euo pipefail
+          test "$(readlink AGENTS.md)" = ".claude/CLAUDE.md"
+          test "$(git ls-files -s AGENTS.md | awk '{print $1}')" = 120000
+          python3 -m py_compile .github/ts-lab-r31/*.py .github/ts-lab-r30/*.py .github/ts-lab-r06/probe_nested_selector_plan.py .github/ts-lab-bench/generate_95k_daily_churn_ts.py
+          python3 -m unittest discover -s .github/ts-lab-r30 -p 'test_*.py' -v
+          python3 -m unittest discover -s .github/ts-lab-r31 -p 'test_candidate_restricted_in.py' -v
+          mkdir -p evidence
+      - name: Reuse immutable stock O2 jemalloc R29 binary, no compilation
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r31-candidate-art" "$RUNNER_TEMP/r31-candidate-bin"
+          gh run download 41685467438 -R "$REPO" --pattern 'tslab-r29-stock-o2-jemalloc-binary-*' -D "$RUNNER_TEMP/r31-candidate-art"
+          archive="$(find "$RUNNER_TEMP/r31-candidate-art" -name 'clickhouse-stock-clickhouse-o2-jemalloc-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/archive-hash.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r31-candidate-bin"
+          (cd "$RUNNER_TEMP/r31-candidate-bin" && sha256sum -c SHA256SUMS) | tee evidence/binary-hash.txt
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r31-candidate-bin/BUILD_INFO.txt"
+          grep -q 'optimization=O2 USE_JEMALLOC=1 unmodified stock source no lab patches' "$RUNNER_TEMP/r31-candidate-bin/BUILD_INFO.txt"
+          echo "5d629ddfda91919402fdf8475ec3da9fe718d48ef386bc51be677264df6dc9ef  $RUNNER_TEMP/r31-candidate-bin/clickhouse" | sha256sum -c
+          cp "$RUNNER_TEMP/r31-candidate-bin/BUILD_INFO.txt" evidence/build-info.txt
+          chmod +x "$RUNNER_TEMP/r31-candidate-bin/clickhouse"
+          "$RUNNER_TEMP/r31-candidate-bin/clickhouse" --version | tee evidence/version.txt
+          sha256sum "$RUNNER_TEMP/r31-candidate-bin/clickhouse" | tee evidence/binary.sha256
+      - name: Launch isolated DEBUG TimeSeries server
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r31cand/data" "$RUNNER_TEMP/r31cand/tmp" "$RUNNER_TEMP/r31cand/userfiles"
+          cat > "$RUNNER_TEMP/r31cand-config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host>
+            <http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/r31cand/data/</path>
+            <tmp_path>$RUNNER_TEMP/r31cand/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/r31cand/userfiles/</user_files_path>
+            <max_server_memory_usage>4800000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default>
+              <allow_experimental_time_series_table>1</allow_experimental_time_series_table>
+              <enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions>
+              <log_queries>1</log_queries>
+              <log_processors_profiles>1</log_processors_profiles>
+              <max_memory_usage>1800000000</max_memory_usage>
+              <max_threads>4</max_threads>
+            </default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <processors_profile_log><database>system</database><table>processors_profile_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></processors_profile_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/r31-candidate-bin/clickhouse" server --config-file="$RUNNER_TEMP/r31cand-config.xml" >evidence/server.log 2>&1 &
+          echo "$!" >evidence/server.pid
+          for trial in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "R31_IN_SERVER_READY"
+              exit 0
+            fi
+            sleep 1
+          done
+          tail -110 evidence/server.log
+          exit 1
+      - name: Create and ingest canonical 1.33m Jenkins fixture without any binary patch
+        run: |
+          set -euo pipefail
+          python3 -u .github/ts-lab-bench/generate_95k_daily_churn_ts.py \
+            --manifest evidence/churn-manifest.json \
+            --fixture "$RUNNER_TEMP/95k-churn.jsonl" | tee evidence/ingest.log
+          test "$(sha256sum "$RUNNER_TEMP/95k-churn.jsonl" | awk '{print $1}')" = \
+            8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858
+          sha256sum "$RUNNER_TEMP/95k-churn.jsonl" > evidence/fixture.sha256
+      - name: Freeze TAGS TimeRanges and SAMPLES as one active part each
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import sys,pathlib,json
+          sys.path[:0]=[".github/ts-lab-perf",".github/ts-lab-bench",".github/ts-lab-cpu"]
+          from bench_granularity_v11 import optimize_table,wait_no_merges
+          from bench_native_multiclient_stock_20261103 import physical
+          optimization=optimize_table("churn_ts")
+          wait_no_merges()
+          parts=physical("churn_ts")
+          for layer,record in parts.items():
+              assert int(record["parts"]["part_count"]) == 1,(layer,record)
+          pathlib.Path("evidence/frozen-parts.json").write_text(
+              json.dumps({"optimization":optimization,"parts":parts},indent=2,default=str)+"\n")
+          print("R31_FROZEN",{
+              k:{"parts":v["parts"]["part_count"],"rows":v["parts"]["rows"]}
+              for k,v in parts.items()})
+          PY
+      - name: Restart same physical data with DEBUG selector SQL logging only after import
+        run: |
+          set -euo pipefail
+          old="$(cat evidence/server.pid)"
+          children="$(cat "/proc/$old/task/$old/children" 2>/dev/null || true)"
+          for pid in $children "$old"; do
+            kill -TERM "$pid" 2>/dev/null || true
+          done
+          for i in $(seq 1 120); do
+            if ! curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+            echo "Old listener still alive: abort" >&2
+            exit 1
+          fi
+          sed -i 's/<level>warning<\/level>/<level>debug<\/level>/' "$RUNNER_TEMP/r31cand-config.xml"
+          grep -q '<level>debug</level>' "$RUNNER_TEMP/r31cand-config.xml"
+          "$RUNNER_TEMP/r31-candidate-bin/clickhouse" server --config-file="$RUNNER_TEMP/r31cand-config.xml" \
+            >evidence/query-server.log 2>&1 &
+          echo "$!" >evidence/server.pid
+          for i in $(seq 1 120); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "R31_DEBUG_SERVER_READY";exit 0
+            fi
+            sleep 1
+          done
+          tail -150 evidence/query-server.log
+          exit 1
+      - name: Candidate-restricted TimeRanges IN vs raw IN and ANY on frozen 1.33m fixture
+        run: |
+          set -euo pipefail
+          python3 -u .github/ts-lab-r31/bench_candidate_restricted_large.py \
+            --manifest evidence/churn-manifest.json \
+            --server-log evidence/query-server.log \
+            --out evidence/candidate | tee evidence/candidate.log
+      - name: Report scientific status and OOMs independently of Actions result
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import pathlib,json
+          f=pathlib.Path('evidence/candidate/report.json')
+          if f.exists():
+              r=json.loads(f.read_text())
+              print('R31_LARGE_STATUS',r.get('status'),'errors',r.get('errors'))
+              for case,v in r.get('cases',{}).items():
+                  x=v.get('benchmark',{}).get('summary',{})
+                  print('R31_LARGE_CASE',case,
+                        'wall',{k:z.get('wall_ms') for k,z in x.items()},
+                        'cpu',{k:z.get('cpu_ms') for k,z in x.items()},
+                        'mem',{k:z.get('query_peak_bytes') for k,z in x.items()})
+          else:print('R31_LARGE_REPORT_MISSING')
+          PY
+      - name: Preserve raw SQL, parts, profiles, results and invalid outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r31-1330k-candidate-in-evidence
+          path: evidence/
+          retention-days: 45
+          compression-level: 1
