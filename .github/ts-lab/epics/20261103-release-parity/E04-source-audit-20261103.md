@@ -51,6 +51,12 @@ The correct read/write decision is a Pareto gate, not a read-only p50 win. For w
 
 This **is a planning equation, not a measured break-even**. Include extra storage, resident cache footprint, update consistency, backfill and replica behavior before selecting the index.
 
+## Cache invalidation: additional source check
+
+VM's tag-filter result cache is **not simply a permanent, never-invalidated snapshot**. The [indexDB constructor](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/storage/index_db.go#L153-L193) passes `tfssCache.Reset` as the `mergeset.MustOpenTable` flush callback. The [mergeset contract](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/mergeset/table.go#L338-L346) says the callback runs when a batch has become visible for search. [`addToInmemoryParts`](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/mergeset/table.go#L911-L940) executes it immediately for a final flush, or schedules a coalesced callback. [The worker](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/mergeset/table.go#L448-L468) runs on a jittered ~10-second tick when reset is pending. [DeleteSeries](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/storage/index_db.go#L1554-L1614) explicitly resets the same cache on deletion.
+
+**Implication:** a fair E02/R03 run must record `TagFiltersToMetricIDsCacheRequests`, `Misses` and `Resets` ([counter definitions](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/storage/index_db.go#L202-L263)), and the relative timing of writes, flushes and queries. Turning off the VM **response cache** does not disable this index cache. A port to CH requires an invalidation/generation model that prevents false negatives on fresh and late writes, not just an LRU map. The code review alone does not establish a fixed duration of result staleness or its effect in the R03 benchmark.
+
 ## Link to existing measured results; do not reuse as causal VM index proof
 
 | Test and configuration | Verified numbers | Meaning |
