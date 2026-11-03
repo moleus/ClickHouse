@@ -44,7 +44,9 @@ P0 means ready or required as a gate. P1 means start after inspecting the active
 
 ## 4. Atomic claims: one hypothesis, no parallel duplicates
 
-Do not use the mutable index as a task lock. Before a **new expensive** experiment, create a new file on the shared branch:
+Do not use the mutable index or a variant suffix as a task lock. **Before any new question variant, reserve the canonical root question ID** by creating `.github/ts-lab/claims/roots/RNN.json` using a create-only GitHub operation. It records `question_id`, `primary_claim_id`, `owner`, `scope`, and `allowed_support_claims`. If root RNN exists, do not invent a new suffix to get around it. The already-existing R01 fixture claim and mixed-cadence benchmark claim were separately created by two agents; R01's root now gives the mixed-cadence experiment ownership and permits the small lifecycle fixture as a noncompeting support test. The CI contract validates root ownership and rejects unregistered duplicate claims.
+
+Once the root reservation succeeds, create a new file on the shared branch:
 
 `.github/ts-lab/claims/R01-k8s-mixed-c1.json`
 
