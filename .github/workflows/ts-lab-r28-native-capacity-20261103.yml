@@ -1,0 +1,233 @@
+name: R28 native TimeSeries 8 client QUERY slot memory capacity ABBA
+
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r28-native-capacity-20261103.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: tslab-r28-native-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 140
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate checkout and R28 offline test contract
+        run: |
+          set -euo pipefail
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | awk '{print $1}')" = 120000
+          python3 -m py_compile \
+            .github/ts-lab-r28/bench_native_admission_capacity.py \
+            .github/ts-lab-r28/test_native_admission_capacity.py \
+            .github/ts-lab-cpu/bench_native_multiclient_stock_20261103.py \
+            .github/ts-lab-perf/bench_granularity_v11.py
+          python3 -m unittest discover \
+            -s .github/ts-lab-r28 -p 'test_native_admission_capacity.py' -v
+          python3 .github/ts-lab/ts_lab_state.py validate-tree .
+          mkdir -p evidence/r28-native
+          git rev-parse HEAD > evidence/r28-native/workflow-commit.txt
+          nproc > evidence/r28-native/runner-cores.txt
+          grep -m1 '^model name' /proc/cpuinfo > evidence/r28-native/runner-cpu.txt || true
+          free -b > evidence/r28-native/runner-memory.txt
+          uname -a > evidence/r28-native/runner-kernel.txt
+
+      - name: Restore immutable stock O1 and check exact binary and compiler metadata
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch-art" "$RUNNER_TEMP/ch-bin"
+          gh run download 41596421285 -R "$REPO" \
+            --pattern 'tslab-stock-clickhouse-o1-binary-*' \
+            -D "$RUNNER_TEMP/ch-art"
+          archive="$(find "$RUNNER_TEMP/ch-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) \
+            | tee evidence/r28-native/ch-archive-sha.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/ch-bin"
+          (cd "$RUNNER_TEMP/ch-bin" && sha256sum -c SHA256SUMS) \
+            | tee evidence/r28-native/ch-content-sha.txt
+          test "$(sha256sum "$RUNNER_TEMP/ch-bin/clickhouse" | awk '{print $1}')" = \
+            f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e
+          test "$(grep '^source=' "$RUNNER_TEMP/ch-bin/BUILD_INFO.txt")" = \
+            'source=52529f0c711566d696917678bf15e7068772fdde'
+          grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/ch-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/ch-bin/BUILD_INFO.txt" evidence/r28-native/BUILD_INFO.txt
+          "$RUNNER_TEMP/ch-bin/clickhouse" --version \
+            > evidence/r28-native/server-version.txt
+
+      - name: Start isolated 4.8GB stock server with same native query configuration as prior fresh8
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles"
+          cat > "$RUNNER_TEMP/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host>
+            <http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path>
+            <tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <max_server_memory_usage>4800000000</max_server_memory_usage>
+            <users><default><password></password>
+            <networks><ip>127.0.0.1</ip></networks>
+            <profile>default</profile><quota>default</quota></default></users>
+            <profiles><default>
+              <allow_experimental_time_series_table>1</allow_experimental_time_series_table>
+              <enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions>
+              <log_queries>1</log_queries>
+              <log_processors_profiles>1</log_processors_profiles>
+              <log_query_threads>1</log_query_threads>
+              <use_statistics>1</use_statistics>
+              <query_profiler_cpu_time_period_ns>1000000</query_profiler_cpu_time_period_ns>
+              <max_memory_usage>1800000000</max_memory_usage>
+            </default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table>
+              <flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <query_thread_log><database>system</database><table>query_thread_log</table>
+              <flush_interval_milliseconds>1000</flush_interval_milliseconds></query_thread_log>
+            <processors_profile_log><database>system</database><table>processors_profile_log</table>
+              <flush_interval_milliseconds>1000</flush_interval_milliseconds></processors_profile_log>
+            <default_profile>default</default_profile>
+            <default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/ch-bin/clickhouse" server --config-file="$RUNNER_TEMP/config.xml" \
+            > evidence/r28-native/ch-start.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          for i in $(seq 1 100); do
+            if ! kill -0 "$(cat "$RUNNER_TEMP/ch.pid")" 2>/dev/null; then
+              tail -80 evidence/r28-native/ch-start.log
+              exit 1
+            fi
+            if curl -fsS --max-time 2 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS --max-time 3 http://127.0.0.1:18191/ping
+
+      - name: Generate and ingest identical canonical Jenkins 14-day source into LC fixture
+        run: |
+          set -euo pipefail
+          python3 -u .github/ts-lab-bench/generate_95k_daily_churn_ts.py \
+            --manifest evidence/r28-native/churn-manifest.json \
+            --fixture "$RUNNER_TEMP/95k-churn.jsonl" \
+            | tee evidence/r28-native/ingest-lc.log
+          sha256sum "$RUNNER_TEMP/95k-churn.jsonl" \
+            | tee evidence/r28-native/fixture-sha256.txt
+          test "$(sha256sum "$RUNNER_TEMP/95k-churn.jsonl" | awk '{print $1}')" = \
+            8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858
+
+      - name: Create opt-in RAW UUID data and freeze one-part inner layers
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,sys,os,pathlib
+          sys.path[:0]=[".github/ts-lab-perf",".github/ts-lab-bench",".github/ts-lab-cpu"]
+          from bench_granularity_v11 import streamed_insert,optimize_table,wait_no_merges
+          from bench_native_multiclient_stock_20261103 import RAW,LC,create_raw,physical
+          create_raw()
+          inserted=streamed_insert(RAW,os.environ["RUNNER_TEMP"]+"/95k-churn.jsonl")
+          assert inserted["rows"]==1330000,inserted
+          optimized={t:optimize_table(t) for t in (LC,RAW)}
+          wait_no_merges()
+          frozen={t:physical(t) for t in (LC,RAW)}
+          for t,parts in frozen.items():
+            assert all(item["parts"]["part_count"]==1 for item in parts.values()), (t,parts)
+          result={"inserted":inserted,"optimized":optimized,"frozen":frozen}
+          pathlib.Path("evidence/r28-native/physical-preflight.json").write_text(
+              json.dumps(result,indent=2,default=str)+"\n")
+          print("R28_DATA_FROZEN",json.dumps({
+              "raw_rows":inserted["rows"],"parts":{
+                  t:{k:x["parts"]["part_count"] for k,x in value.items()}
+                  for t,value in frozen.items()
+              }
+          },separators=(",",":")),flush=True)
+          PY
+
+      - name: Install safe restart for fresh-process phase comparisons
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/r28-restart.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          binary="$1"
+          phase="$2"
+          previous="$(cat "$RUNNER_TEMP/ch.pid")"
+          children="$(cat "/proc/$previous/task/$previous/children" 2>/dev/null || true)"
+          for pid in $children "$previous"; do
+            if [ -n "$pid" ]; then kill -TERM "$pid" 2>/dev/null || true; fi
+          done
+          for attempt in $(seq 1 120); do
+            if ! curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "R28_OLD_PORT_CLOSED phase=$phase"
+              break
+            fi
+            sleep 1
+          done
+          if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+            echo "R28_OLD_LISTENER_STILL_ALIVE" >&2
+            exit 1
+          fi
+          sleep 2
+          "$binary" server --config-file="$RUNNER_TEMP/config.xml" \
+            > "evidence/r28-native/ch-$phase.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/ch.pid"
+          for attempt in $(seq 1 120); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "R28_FRESH_SERVER_READY phase=$phase"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "R28_RESTART_FAILED phase=$phase" >&2
+          tail -80 "evidence/r28-native/ch-$phase.log" >&2
+          exit 1
+          SH
+          chmod +x "$RUNNER_TEMP/r28-restart.sh"
+
+      - name: Run six fresh-process phases for eight-client full native PromQL
+        run: |
+          set -euo pipefail
+          python3 -u .github/ts-lab-r28/bench_native_admission_capacity.py \
+            --binary "$RUNNER_TEMP/ch-bin/clickhouse" \
+            --restart-script "$RUNNER_TEMP/r28-restart.sh" \
+            --pid-file "$RUNNER_TEMP/ch.pid" \
+            --fixture "$RUNNER_TEMP/95k-churn.jsonl" \
+            --manifest evidence/r28-native/churn-manifest.json \
+            --output evidence/r28-native/report.json \
+            | tee evidence/r28-native/benchmark.log
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("evidence/r28-native/report.json").read_text())
+          print("R28_FINAL_DECISION",d.get("decision"),
+                "protocol",d.get("passed_protocol"),
+                "phases",[(p["slots"],p["outcome"]) for p in d["phases"]])
+          assert d["passed_protocol"],d.get("protocol_errors")
+          PY
+
+      - name: Preserve complete observations including OOM and failed phases
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r28-native-admission-${{ github.run_id }}
+          path: evidence/r28-native/
+          retention-days: 45
+          compression-level: 1
