@@ -1,0 +1,19 @@
+{
+  "id": "R11-native-promql-query-cache-consistency-v1",
+  "question": "Can ClickHouse QueryResultCache return stale native prometheusQueryRange results after an INSERT into a TimeSeries table, and is this cache path supported?",
+  "owner": "chatgpt-r11-query-cache-safety-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "SHA-verified stock unmodified O1 26.11.1.1 from run 41596421285, binary SHA f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e, same executable for every query",
+  "candidate": "Only query setting use_query_cache=1 with backend configured, compared with identical native query and use_query_cache=0 after a new INSERT; no C++ patch",
+  "fixture": "One synthetic TimeSeries series at static UTC timestamps T0 and T1, values 1 then 3; exact SQL and fixture SHA stored, 5m avg window; no private data",
+  "single_variable": "Query cache enabled vs bypassed while INSERT modifies referenced TimeSeries; same fixed query range/metric/labels and executable",
+  "math_bound": "Before second sample, avg_over_time([1])=1. After INSERT, fresh query avg_over_time([1,3])=2. If cache key is AST+database+settings but not table data version, a confirmed cache hit before expiry returns 1 after INSERT. Source QueryResultCache.h explicitly states inserts/deletes do not invalidate query cache, so this is a native-path applicability test, not a discovery of a novel engine bug.",
+  "falsifier": "Native cache rejected/disabled or not hit; lack of query cache read events; stale result still returned with use_query_cache=0 or after SYSTEM DROP QUERY CACHE (then source data/control is wrong); mismeasured input fixtures",
+  "test_matrix": "small isolated stock O1 one table and two synthetic samples; warm query before INSERT; cache entry/hit counters; same query after INSERT; uncached comparator; after DROP QUERY CACHE; independent physical sample count; query cache TTL 120s, no perf claims",
+  "runner_budget": "one isolated ubuntu-24.04 GitHub Actions job under 15 minutes; reuse verified 84MB stock O1 artifact; no C++ builds",
+  "planned_workflow": ".github/workflows/ts-lab-r11-native-query-cache-staleness-20261103.yml; path self-trigger, run-id concurrency, no schedules",
+  "dependencies": [
+    "R08-matcher-absence-regex-v1"
+  ]
+}
