@@ -52,10 +52,11 @@ CASES_TO_RUN = ("node_broad", "pod_namespace", "pod_broad", "burst15")
 WARMUPS = 2
 MEASURED = 8
 RUN = os.getenv("GITHUB_RUN_ID", "manual")
+TABLE_PREFIX = "tslab_r18_"
 
 
 def table(kind):
-    return "tslab_r18_" + kind
+    return TABLE_PREFIX + kind
 
 
 def process_cpu_seconds(pid):
@@ -261,18 +262,37 @@ def compare(phases,base,candidate):
 
 
 def main():
+    global FIXTURE_SHA, TABLE_PREFIX, TARGETS, KINDS, RUN
     parser=argparse.ArgumentParser()
     parser.add_argument("--fixture",required=True)
     parser.add_argument("--manifest",required=True)
     parser.add_argument("--pid-file",required=True)
     parser.add_argument("--output",required=True)
     parser.add_argument("--cases",nargs="+",choices=CASES_TO_RUN,default=list(CASES_TO_RUN))
+    parser.add_argument("--fixture-sha256",default=FIXTURE_SHA)
+    parser.add_argument("--table-prefix",default=TABLE_PREFIX)
+    parser.add_argument("--candidate-codecs",nargs="+",choices=TARGETS,default=list(TARGETS))
+    parser.add_argument("--run-suffix",default="")
     args=parser.parse_args()
+    if not re.fullmatch(r"[a-z][a-z0-9_]{4,45}_",args.table_prefix):
+        raise ValueError("Unsafe table prefix")
+    if not re.fullmatch(r"[0-9a-f]{64}",args.fixture_sha256):
+        raise ValueError("Fixture must have full sha256")
+    if len(set(args.candidate_codecs))!=len(args.candidate_codecs):
+        raise ValueError("Duplicate candidate codec")
+    if not re.fullmatch(r"[a-z0-9_]{0,30}",args.run_suffix):
+        raise ValueError("Unsafe run suffix")
+    FIXTURE_SHA=args.fixture_sha256
+    TABLE_PREFIX=args.table_prefix
+    TARGETS=tuple(args.candidate_codecs)
+    KINDS=("alp",)+TARGETS
+    RUN=RUN+("_"+args.run_suffix if args.run_suffix else "")
     out={
         "question_id":"R18-timeseries-samples-value-codec-v1",
         "source_sha":SOURCE_SHA,
         "expected_binary_sha256":BINARY_SHA,
         "expected_fixture_sha256":FIXTURE_SHA,
+        "table_prefix":TABLE_PREFIX,"candidate_codecs":TARGETS,
         "codec_DDL":{},"ingest":{},"optimize":{},
         "audits":{},"cases":{},"errors":[]
     }
