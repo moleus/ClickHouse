@@ -1,11 +1,14 @@
 name: R13 Native PromQL 200-branch literal IN versus compact regex ABBA
 on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r13-regex-literal-compact-20261103.yml']
   workflow_dispatch:
 permissions:
   contents: read
   actions: read
 concurrency:
-  group: ts-lab-r13-cache-${{ github.run_id }}
+  group: ts-lab-r13-regex-${{ github.run_id }}
   cancel-in-progress: false
 jobs:
   r13:
