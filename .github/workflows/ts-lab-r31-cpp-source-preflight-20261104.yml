@@ -1,0 +1,64 @@
+name: R31 source-pinned TimeRanges JOIN to IN C++ AST dry-run preflight
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r31-cpp-source-preflight-20261104.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tslab-r31-cpp-preflight-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  diff:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Fail closed on source patch tests and repository symlink
+        run: |
+          set -euo pipefail
+          test "$(readlink AGENTS.md)" = ".claude/CLAUDE.md"
+          test "$(git ls-files -s AGENTS.md | awk '{print $1}')" = 120000
+          python3 -m py_compile .github/ts-lab-r31/apply_in_filter_cpp.py
+          python3 -m unittest discover -s .github/ts-lab-r31 -p 'test_*.py' -v
+          mkdir -p evidence
+          git rev-parse HEAD > evidence/lab-commit.txt
+      - name: Fetch exact pinned upstream source without submodules or compilation
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin 52529f0c711566d696917678bf15e7068772fdde
+          test "$(git rev-parse FETCH_HEAD)" = 52529f0c711566d696917678bf15e7068772fdde
+          git show FETCH_HEAD:src/Storages/StorageTimeSeriesSelector.cpp > evidence/StorageTimeSeriesSelector.stock.cpp
+          sha256sum evidence/StorageTimeSeriesSelector.stock.cpp > evidence/stock-source.sha256
+      - name: Generate source-exact diff with no checkout mutation
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-r31/apply_in_filter_cpp.py \
+            --source evidence/StorageTimeSeriesSelector.stock.cpp \
+            --out evidence/R31-JOIN-to-IN-source.patch | tee evidence/dryrun.txt
+          sha256sum -c evidence/stock-source.sha256
+          cp evidence/StorageTimeSeriesSelector.stock.cpp "$RUNNER_TEMP/patched.cpp"
+          python3 .github/ts-lab-r31/apply_in_filter_cpp.py \
+            --source "$RUNNER_TEMP/patched.cpp" --apply | tee evidence/applied-copy.txt
+          sha256sum "$RUNNER_TEMP/patched.cpp" > evidence/lab-patched.sha256
+          grep -q '"in", id->clone()' "$RUNNER_TEMP/patched.cpp"
+          if sed -n '/void addTimeRangesTableJoin(/,/void applyTimeRangeFilterToSelectIDsQuery(/p' \
+             "$RUNNER_TEMP/patched.cpp" | grep -q 'JoinStrictness::All'; then
+            echo 'Residual TimeRanges JOIN found, abort' >&2
+            exit 1
+          fi
+          grep -q 'makeIDOutOfRangesCondition(id, \*metric_id_ranges)' "$RUNNER_TEMP/patched.cpp"
+          cp evidence/R31-JOIN-to-IN-source.patch evidence/verified.patch
+          echo "R31_CPP_SOURCE_DIFF_VERIFIED no compilation, no branch source edits"
+      - name: Preserve failed preflight and verified one-function diff
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r31-cpp-source-diff-evidence
+          path: evidence/
+          retention-days: 45
+          compression-level: 1
