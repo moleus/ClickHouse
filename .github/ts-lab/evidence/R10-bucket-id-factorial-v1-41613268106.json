@@ -1,0 +1,357 @@
+{
+  "schema_version": 1,
+  "question_id": "R10-bucket-id-factorial-v1",
+  "decision": "ACCEPT_FOR_NEXT_GATE",
+  "status": "verified-full-native-A/B/B/A, not production promotion",
+  "result": "All 20 native ABBA comparisons passed exact label/time/numeric parity, physical data counts, sample element counts and control-drift gate. 900s buckets greatly increase SAMPLES bucket rows and degrade 1d namespace query despite smaller candidate time granularity. 10800s reduces compressed disk and read rows but does not improve broad-query p50 on this test. RAW UUID is modestly faster and smaller at all three steps.",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "build_run": 41596421285,
+  "compiler": "LLVM22.1.8 O1 unmodified stock",
+  "fixture": {
+    "sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+    "rows": 28896,
+    "sample_points": 2488320,
+    "days": 3,
+    "node_slots": 400,
+    "node_life_seconds": 10800,
+    "source_file": ".github/ts-lab-r01/generate_k8s_churn_fixture.py"
+  },
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41613268106",
+    "commit": "85aaeddf1c2ea0d55fe2130815817dd349e2fbe4",
+    "file": ".github/workflows/ts-lab-r10-bucket-id-factorial-20261103.yml",
+    "artifact_id": 13219848167
+  },
+  "method": {
+    "factors": {
+      "samples_bucket_step_seconds": [
+        900,
+        3600,
+        10800
+      ],
+      "uuid_id": [
+        "Tuple(UInt64,LowCardinality(UUID))",
+        "Tuple(UInt64,UUID)"
+      ]
+    },
+    "query": "avg by(project or namespace)(avg_over_time(tslab_node_cpu_ratio or tslab_pod_cpu_ratio{selector}[1d])) via prometheusQueryRange with daily grid 3d",
+    "layout": "One active part per inner layer in six tables; stopped merges. Same output, ID hash, source, binary, timestamps and synthetic input. All input points in `Array(Tuple(timestamp,value))` per bucket.",
+    "comparisons": "12 ID-type ABBA within each bucket step across 4 selectors; 8 bucket step ABBA vs3600 for each UUID type across broad node and one namespace; 2 warmups plus 6 measured queries per phase; 20*4*8=640 native measured/warmup requests plus oracles",
+    "control_drift_gate": 0.25,
+    "highest_control_drift": 0.12944
+  },
+  "correctness": {
+    "passed": true,
+    "all_20_valid_control": true,
+    "all_physical_layouts_unchanged": true,
+    "logical_id_digest_equal": true,
+    "total_points_per_table": 2488320,
+    "distinct_series_per_table": 28896,
+    "no_oom": true
+  },
+  "storage": {
+    "lc_900": {
+      "samples_rows": 346752,
+      "samples_bytes": 5718133,
+      "tags_bytes": 1544707,
+      "timeranges_bytes": 693006,
+      "total_bytes": 7955846,
+      "marks": 1356
+    },
+    "lc_3600": {
+      "samples_rows": 86688,
+      "samples_bytes": 5332102,
+      "tags_bytes": 1544707,
+      "timeranges_bytes": 693006,
+      "total_bytes": 7569815,
+      "marks": 340
+    },
+    "lc_10800": {
+      "samples_rows": 28896,
+      "samples_bytes": 4729247,
+      "tags_bytes": 1544707,
+      "timeranges_bytes": 693006,
+      "total_bytes": 6966960,
+      "marks": 125
+    },
+    "raw_900": {
+      "samples_rows": 346752,
+      "samples_bytes": 5677267,
+      "tags_bytes": 1486557,
+      "timeranges_bytes": 634858,
+      "total_bytes": 7798682,
+      "marks": 1356
+    },
+    "raw_3600": {
+      "samples_rows": 86688,
+      "samples_bytes": 5303391,
+      "tags_bytes": 1486557,
+      "timeranges_bytes": 634858,
+      "total_bytes": 7424806,
+      "marks": 340
+    },
+    "raw_10800": {
+      "samples_rows": 28896,
+      "samples_bytes": 4711823,
+      "tags_bytes": 1486557,
+      "timeranges_bytes": 634858,
+      "total_bytes": 6833238,
+      "marks": 125
+    }
+  },
+  "id_type_pairs": {
+    "id_900_node_broad": {
+      "step_seconds": 900,
+      "case": "node_broad",
+      "lc_p50_ms": 106.902,
+      "raw_p50_ms": 101.51,
+      "lc_over_raw_speedup": 1.0531,
+      "control_drift": 0.00486,
+      "lc_cpu_ms": 211.385,
+      "raw_cpu_ms": 204.355,
+      "valid_control": true
+    },
+    "id_900_pod_namespace": {
+      "step_seconds": 900,
+      "case": "pod_namespace",
+      "lc_p50_ms": 51.561,
+      "raw_p50_ms": 48.436,
+      "lc_over_raw_speedup": 1.0645,
+      "control_drift": 0.00089,
+      "lc_cpu_ms": 97.526,
+      "raw_cpu_ms": 89.383,
+      "valid_control": true
+    },
+    "id_900_pod_broad": {
+      "step_seconds": 900,
+      "case": "pod_broad",
+      "lc_p50_ms": 111.206,
+      "raw_p50_ms": 107.246,
+      "lc_over_raw_speedup": 1.0369,
+      "control_drift": 0.03052,
+      "lc_cpu_ms": 226.43,
+      "raw_cpu_ms": 219.002,
+      "valid_control": true
+    },
+    "id_900_burst15": {
+      "step_seconds": 900,
+      "case": "burst15",
+      "lc_p50_ms": 34.58,
+      "raw_p50_ms": 32.249,
+      "lc_over_raw_speedup": 1.0723,
+      "control_drift": 0.00064,
+      "lc_cpu_ms": 55.583,
+      "raw_cpu_ms": 51.805,
+      "valid_control": true
+    },
+    "id_3600_node_broad": {
+      "step_seconds": 3600,
+      "case": "node_broad",
+      "lc_p50_ms": 99.135,
+      "raw_p50_ms": 92.405,
+      "lc_over_raw_speedup": 1.0728,
+      "control_drift": 0.03479,
+      "lc_cpu_ms": 185.373,
+      "raw_cpu_ms": 177.28,
+      "valid_control": true
+    },
+    "id_3600_pod_namespace": {
+      "step_seconds": 3600,
+      "case": "pod_namespace",
+      "lc_p50_ms": 40.022,
+      "raw_p50_ms": 37.577,
+      "lc_over_raw_speedup": 1.0651,
+      "control_drift": 0.00525,
+      "lc_cpu_ms": 66.132,
+      "raw_cpu_ms": 61.706,
+      "valid_control": true
+    },
+    "id_3600_pod_broad": {
+      "step_seconds": 3600,
+      "case": "pod_broad",
+      "lc_p50_ms": 94.519,
+      "raw_p50_ms": 91.962,
+      "lc_over_raw_speedup": 1.0278,
+      "control_drift": 0.00945,
+      "lc_cpu_ms": 182.777,
+      "raw_cpu_ms": 178.096,
+      "valid_control": true
+    },
+    "id_3600_burst15": {
+      "step_seconds": 3600,
+      "case": "burst15",
+      "lc_p50_ms": 31.389,
+      "raw_p50_ms": 29.659,
+      "lc_over_raw_speedup": 1.0583,
+      "control_drift": 0.02135,
+      "lc_cpu_ms": 48.148,
+      "raw_cpu_ms": 44.269,
+      "valid_control": true
+    },
+    "id_10800_node_broad": {
+      "step_seconds": 10800,
+      "case": "node_broad",
+      "lc_p50_ms": 112.966,
+      "raw_p50_ms": 105.903,
+      "lc_over_raw_speedup": 1.0667,
+      "control_drift": 0.00181,
+      "lc_cpu_ms": 202.73,
+      "raw_cpu_ms": 192.743,
+      "valid_control": true
+    },
+    "id_10800_pod_namespace": {
+      "step_seconds": 10800,
+      "case": "pod_namespace",
+      "lc_p50_ms": 38.965,
+      "raw_p50_ms": 36.669,
+      "lc_over_raw_speedup": 1.0626,
+      "control_drift": 0.00808,
+      "lc_cpu_ms": 62.711,
+      "raw_cpu_ms": 58.637,
+      "valid_control": true
+    },
+    "id_10800_pod_broad": {
+      "step_seconds": 10800,
+      "case": "pod_broad",
+      "lc_p50_ms": 92.46,
+      "raw_p50_ms": 87.564,
+      "lc_over_raw_speedup": 1.0559,
+      "control_drift": 0.0087,
+      "lc_cpu_ms": 170.897,
+      "raw_cpu_ms": 163.73,
+      "valid_control": true
+    },
+    "id_10800_burst15": {
+      "step_seconds": 10800,
+      "case": "burst15",
+      "lc_p50_ms": 32.028,
+      "raw_p50_ms": 30.421,
+      "lc_over_raw_speedup": 1.0528,
+      "control_drift": 0.00618,
+      "lc_cpu_ms": 52.802,
+      "raw_cpu_ms": 49.391,
+      "valid_control": true
+    }
+  },
+  "bucket_step_pairs": {
+    "lc_900_node_broad": {
+      "kind": "lc",
+      "bucket_seconds": 900,
+      "case": "node_broad",
+      "control_3600_p50_ms": 115.297,
+      "candidate_p50_ms": 119.172,
+      "control_3600_cpu_ms": 209.507,
+      "candidate_cpu_ms": 234.652,
+      "control_3600_read_rows": 57728,
+      "candidate_read_rows": 144224,
+      "control_drift": 0.00001,
+      "valid_control": true
+    },
+    "lc_10800_node_broad": {
+      "kind": "lc",
+      "bucket_seconds": 10800,
+      "case": "node_broad",
+      "control_3600_p50_ms": 105.38,
+      "candidate_p50_ms": 112.171,
+      "control_3600_cpu_ms": 196.34,
+      "candidate_cpu_ms": 200.009,
+      "control_3600_read_rows": 57728,
+      "candidate_read_rows": 38592,
+      "control_drift": 0.12944,
+      "valid_control": true
+    },
+    "lc_900_pod_namespace": {
+      "kind": "lc",
+      "bucket_seconds": 900,
+      "case": "pod_namespace",
+      "control_3600_p50_ms": 40.361,
+      "candidate_p50_ms": 51.93,
+      "control_3600_cpu_ms": 66.562,
+      "candidate_cpu_ms": 97.524,
+      "control_3600_read_rows": 102368,
+      "candidate_read_rows": 218592,
+      "control_drift": 0.01702,
+      "valid_control": true
+    },
+    "lc_10800_pod_namespace": {
+      "kind": "lc",
+      "bucket_seconds": 10800,
+      "case": "pod_namespace",
+      "control_3600_p50_ms": 39.949,
+      "candidate_p50_ms": 38.59,
+      "control_3600_cpu_ms": 66.175,
+      "candidate_cpu_ms": 61.982,
+      "control_3600_read_rows": 102368,
+      "candidate_read_rows": 64736,
+      "control_drift": 0.00005,
+      "valid_control": true
+    },
+    "raw_900_node_broad": {
+      "kind": "raw",
+      "bucket_seconds": 900,
+      "case": "node_broad",
+      "control_3600_p50_ms": 92.934,
+      "candidate_p50_ms": 101.031,
+      "control_3600_cpu_ms": 177.23,
+      "candidate_cpu_ms": 203.566,
+      "control_3600_read_rows": 57728,
+      "candidate_read_rows": 144224,
+      "control_drift": 0.02424,
+      "valid_control": true
+    },
+    "raw_10800_node_broad": {
+      "kind": "raw",
+      "bucket_seconds": 10800,
+      "case": "node_broad",
+      "control_3600_p50_ms": 91.906,
+      "candidate_p50_ms": 95.784,
+      "control_3600_cpu_ms": 176.513,
+      "candidate_cpu_ms": 173.541,
+      "control_3600_read_rows": 57728,
+      "candidate_read_rows": 38592,
+      "control_drift": 0.00252,
+      "valid_control": true
+    },
+    "raw_900_pod_namespace": {
+      "kind": "raw",
+      "bucket_seconds": 900,
+      "case": "pod_namespace",
+      "control_3600_p50_ms": 37.27,
+      "candidate_p50_ms": 48.052,
+      "control_3600_cpu_ms": 61.184,
+      "candidate_cpu_ms": 88.962,
+      "control_3600_read_rows": 102368,
+      "candidate_read_rows": 218592,
+      "control_drift": 0.00142,
+      "valid_control": true
+    },
+    "raw_10800_pod_namespace": {
+      "kind": "raw",
+      "bucket_seconds": 10800,
+      "case": "pod_namespace",
+      "control_3600_p50_ms": 37.526,
+      "candidate_p50_ms": 36.709,
+      "control_3600_cpu_ms": 61.654,
+      "candidate_cpu_ms": 58.447,
+      "control_3600_read_rows": 102368,
+      "candidate_read_rows": 64736,
+      "control_drift": 0.01719,
+      "valid_control": true
+    }
+  },
+  "observations": [
+    "Compared with 3600s at RAW UUID, 900s namespace p50 37.270->48.052ms (+28.93%), CPU 61.184->88.962ms (+45.40%), read_rows 102368->218592 (+113.5%), control drift 0.142%. Strong within-run result.",
+    "Compared with 3600s at RAW UUID, 10800s reduces disk from 7424806 to 6833238 B (-7.97%) and read_rows for node broad 57728->38592; node_broad p50 regresses 91.906->95.784ms (+4.22%) while namespace p50 37.526->36.709ms (-2.18%, comparable to control drift1.72%). No global 10800s winner.",
+    "RAW UUID is ~2%-7% faster than LC across step sizes; relative gains smaller than original sparse-Jenkins high-churn fixture. 900s has more ID rows and more read/decode work.",
+    "Both 900s and 10800s changes affect data layout; their write/merge CPU and storage cost must be included before promotion."
+  ],
+  "limitations": [
+    "Synthetic fixed 3h life and one-query-client normal run, not production HPA/ACL/staleness/concurrent tenant traffic.",
+    "Only 1d avg_over_time lookback queries and 3d daily steps; cannot infer behavior for 15m or 1h lookback and true fine time pruning.",
+    "Same runner long-lived server and warm caches; use exact same-runner matched paired comparisons only, not unrelated runs.",
+    "glibc-linked O1 lab binary; jemalloc production parity not established.",
+    "Representative CPU traces are diagnostic samples, not critical path timing; sum of processor wait times is not wall time."
+  ],
+  "next_action": "Same raw UUID and fixture, test 15m, 1h and 3h lookback at within-bucket and bucket-boundary evaluations (900/3600/10800) using A/B/B/A, prove time-pruning/value parity and read_rows tradeoff. Do not change global bucket default based on 1d results alone."
+}
