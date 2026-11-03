@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "example_only": true,
+  "session_id": "example-replace-on-write",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "0000000000000000000000000000000000000000",
+  "last_verified_utc": "2026-11-03T00:00:00Z",
+  "question_id": "R01",
+  "summary": "EXAMPLE ONLY: this is not a verified branch snapshot. Copy and replace all fields.",
+  "completed": [
+    "Evidence link and exact measured result, if any"
+  ],
+  "negative_results": [
+    "Rejected assumption and linked failing CI, if any"
+  ],
+  "active_run_ids": [],
+  "source_sha": "Replace with full pinned source commit before real work",
+  "binary_sha256": "Replace with verified SHA or state not applicable",
+  "fixture_sha256": "Replace with verified SHA or state not applicable",
+  "relevant_paths": [
+    ".github/ts-lab/INDEX.md"
+  ],
+  "blocked_by": [],
+  "next_action": {
+    "question_id": "R01",
+    "step": "Read latest source and CI; run one cheap falsification",
+    "stop_condition": "Native output mismatches or existing evidence already answers this question"
+  }
+}
