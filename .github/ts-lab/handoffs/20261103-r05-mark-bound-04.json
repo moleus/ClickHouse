@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "session_id": "r05-mark-pruning-bound-20261103-04",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "b7cc7042dbe6904d0ef6013205e7eca51afafe4c",
+  "last_verified_utc": "2026-11-03T09:51:00Z",
+  "question_id": "R05",
+  "summary": "Reserved canonical R05 question, recorded conditional mathematical ID-to-mark occupancy model and source-backed read-path gate without new performance assertion or build.",
+  "completed": [
+    "Canonical create-only root R05 commit a1eeb68588946d00de533eeadd5909169c19492d; claim commit 0fc18a580bf2c8b8ce6d2b411df1f516b8c6a014; methodology note commit b7cc7042dbe6904d0ef6013205e7eca51afafe4c.",
+    "Pinned StorageTimeSeriesSelector.cpp readImpl uses an ID set on v11 bucketed SAMPLES, but ID-set filtering does not establish physical mark pruning.",
+    "Conditional uniform occupancy P(mark touched)=1-(1-s)^g. Illustration g=8192: s=0.001 -> 99.9724% marks touched, s=0.0001 ->55.9234%; threshold for <=50% touched is s<=0.0000846091.",
+    "15 root/claim tests and VALID tree confirmed in CI 41612252018; newer validators 41612722207 and 41612725292 also completed success.",
+    "Long builds 41607779848 jemalloc and 41591617794 LC decoder still in Compile one executable on latest checked jobs; neither cancelled.",
+    "R01/R04/R08 published validated CI and R02 existing owner respected, no duplicate runs or builds."
+  ],
+  "negative_results": [
+    "No measured R05 CPU/RSS/read-byte or native PromQL improvement. Mathematical independence/uniformity does not apply automatically to ID-ordered physical parts, correlated tags or repeated samples.",
+    "TimeRanges minmax index failed to prune marks in 41587537130, but does not directly measure SAMPLES mark pruning.",
+    "A near-total selected-mark fraction would falsify a physical sparse-read optimization regardless of logical ID selectivity."
+  ],
+  "active_run_ids": [
+    41607779848,
+    41591617794
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "not used for R05 source/math gate; existing stock O1 available in historical verified evidence",
+  "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+  "relevant_paths": [
+    ".github/ts-lab/claims/roots/R05.json",
+    ".github/ts-lab/claims/R05-candidate-id-mark-bound-v1.json",
+    ".github/ts-lab/experiments/R05_MARK_COVERAGE_FEASIBILITY_20261103.md",
+    ".github/ts-lab/METHODOLOGY_AND_FAILURES.md",
+    "src/Storages/StorageTimeSeriesSelector.cpp"
+  ],
+  "blocked_by": [
+    "Real SAMPLES inner ORDER BY, rows and distinct IDs per physical mark are not yet independently verified. Do not apply g=8192 as a measured fact.",
+    "A full live/queued Actions inventory across all branches was not verified complete in this session; checked specific competing builds and validator runs."
+  ],
+  "next_action": {
+    "question_id": "R05",
+    "step": "Use existing frozen same-source fixture and stock binary; first verify SAMPLES ORDER BY, index granularity and physical part ID distribution, then compare actual SelectedMarks/read_bytes and native nonempty PromQL parity under narrow and broad selectors, without building a new binary.",
+    "stop_condition": "If mark pruning is absent, another agent owns or changes R05, OAuth write access disappears, native output parity fails or RSS/drift checks fail, stop and record negative evidence without duplicate CI."
+  }
+}
