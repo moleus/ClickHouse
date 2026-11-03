@@ -205,3 +205,49 @@ Reduced per-query `max_threads` **2→1**, fixed 8 concurrent clients.
   a schema with greater memory safety. Existing source-pinned jemalloc
   build must be separately verified and run before production judgment.
 
+## 2026-11-03: R12 matched O1 C++ LowCardinality decoder prototype REJECT
+
+[Full native A/B/B/A #41620022189](https://github.com/moleus/ClickHouse/actions/runs/41620022189)
+completed all four stage/project/regex/whole jobs in one isolated CI job
+and produced a SHA-verified [immutable evidence record](../ts-lab/evidence/R12-lc-decoder-matched-41620022189.json).
+Old decoder control [build #41531656434](https://github.com/moleus/ClickHouse/actions/runs/41531656434)
+`3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221` vs new experimental
+[build #41591617794](https://github.com/moleus/ClickHouse/actions/runs/41591617794)
+`bcafb369ccbfb063faea9c82694c4b3a527430432a81401225e2a8091a3c2cb9`.
+Exact source `52529f0c711566d696917678bf15e7068772fdde`, LLVM22.1.8 `O1`,
+identical CMake flags and two common C++ patch chunks, only extra candidate
+patch path `src/DataTypes/Serializations/SerializationLowCardinality.cpp`.
+Frozen Jenkins LC UUID 1.33m-series fixture SHA256
+`8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858`.
+Four fresh-server per-case `baseline/lcpatch/lcpatch/baseline` phases, two
+warmups + six measured native PromQL queries per phase; exact nonempty labels/
+timestamps/values, same part rows/marks/bytes, QueryFinish CPU and control
+drift below25%, no OOM.
+
+- Stage14d: p50 **916.225→1022.784ms +11.6%**, CPU **1694.628→1876.203ms +10.7%**,
+  baseline p50 drift **0.109%**, CPU drift **0.096%**. Strong **regression**, reject.
+- Project14d: p50 1795.351→1774.902ms, baseline drift4.35%; effect inconclusive.
+- Regex14d: p50 1956.876→1919.190ms, baseline drift2.29%; effect inconclusive.
+- Whole1d: p50 1370.533→1403.063ms, baseline drift2.77%; effect inconclusive.
+- Representative stage sum `processors_profile_log` elapsed work **1664→1666ms**
+  while measured QueryFinish CPU rises **~182ms**; the artifact's
+  `system.trace_log` CPU/hot leaves are **empty**. Do NOT claim that
+  dictionary adoption, a named lock, or a specific operator consumed the extra
+  CPU from these incomplete traces.
+- Safety blocker persists: the experimental direct adoption path skips
+  `ColumnLowCardinality::checkIndexesAreLimited`, assumes unique keys,
+  and does not replicate stock malformed input behavior. Normal-data parity
+  does not establish safety. [Source safety and cost report](../ts-lab-r12/LC_FRESH_DICTIONARY_SAFETY_AND_COST_20261103.md).
+- Decision **REJECT**, do not stack, promote or compile the unguarded variant again.
+  The proven new-table RAW UUID opt-in is a separate, overlapping
+  dictionary-work optimization, and savings cannot be multiplied.
+- Independent [R09 latest upstream source audit](../ts-lab/evidence/R09-upstream-source-audit-20261103.json)
+  at exact `ClickHouse/ClickHouse` master `a79b6cef...` confirms local
+  `StorageTimeSeriesSelector.cpp` and `TimeSeriesSink.cpp` blobs unchanged
+  against pinned source; global LC index validation added upstream does not fix
+  the no-global experimental bypass. No new source build is warranted from
+  this audit alone.
+- Separate existing jemalloc O1 build [41607779848](https://github.com/moleus/ClickHouse/actions/runs/41607779848)
+  was still in progress at this checkpoint. No cancellation, duplicate compile
+  or master/production write.
+
