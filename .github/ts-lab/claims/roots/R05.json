@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "question_id": "R05",
+  "primary_claim_id": "R05-candidate-id-mark-bound-v1",
+  "owner": "chatgpt-r05-mark-bound-20261103",
+  "scope": "Mathematical and pinned-source feasibility of candidate-ID filtering for TimeSeries SAMPLES primary-key mark pruning; separate mark pruning from row filtering and determine a cheap falsifier. No C++ build.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-03T09:47:00Z",
+  "reason": "Independent of R01/R02/R04/R08 and long-running allocator/LC builds."
+}
