@@ -87,7 +87,7 @@ def create(kind):
     )
     sql(q)
     ddl=sql("SHOW CREATE TABLE "+inner(n,"samples")+" FORMAT TSVRaw")
-    normalized=re.sub(r"\s+","",ddl.replace("\`","")).lower()
+    normalized=re.sub(r"\s+","",ddl.replace(chr(96),"")).lower()
     wanted="codecsamples.value("+codec.replace(" ","").lower()+")"
     if (wanted not in normalized or
         "codecsamples.timestamp(delta(8),t64,zstd(3))" not in normalized):
@@ -95,8 +95,8 @@ def create(kind):
     # Isolate the factor at physical schema level, not just logical CREATE.
     lines=[
         ("CREATE TABLE INNER" if line.startswith("CREATE TABLE ") else
-         "    CODEC samples.value (FACTOR)" if "CODEC \`samples.value\`" in line
-         or "CODEC samples.value" in line else line)
+         "    CODEC samples.value (FACTOR)" if
+         "CODEC samples.value" in line.replace(chr(96),"") else line)
         for line in ddl.splitlines()
     ]
     return {"input_ddl":q,"actual_samples_ddl":ddl,
