@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "session_id": "web-recovery-20261103-01",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "85d078235390ddd418c6f8ee14f0be0e9027ffe5",
+  "last_verified_utc": "2026-11-03T09:16:46.977Z",
+  "question_id": "W01",
+  "summary": "Implemented public GitHub read-only recovery guide and VM-portable status/handoff validator. GitHub MCP auth can still require user approval in new scheduled contexts. This is coordination work; no new performance optimization was measured.",
+  "completed": [
+    "Created .github/ts-lab/SESSION_BOOTSTRAP.md and linked it from TS_LAB_INDEX.md, .github/ts-lab/INDEX.md and real .claude/CLAUDE.md (not AGENTS.md symlink).",
+    "Created .github/ts-lab/ts_lab_state.py, test_ts_lab_state.py and HANDOFF_EXAMPLE.json on shared branch.",
+    "Validated 5 handoff validation cases and an offline mock snapshot using Python 3.13. Live HTTP could not be tested in local VM because github.com DNS was unavailable.",
+    "Refreshed shared-branch CI and read prior experiment claims and evidence to avoid duplicate builds."
+  ],
+  "negative_results": [
+    "Previously disabled hourly research automation required user action for GitHub authorization; do not assert it can push unattended in new chats.",
+    "Fresh-process project14d 8-client test 41607617562 hit MEMORY_LIMIT_EXCEEDED; this is a genuine workload capacity failure, not merely stale retained RSS.",
+    "Do not modify or cancel active jemalloc and LC decoding builds; current status must be refreshed before work."
+  ],
+  "active_run_ids": [
+    41609140400,
+    41607779848,
+    41591617794
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+  "relevant_paths": [
+    "TS_LAB_INDEX.md",
+    ".github/ts-lab/INDEX.md",
+    ".github/ts-lab/SESSION_BOOTSTRAP.md",
+    ".github/ts-lab/ts_lab_state.py",
+    ".github/ts-lab/RESEARCH_COORDINATION_20261103.md",
+    ".github/ts-lab-cpu/NATIVE_FRESH8_MEMORY_FAILURE_20261103.md"
+  ],
+  "blocked_by": [
+    "Web session GitHub MCP writes may require a separate approval in a fresh chat or scheduled run.",
+    "Local VM shell cannot resolve github.com; use connected GitHub MCP for reads/writes in this environment."
+  ],
+  "next_action": {
+    "question_id": "W01",
+    "step": "Read live GitHub runs and latest handoff; inspect the result of 41609140400, 41607779848 and 41591617794 when finished. Avoid duplicated CI. Make claim/evidence validation usable in CI before any new expensive research build. Use the VM for temporary tests and connector for safe commits.",
+    "stop_condition": "Stop if write auth is missing, if another agent already claims W01, or when the next change risks an active build; publish a new handoff with exact blocker instead."
+  }
+}
