@@ -866,3 +866,22 @@ Both tables have exactly the same 50k original TAGS physical rows. Even after ca
 ## R19 handoff and ownership boundary
 
 [Consolidated R19 handoff](handoffs/20261103-r19-retention-21.json) links all verified retained-metadata, TTL/resurrection, empty-part, unsafe TAGS-GC, TimeRanges-only semantic and native negative-performance evidence. **No production promotion.** [R19 root](claims/roots/R19.json) stays owned. Other agents should not rerun these exact workloads or introduce duplicate R07 time-aware sidecars; R07 already owns active-ID query path research. New R19 cleanup proposals first need a source-backed atomicity proof across writers/replicas and an explicit CPU/read/write cost bound.
+
+## 2026-11-03 R21: TAGS cache capacity knee creates native query read amplification (stock O1)
+
+[Canonical owner root](claims/roots/R21.json), [preregistered claim](claims/R21-tags-dedup-cache-working-set-knee-v1.json), [immutable two-host evidence](evidence/R21-tags-dedup-cache-working-set-knee-v1/41652867042.json), [two-job PASS #41652867042](https://github.com/moleus/ClickHouse/actions/runs/41652867042). Same **unpatched** stock O1 ClickHouse binary SHA `f0a2fa1...`, canonical 4096 long-lived full IDs ×12 inserts=49152 sample points, v11 RAW UUID TimeSeries. Four fresh server processes `1MiB/32KiB/32KiB/1MiB` per independent runner, same cache expiry 3600s, one static or rotating row order (each runner has only one order). STOP MERGES to retain raw TAGS duplicates and isolate write volume; all full native PromQL labels/timestamps/values exact.
+
+**Pinned source math:** `TimeSeriesDeduplicationCache.h APPROXIMATE_ENTRY_SIZE` on 64-bit=(16+6×8)+(16+2×8)+(24+3×8)=**144B**; large cache nominal 7281 entries covers all 4096 IDs; tiny 32KiB nominal 227. Global `system.events` worker-inclusive hits/misses large **45056/4096**, tiny **2497/46655** in every phase and on both independent runners. Raw TAGS rows large **4096**, tiny **46655 (11.3904x)**; TAGS compressed bytes **137512→~1571k (11.42x)**. Native QueryFinish physical read_rows **102400→144959**, and the extra **42559 rows equal exactly the extra TAGS rows 46655−4096**; read_bytes **5972069→10824906** (1.81x).
+
+| Within-runner tiny/large, each two-phase mean | Fixed order | Rotated order |
+|---|---:|---:|
+| Whole process INSERT CPU | 0.755/0.555=**1.360x** | 0.745/0.580=**1.284x** |
+| Whole process write_bytes | **1.660x** | **1.642x** |
+| Full native PromQL p50 wall | **2.315x** | **3.141x** |
+| Full native PromQL QueryFinish CPU p50 | **3.19x** | **4.26x** |
+| A/A process CPU drift | **1.8%** | **6.9%** |
+| A/A native wall drift | **8.4%** | **5.3%** |
+
+**Critical limits:** These jobs are **two different runners**, so a larger small-cache *relative* read penalty on rotated order is **not** proof of input-order causality. Both order jobs had **identical TAGS miss/hit totals and native read_rows**. Actual single-host order-only [CI #41653813776](https://github.com/moleus/ClickHouse/actions/runs/41653813776) confirmed identical TAGS rows/cache counters across all four phases, but read timing is **INVALID_METHOD** because fixed-order A/A wall drift **38.85%** and CPU drift **34.61%** (25% gate); [immutable negative evidence](evidence/R21-tags-dedup-cache-working-set-knee-v1/41653813776.json). Do not claim order-driven latency difference. Also [rejected instrumentation pilots #41651757821/#41652494693](evidence/R21-tags-dedup-cache-working-set-knee-v1/NEGATIVE_PILOTS_20261103.md): query-level ProfileEvents omitted cache counters, and fresh server global events omitted zero-valued entries; these are not zero cache hits. `system.events` post-write includes actual worker hits/misses. `QueryFinish` INSERT CPU is NOT equivalent to measured whole process CPU (the two diverged), so do not describe it as total cost.
+
+**No production cache-size recommendation**: this deliberately scales working set beyond 32KiB, but default is100MiB and production working-set cardinality and SLRU dynamics remain unknown. Merges were stopped for raw write causality, so long-run ReplacingMergeTree merge and retention costs remain unmeasured. [R22 root](claims/roots/R22.json) isolates expiration **at fixed full-capacity 1MiB**; no duplication of R07 active-ID planner or R20 native sum/count implementation.
