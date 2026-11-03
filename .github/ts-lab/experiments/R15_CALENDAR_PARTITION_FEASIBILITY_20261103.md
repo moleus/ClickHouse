@@ -77,3 +77,41 @@ Let \`f\` be the fraction of baseline query cost due to physical SAMPLES work, e
 For a whole-query 5x gain, \`f>=0.86154\` is necessary in this simplified model; for 10x, \`f>=0.96923\`. New partition overhead and unchanged metadata scans make the true ceiling lower. This experiment must report both **direct SAMPLES marks** and **full native PromQL latency/CPU**, not substitute one for the other. The smaller 70k test proves only layout feasibility; the canonical 1.33m high-churn workload remains an untested follow-up.
 
 **Important**: do not interpret a GitHub Actions green job as a scientific result without reading its artifact, inspecting EXPLAIN, verifying ABBA drift and full native equality. If the first run fails on DDL/parser or setup, keep failure and repair the benchmark, rather than changing multiple variables or calling it a failed engine optimization.
+
+## 2026-11-03: **Native source-pinned result, #41625086352 — PASS (bounded synthetic)**
+
+[GitHub Actions](https://github.com/moleus/ClickHouse/actions/runs/41625086352), [immutable machine evidence](evidence/R15-native-calendar-41625086352.json), [exact benchmark script](r15_native_partition_probe.py) and original 16,661-byte uploaded GitHub Actions artifact. Independently downloaded and SHA256-verified the artifact ZIP: \`58a3e3586c172c304687033e609d3a9bf1ac40b5484de3db90edd45e8534670e\`. The server's \`BUILD_INFO\` confirms pinned ClickHouse source \`52529f0c711566d696917678bf15e7068772fdde\`, LLVM 22.1.8, and **O1 unmodified stock C++**; binary SHA256 \`f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e\`.
+
+This is a smaller *new* deterministic independent fixture, **70,000 one-sample-per-ID series over 14 days**, SHA256 \`351dff6b4f49986bb7f0f586459b86b918d99fd4d4cbb0b3293b4dfa680a8efb\`. Both tables use TimeSeries v11 RAW UUID, one-hour buckets, RecentSamples off, identical serialized inserts and ID digest, 70,000 actual samples, explicit OPTIMIZE of all targets. SHOW CREATE confirms \`ORDER BY(id,bucket)\` and default granularity 256/524288 in both; **sole physical schema change is SAMPLES PARTITION BY UTC month vs UTC day**. One merged SAMPLES part vs 14 daily merged parts. No private telemetry.
+
+### Direct physical SAMPLES probe, exact EXPLAIN and QueryFinish
+
+| Query | Monthly selected marks | Daily selected marks | Monthly read rows | Daily read rows | Monthly direct CPU | Daily direct CPU |
+|---|---:|---:|---:|---:|---:|---:|
+| 1d | 273 | **20** | 70,000 | **5,000** | 10.006ms | **3.118ms** |
+| 3d | 273 | 60 | 70,000 | 15,000 | 10.872ms | 5.281ms |
+| 7d | 273 | 140 | 70,000 | 35,000 | 11.178ms | 7.375ms |
+| 14d | **273** | 280 | 70,000 | 70,000 | **9.000ms** | 10.901ms |
+
+**The decisive engine proof exists**: direct 1d EXPLAIN reports \`Min-Max ... Parts: 1/14 Granules: 20/280\` with a day partition; monthly reports \`Parts: 1/1 Granules: 273/273\`. This is **actual** source-pinned engine pruning; the earlier mathematical 14x mark model was directionally correct. The selected-mark ratio on native physical data is 273/20=**13.65x**, not a wall-speed ratio.
+
+### End-to-end native PromQL, same binary and A/B/B/A
+
+6 independent cases × 4 phases \`month/day/day/month\` × (2 warmups+4 measured)=**144 native timed queries**. All cases have exact **nonempty** label/time/value parity, all baseline A/A drift gates under 25%, all QueryFinish records present, no failures or OOM. No fresh server between phases; p95 per phase exists in artifact, **not** a concurrent throughput/p99/RSS claim.
+
+| Native case | p50 month → day | Speedup | Query CPU month → day | Selected marks month → day | A/A p50 drift |
+|---|---:|---:|---:|---:|---:|
+| broad1d | 67.982→55.447ms | **1.226x** | 118.02→83.44ms | 291→38 | 1.65% |
+| broad3d | 87.545→74.500ms | **1.175x** | 182.80→146.16ms | 291→78 | 5.20% |
+| broad7d | 142.682→140.574ms | 1.015x | 307.94→288.98ms | 291→158 | 12.47% |
+| broad14d | 243.618→240.857ms | 1.011x | 510.95→515.44ms | 291→298 | 4.77% |
+| exact-stage1d | 40.079→34.255ms | **1.170x** | 54.19→41.60ms | 124→38 | 1.07% |
+| exact-stage14d | 57.487→59.423ms | **0.967x** (regression) | 99.68→97.09ms | 291→298 | 1.62% |
+
+**New upper-bound insight:** broad1d \`read_rows\` fell only **210,000→145,000** even though SAMPLES fell **70,000→5,000**. Thus around 140,000 query-read rows remain, consistent with scanning the 70,000-row TAGS and 70,000-row TimeRanges metadata layers (table part row counts and source path confirmed). Exact per-operator attribution is still a separate probe. No SAMPLES-only layout change can eliminate this fixed metadata work. The high-potential next research is to avoid full metadata materialization while preserving tag/time semantics; coordinate with [R05](claims/roots/R05.json) and [R07](RESEARCH_COORDINATION_20261103.md), not another SAMPLES index-granule sweep.
+
+### Disk/write observations and limits
+
+After a single explicit merged load, SAMPLES compressed bytes are **2,289,798 monthly vs 1,422,855 daily (−37.86%)**; all three internal targets together **6,712,017 vs 5,845,074 bytes (−12.92%)**, with extra partitions (14 versus 1). These are **measured for this one synthetic fixture only**. Each table received 35 HTTP ingest batches and 14,181,160 raw input bytes. Single-pass insert wall was 2.840s monthly vs 2.842s daily, while explicit OPTIMIZE SAMPLES was 0.142 vs 0.071s; **these values are not paired repeated write/merge evidence**. Do not claim better production disk footprint or write cost.
+
+**Decision: CONDITIONALLY ACCEPT** UTC daily SAMPLES partitioning as a short-lookback read-path hypothesis; **REJECT universal default replacement**. The 7/14d full-native latency effect is zero or mildly adverse, and the one-point synthetic case is not a 400-node HPA workload or mixed 15s/60s/300s cadence. Next: correct combined cost-model and test a real-shaped 14d 1.33m fixture plus long-lived series only if the expected full-native benefit clears the metadata-cost lower bound. The immediate larger target is **metadata/time selectivity**, not repeat partition-only microbenches.
