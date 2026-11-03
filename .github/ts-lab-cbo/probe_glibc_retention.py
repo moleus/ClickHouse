@@ -57,13 +57,15 @@ def main():
     p.add_argument('--out',required=True)
     p.add_argument('--mode',required=True,choices=tuple(EXPECTED))
     p.add_argument('--warm-repeats',type=int,default=12)
+    p.add_argument('--phase',default='single',help='unique within a runner for query_id evidence')
     p.add_argument('--table',default='churn_ts')
     a=p.parse_args()
     if a.warm_repeats<1 or a.warm_repeats>14:raise AssertionError('Invalid repeat count')
+    if not a.phase.replace('_','').replace('-','').isalnum():raise AssertionError('Invalid phase identifier')
     m=json.loads(pathlib.Path(a.manifest).read_text())
     assert (m['sha256'],m['series'],m['days'])==(FIXTURE,1330000,14)
     output=pathlib.Path(a.out)/'report.json'
-    report={'mode':a.mode,'expected_allocator_env':EXPECTED[a.mode],
+    report={'mode':a.mode,'phase':a.phase,'expected_allocator_env':EXPECTED[a.mode],
             'fixture_sha256':m['sha256'],'series':m['series'],
             'scope':'glibc allocator 2x2 factorial; native full PromQL, not direct SQL',
             'warm_repeats':a.warm_repeats,'steps':[],'diagnostics':[],
@@ -80,7 +82,7 @@ def main():
                 raise AssertionError(f'Unwanted allocator environment: {key}')
         report['build_use_jemalloc']=report['server_start']['build_allocator']
         for n in range(a.warm_repeats):
-            item=one(a.table,m,7,f'glibc_{a.mode}_warm_{n}',report)
+            item=one(a.table,m,7,f'glibc_{a.mode}_{a.phase}_warm_{n}',report)
             try:item['process_memory_after']=snap()
             except Exception as e:report['errors'].append({'snapshot':str(e)[:700]})
             save(output,report)
@@ -93,7 +95,7 @@ def main():
                 break
         # This final query has higher peak memory; it can correctly fail after RSS retention.
         if len([x for x in report['steps'] if x['days']==7 and x['ok']])==a.warm_repeats:
-            item=one(a.table,m,14,f'glibc_{a.mode}_probe14',report)
+            item=one(a.table,m,14,f'glibc_{a.mode}_{a.phase}_probe14',report)
             try:item['process_memory_after']=snap()
             except Exception as e:report['errors'].append({'snapshot':str(e)[:700]})
             report['probe14_ok']=item['ok']
