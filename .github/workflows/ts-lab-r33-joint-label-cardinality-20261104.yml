@@ -1,0 +1,52 @@
+name: R33 exact marginal label histograms versus joint stage project conditional selectivity
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r33-joint-label-cardinality-20261104.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tslab-r33-joint-hist-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  exact-marginals:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify code syntax, shared research state and deterministic synthetic marginal census
+        run: |
+          set -euo pipefail
+          test "$(readlink AGENTS.md)" = ".claude/CLAUDE.md"
+          test "$(git ls-files -s AGENTS.md | awk '{print $1}')" = 120000
+          python3 -m py_compile .github/ts-lab-r33/*.py
+          python3 -m unittest discover -s .github/ts-lab-r33 -p 'test_vm_census_proxy.py' -v
+          python3 .github/ts-lab/ts_lab_state.py validate-tree .
+      - name: Generate 53,205 stage-series twice with identical label histograms and disjoint joint dependencies
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r33-joint
+          python3 -u .github/ts-lab-r33/prove_joint_cardinality.py \
+            --out "$RUNNER_TEMP/r33-joint-fixtures" | tee evidence/r33-joint/results.log
+          cp "$RUNNER_TEMP/r33-joint-fixtures/report.json" evidence/r33-joint/report.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open('evidence/r33-joint/report.json'))
+          assert r['status']=='PASS_JOINT_CARDINALITY_NONIDENTIFIABILITY'
+          assert r['delta']['same_exact_univariate_histograms']
+          assert r['delta']['owner_over_shuffled_intersection_ratio']>10
+          print('R33_JOINT_MEASURED',r['delta']['owner_over_shuffled_intersection_ratio'])
+          PY
+          git rev-parse HEAD > evidence/r33-joint/workflow-source-sha.txt
+      - name: Preserve exact univariate hashes, conditional intersections and invalid outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r33-joint-label-statistics-evidence
+          path: evidence/r33-joint/
+          retention-days: 45
+          compression-level: 1
