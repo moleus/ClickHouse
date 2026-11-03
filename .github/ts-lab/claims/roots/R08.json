@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "question_id": "R08",
+  "primary_claim_id": "R08-matcher-absence-regex-v1",
+  "owner": "chatgpt-github-native-semantics-20261103",
+  "scope": "Native TimeSeries absent/empty and regex matcher semantic oracle; 42 assertions in 41610517632; further semantics require a new clearly scoped root question or explicit documented follow-up.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-03T09:30:00Z"
+}
