@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Verify checkout root symlink and Python fixtures
+      - name: Verify symlink, JSON-stable fixture manifest and Python source
         run: |
           set -euo pipefail
           test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
