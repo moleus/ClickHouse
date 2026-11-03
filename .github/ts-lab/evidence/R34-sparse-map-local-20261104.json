@@ -1,0 +1,60 @@
+{
+  "experiment_id": "R34-sparse-grid-map-capacity-v1",
+  "decision": "ACCEPT_FOR_NEXT_GATE",
+  "promotion": "RESEARCH_CANDIDATE_ONLY",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "stock_sha256": "5d629ddfda91919402fdf8475ec3da9fe718d48ef386bc51be677264df6dc9ef",
+  "candidate_sha256": "00af75ce25ce6fac411d8595848625be0adf0c8c00d314b58b7cb6f7665bd1dc",
+  "candidate_build": "https://github.com/moleus/ClickHouse/actions/runs/41730315546",
+  "source_intervention": "TimeSeriesBucketsHashTableGrower initial capacity16->2 cells, reserve minimum16->2, fill arithmetic bufSize()/2+bufSize()/4. One empty cell at capacity2; original3/4 fill limit for capacity>=4. No R32 or R35 change.",
+  "build_contract": "Exact same pinned source, LLVM22.1.8 O2 jemalloc and byte-identical recorded CMake options",
+  "correctness": "75 aggregate-family compatibility cases against stock passed, including duplicate/out-of-order timestamps, NaN/Inf/stale payload, partial-state merges and stock-created persisted state roundtrips. Complete independent native fixture oracle passed on every timed request.",
+  "kernel_experiment": {
+    "protocol": "Fresh-server stock/candidate/candidate/stock, two warmups plus four measurements per case per phase; output fingerprints/counts checked",
+    "sparse_200000_groups": {
+      "stock_query_memory_bytes": 165039245,
+      "candidate_query_memory_bytes": 53033549,
+      "interpretation": "About68% less aggregate-only query memory. This is not a68% full native PromQL memory reduction."
+    },
+    "zero_bucket_200000_groups": {
+      "stock_query_memory_bytes": 165018333,
+      "candidate_query_memory_bytes": 53012765
+    },
+    "dense_8192_groups_128_samples": {
+      "stock_query_memory_bytes": 89473397,
+      "candidate_query_memory_bytes": 89473045,
+      "interpretation": "No meaningful dense-memory change. Extra growth steps did not show a clear latency regression in this small control."
+    }
+  },
+  "native_133000_series": {
+    "fixture": "250 builds/day x38 stages/build x14days, RAW_UUID, one sample per series; unchanged physical data",
+    "query": "avg by(stage)(avg_over_time(ci_duration[1d])) via native prometheusQueryRange,14 daily steps",
+    "protocol": "Fresh-server stock/candidate/candidate/stock; two warmups plus four measurements per selector per phase",
+    "whole_metric": {
+      "stock_wall_ms": 957.0,
+      "candidate_wall_ms": 806.0,
+      "stock_cpu_ms": 914.15075,
+      "candidate_cpu_ms": 763.87925,
+      "stock_query_memory_bytes": 292533604,
+      "candidate_query_memory_bytes": 281340732,
+      "stock_wall_control_drift": 0.0271682341,
+      "candidate_wall_control_drift": 0.1042183623
+    },
+    "stage": {
+      "stock_wall_ms": 127.0,
+      "candidate_wall_ms": 137.0,
+      "stock_memory_bytes": 16205566,
+      "candidate_memory_bytes": 15676908,
+      "decision": "No reliable latency improvement; observed slowdown is within the substantial control drift."
+    },
+    "project": {
+      "stock_wall_ms": 181.25,
+      "candidate_wall_ms": 172.25,
+      "stock_memory_bytes": 39242892,
+      "candidate_memory_bytes": 39242796,
+      "decision": "No reliable latency or query-memory improvement beyond drift."
+    }
+  },
+  "limitations": "Small local pilot under4-vCPU/4-GiB cgroup. No large-scale native R34 paired result, production write/read stress or combined R34+R35 result. Do not multiply these gains with R35. Kernel memory savings and whole-query memory savings are different quantities.",
+  "next_gate": "Separate combined-source integration only after full native mixed-density, concurrency and serialization safety coverage."
+}
