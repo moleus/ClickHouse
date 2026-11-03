@@ -1,0 +1,151 @@
+name: R25 VM index cache 1B vs 64MiB fresh-process same-binary ABBA
+
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r25-vm-cache-capacity-20261103.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: tslab-r25-vm-cache-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Check canonical claim, symlink and Python syntax
+        run: |
+          set -euo pipefail
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | awk '{print $1}')" = 120000
+          python3 -m py_compile \
+            .github/ts-lab-e04/r25_vm_index_cache_capacity.py \
+            .github/ts-lab-r01/generate_k8s_churn_fixture.py \
+            .github/ts-lab-r03/import_k8s_mixed_vm.py
+          mkdir -p evidence/r25
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = json.loads(Path(".github/ts-lab/claims/roots/R25.json").read_text())
+          claim = json.loads(Path(".github/ts-lab/claims/R25-vm-tagfilter-cache-capacity-abba-v1.json").read_text())
+          assert root["question_id"] == "R25"
+          assert root["primary_claim_id"] == claim["id"]
+          assert claim["source_sha"] == "eaf7a68c92c8069a67ae02e601e81453a5e002de"
+          assert claim["fixture"]["sha256"] == "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d"
+          print("R25_CLAIM_VERIFIED", claim["id"])
+          PY
+          git rev-parse HEAD > evidence/r25/workflow-commit.txt
+          uname -a > evidence/r25/runner-kernel.txt
+          nproc > evidence/r25/runner-nproc.txt
+          cat /proc/self/cgroup > evidence/r25/runner-cgroup.txt
+          head -n 10 /proc/meminfo > evidence/r25/runner-memory.txt
+
+      - name: Download pinned VM 1.134.0 optimized release artifact
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r25/vm-art" "$RUNNER_TEMP/r25/vm-bin"
+          gh run download 41288854734 -R "$REPO" \
+            -n tslab-victoria-metrics-v1.134.0 \
+            -D "$RUNNER_TEMP/r25/vm-art"
+          (cd "$RUNNER_TEMP/r25/vm-art" && sed 's#  output/#  #' SHA256SUMS | sha256sum -c -) \
+            > evidence/r25/vm-archive-check.txt
+          test "$(sha256sum "$RUNNER_TEMP/r25/vm-art/victoria-metrics-linux-amd64-v1.134.0.tar.gz" | awk '{print $1}')" = \
+            cd6e109bae85ff7c138d838b32be9a7fe2a6d7a9b3a387a7cf9234f22991da10
+          tar -xzf "$RUNNER_TEMP/r25/vm-art/victoria-metrics-linux-amd64-v1.134.0.tar.gz" \
+            -C "$RUNNER_TEMP/r25/vm-bin"
+          chmod +x "$RUNNER_TEMP/r25/vm-bin/victoria-metrics-prod"
+          "$RUNNER_TEMP/r25/vm-bin/victoria-metrics-prod" --version 2>&1 \
+            | head -n 6 | tee evidence/r25/vm-version.txt
+          sha256sum "$RUNNER_TEMP/r25/vm-bin/victoria-metrics-prod" \
+            > evidence/r25/vm-binary-sha256.txt
+
+      - name: Recreate frozen R01 400-slot 3-day 2.49M-point fixture
+        run: |
+          set -euo pipefail
+          python3 -u .github/ts-lab-r01/generate_k8s_churn_fixture.py \
+            --days 3 --node-slots 400 \
+            --fixture "$RUNNER_TEMP/r25-fixture.jsonl" \
+            --manifest evidence/r25/fixture-manifest.json \
+            | tee evidence/r25/fixture-generation.log
+          test "$(sha256sum "$RUNNER_TEMP/r25-fixture.jsonl" | awk '{print $1}')" = \
+            ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d
+          sha256sum "$RUNNER_TEMP/r25-fixture.jsonl" > evidence/r25/fixture-sha256.txt
+
+      - name: Import and fully stop identical baseline VM data once
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r25/vm-base"
+          "$RUNNER_TEMP/r25/vm-bin/victoria-metrics-prod" \
+            -storageDataPath="$RUNNER_TEMP/r25/vm-base" \
+            -httpListenAddr=127.0.0.1:8430 \
+            -retentionPeriod=6 \
+            -search.maxUniqueTimeseries=165000 \
+            -search.disableCache \
+            -memory.allowedBytes=4294967296 \
+            -storage.cacheSizeIndexDBTagFilters=67108864 \
+            >evidence/r25/vm-import-server.log 2>&1 &
+          vm_pid=$!
+          trap 'kill -TERM "$vm_pid" 2>/dev/null || true; wait "$vm_pid" || true' EXIT
+          for i in $(seq 1 120); do
+            if ! kill -0 "$vm_pid" 2>/dev/null; then
+              tail -80 evidence/r25/vm-import-server.log
+              exit 1
+            fi
+            if curl -fsS --max-time 1 http://127.0.0.1:8430/health >/dev/null 2>&1; then
+              break
+            fi
+            sleep 0.5
+          done
+          curl -fsS --max-time 2 http://127.0.0.1:8430/health
+          python3 -u .github/ts-lab-r03/import_k8s_mixed_vm.py \
+            --fixture "$RUNNER_TEMP/r25-fixture.jsonl" \
+            --manifest evidence/r25/fixture-manifest.json \
+            --output evidence/r25/import-report.json \
+            | tee evidence/r25/import.log
+          kill -TERM "$vm_pid"
+          wait "$vm_pid"
+          trap - EXIT
+          du -sb "$RUNNER_TEMP/r25/vm-base" > evidence/r25/storage-base-bytes.txt
+
+      - name: Controlled four-process VM tag-index-cache capacity ABBA
+        run: |
+          set -euo pipefail
+          python3 -u .github/ts-lab-e04/r25_vm_index_cache_capacity.py \
+            --binary "$RUNNER_TEMP/r25/vm-bin/victoria-metrics-prod" \
+            --base-data "$RUNNER_TEMP/r25/vm-base" \
+            --manifest evidence/r25/fixture-manifest.json \
+            --workdir "$RUNNER_TEMP/r25/phase-clones" \
+            --output evidence/r25/report.json \
+            | tee evidence/r25/bench.log
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r = json.loads(Path("evidence/r25/report.json").read_text())
+          assert r["decision"] == "ACCEPT_DIAGNOSTIC_CACHE_CAPACITY",r["decision"]
+          assert r["validity"]["all_cases_valid"]
+          for case, m in r["comparison"].items():
+              print("R25_VALID",case,m["low_over_high_p50_ratio"],m["low_over_high_cpu_ratio"],m["low_cache_miss_rate"],m["high_cache_miss_rate"])
+          PY
+
+      - name: Preserve report, VM traces, source/fixture hash, and failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r25-vm-cache-capacity-${{ github.run_id }}
+          path: evidence/
+          retention-days: 45
+          compression-level: 1
