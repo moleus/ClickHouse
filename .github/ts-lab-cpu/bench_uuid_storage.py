@@ -32,11 +32,11 @@ def profile(qids):
             "sum(elapsed_us) AS work_us,sum(input_wait_elapsed_us) AS in_wait_us,"
             "sum(output_wait_elapsed_us) AS out_wait_us,sum(output_rows) AS output_rows "
             "FROM system.processors_profile_log WHERE query_id IN "+quoted+
-            " GROUP BY query_id,plan_step_name,name ORDER BY query_id,work_us DESC LIMIT 240",result,"processors")
+            " GROUP BY query_id,plan_step_name,name ORDER BY query_id,work_us DESC LIMIT 120 BY query_id",result,"processors")
     attempt("SELECT query_id,trace_type,arrayFirst(s -> s != '',symbols) AS leaf,"
             "count() AS samples,sum(size) AS bytes FROM system.trace_log "
             "WHERE query_id IN "+quoted+" AND trace_type IN ('CPU','Memory') "
-            "GROUP BY query_id,trace_type,leaf ORDER BY query_id,samples DESC LIMIT 300",result,"leaf_stacks")
+            "GROUP BY query_id,trace_type,leaf ORDER BY query_id,samples DESC LIMIT 150 BY query_id",result,"leaf_stacks")
     attempt("SELECT query_id,"
             "multiIf(arrayExists(s -> position(s,'ReverseIndex')>0,symbols),'reverse_index',"
             "arrayExists(s -> position(s,'ColumnUnique')>0,symbols),'column_unique',"
@@ -44,7 +44,7 @@ def profile(qids):
             "arrayExists(s -> position(s,'MergeTreeReader')>0,symbols),'mergetree_read',"
             "'other') AS component,count() AS samples "
             "FROM system.trace_log WHERE query_id IN "+quoted+" AND trace_type='CPU'"
-            " GROUP BY query_id,component ORDER BY query_id,samples DESC LIMIT 50",result,"cpu_components")
+            " GROUP BY query_id,component ORDER BY query_id,samples DESC LIMIT 25 BY query_id",result,"cpu_components")
     return result
 def query(table,case):
     cond=(" WHERE tags['stage']='stage-0007'" if case.startswith("stage") else "")
