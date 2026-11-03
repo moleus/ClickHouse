@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "question_id": "R15",
+  "primary_claim_id": "R15-samples-calendar-partition-pruning-v1",
+  "owner": "chatgpt-r15-calendar-partition-20261103",
+  "scope": "Source-backed mathematical and low-cost native DDL experiment comparing default monthly vs opt-in daily SAMPLES partitioning under high-churn id-first v11 TimeSeries; isolate physical partition/mark pruning, read CPU and write/merge amplification. Independent of R10 bucket width and R05 ID-set filter. No C++ build or production changes.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-03T10:59:00Z",
+  "reason": "For date-only short queries and random high-churn IDs, id-first primary-key granules may cover most day values within monthly parts; day partitions might remove whole datasets before read."
+}
