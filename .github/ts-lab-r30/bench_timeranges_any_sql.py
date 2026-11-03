@@ -58,15 +58,15 @@ def rewritten(source):
 def explicit_id_alias(ids_source):
     """The generated IN selector returns an unaliased storeTags() expression.
 
-    Standalone SELECT DISTINCT id FROM (...) requires a named output.
+    Standalone SELECT DISTINCT r30_id FROM (...) requires a named output.
     Preserve the function and JOIN; alias only its output column.
     """
     if not ids_source.startswith("SELECT timeSeriesStoreTags("):
         raise ValueError("Unexpected native ID SELECT expression")
     idx=ids_source.find(" FROM ")
-    if idx < 0 or " AS id FROM " in ids_source:
+    if idx < 0 or " AS r30_id FROM " in ids_source:
         raise ValueError("Missing FROM or already aliased")
-    return ids_source[:idx] + " AS id" + ids_source[idx:]
+    return ids_source[:idx] + " AS r30_id" + ids_source[idx:]
 
 
 def canonical_result(statement, query_id):
@@ -168,13 +168,13 @@ def checked_pair(ids_all, ids_any, selector_all, selector_any, case, runid):
     # DISTINCT membership is the actual input used by the subsequent SAMPLES id IN set.
     ids = {}
     for name, statement in (("all", explicit_id_alias(ids_all)), ("any", explicit_id_alias(ids_any))):
-        ids[name] = canonical_result(f"SELECT DISTINCT id FROM ({statement}) ORDER BY id SETTINGS {SETTINGS}",
+        ids[name] = canonical_result(f"SELECT DISTINCT r30_id FROM ({statement}) ORDER BY r30_id SETTINGS {SETTINGS}",
                                      f"r30_id_{case}_{name}_{runid}")
     if ids["all"] != ids["any"]:
         raise ValueError(f"{case}: membership ID set changed ALL->ANY")
     counts = {}
     for name, statement in (("all", explicit_id_alias(ids_all)), ("any", explicit_id_alias(ids_any))):
-        counts[name] = rows(f"SELECT count() AS rows,uniqExact(id) AS ids FROM ({statement}) SETTINGS {SETTINGS}")
+        counts[name] = rows(f"SELECT count() AS rows,uniqExact(r30_id) AS ids FROM ({statement}) SETTINGS {SETTINGS}")
     if int(counts["all"]["ids"]) != int(counts["any"]["ids"]) or int(counts["all"]["rows"]) <= int(counts["any"]["rows"]):
         raise ValueError(f"{case}: no multiplicity reduction or ID mismatch: {counts}")
     # Keep complete SAMPLES array values, IDs and timestamps; compare byte-independent sorted JSON.
@@ -212,7 +212,7 @@ def abba(ids_all,ids_any,case,runid):
         trials=[]
         for j in range(7):
             qid=f"r30_abba_{case}_{runid}_{i}_{j}"
-            raw = request(f"SELECT count() AS n,uniqExact(id) AS u FROM ({statement}) "
+            raw = request(f"SELECT count() AS n,uniqExact(r30_id) AS u FROM ({statement}) "
                           f"SETTINGS {SETTINGS} FORMAT JSONEachRow", qid)
             parsed = json.loads(raw)
             if int(parsed['u'])<=0: raise ValueError("Missing distinct IDs")
