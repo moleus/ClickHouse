@@ -51,3 +51,7 @@ The 14-day full-range model exposes a negative: daily partitions have slightly m
 - There is **no** measured 14x ClickHouse acceleration: 13.97x is only the ratio of simulated positive SAMPLES granules in the stated one-point-per-ID model.
 
 **Decision:** strong, falsifiable source-backed candidate for a cheap schema-only native test; no global settings change and no production recommendation.
+
+## Independent CI verification
+
+[Minimal GitHub Actions #41622964101](https://github.com/moleus/ClickHouse/actions/runs/41622964101) finished **success**. Inspected decoded job logs: **4/4** unittest cases OK, exact deterministic full 1.33-million-series surrogate output includes 5,196/372 marks for 1d and 5,196/5,208 for 14d. This is still **not** real ClickHouse EXPLAIN or `SelectedMarks`.
