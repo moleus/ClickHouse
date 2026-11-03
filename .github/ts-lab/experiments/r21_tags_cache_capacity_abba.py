@@ -147,6 +147,20 @@ def raw_counts(endpoint,table):
     return res
 
 
+def cache_events(endpoint):
+    """Global ProfileEvents include pipeline worker threads, unlike some query logs.
+
+    QueryFinish OSCPUVirtualTime is kept separately. Event counters in
+    system.events are not coupled to one query when pipelines run in workers.
+    Fresh server per A/B/B/A phase isolates this controlled experiment.
+    """
+    rows=base.jsonrows(endpoint,
+        "SELECT event,value FROM system.events WHERE event IN "
+        "('TimeSeriesTagsDeduplicationCacheHits',"
+        "'TimeSeriesTagsDeduplicationCacheMisses')")
+    return {r['event']:int(r['value']) for r in rows}
+
+
 def query_log(endpoint,ids):
     base.sql(endpoint,'SYSTEM FLUSH LOGS')
     quoted=','.join(base.q(i) for i in ids)
@@ -194,6 +208,8 @@ def one_phase(binary,root,phase,variant,blocks,input_proof,port):
             inner=f'default.'+chr(96)+f'.inner_id.{kind}.{uuid}'+chr(96)
             base.sql(endpoint,'SYSTEM STOP MERGES '+inner)
         qids=[]
+        start_cache_events=cache_events(endpoint)
+        result['stats']['cache_events_start']=start_cache_events
         start=proc.measure(server.pid)
         for batch,block in enumerate(blocks):
             qid=f'r21_{phase}_{batch:02d}'
@@ -205,6 +221,8 @@ def one_phase(binary,root,phase,variant,blocks,input_proof,port):
                      'qid':qid,'wall_ms':round(ms,4),
                      'sha256':input_proof['per_batch_sha256'][batch]})
         end=proc.measure(server.pid)
+        end_cache_events=cache_events(endpoint)
+        result['stats']['cache_events_end']=end_cache_events
         result['stats']['ingest']=proc.difference(start,end)
         # Account actual TAGS materialization before allowing any merging;
         # ReplacingMergeTree RAW count is not logical uniqExact ID count.
@@ -234,8 +252,18 @@ def one_phase(binary,root,phase,variant,blocks,input_proof,port):
             total_hit+=item['cache_hit']
             total_miss+=item['cache_miss']
         result['stats']['querylog_ingest_cpu_ms']=round(total_cpu,3)
+        result['stats']['querylog_tag_cache_hits']=total_hit
+        result['stats']['querylog_tag_cache_misses']=total_miss
+        hit_event='TimeSeriesTagsDeduplicationCacheHits'
+        miss_event='TimeSeriesTagsDeduplicationCacheMisses'
+        if hit_event not in start_cache_events or miss_event not in start_cache_events or \
+           hit_event not in end_cache_events or miss_event not in end_cache_events:
+            raise AssertionError('TimeSeries global cache ProfileEvents are missing')
+        total_hit=end_cache_events[hit_event]-start_cache_events[hit_event]
+        total_miss=end_cache_events[miss_event]-start_cache_events[miss_event]
         result['stats']['total_cache_hits']=total_hit
         result['stats']['total_cache_misses']=total_miss
+        result['stats']['cache_events_method']='system.events global worker-inclusive delta'
         result['stats']['cache_hit_fraction']=round(total_hit/(total_hit+total_miss),6) if total_hit+total_miss else None
         result['stats']['raw_tags_rows']=physics['tags']['count']
         result['stats']['raw_tags_bytes']=physics['tags']['bytes']
