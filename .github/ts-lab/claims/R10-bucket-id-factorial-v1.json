@@ -1,0 +1,19 @@
+{
+  "id": "R10-bucket-id-factorial-v1",
+  "question": "At fixed 400-slot 3h-node churn fixture, how does native TimeSeries SAMPLES bucket-step size alter CPU, compressed bytes and the LC(UUID) vs RAW UUID crossover?",
+  "owner": "chatgpt-native-r10-bucket-id-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "stock O1 ClickHouse 26.11.1.1, LLVM22.1.8, unpatched binary SHA256 f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e build 41596421285",
+  "candidate": "Predeclared 2x3 table schema factorial: default LC UUID or RAW UUID in TAGS SAMPLES TimeRanges x samples_bucket_step_seconds 900/3600/10800; same stable ID hashes, input and full native query",
+  "fixture": "R01 multi-sample-per-series generator 3d 400 slots SHA256 ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d, 28896 IDs, 2488320 samples, 3h lifespan",
+  "single_variable": "Two predeclared independent table-creation factors (full 2x3 factorial): SAMPLES bucket width and ID encoding; no C++/compiler/query/data change",
+  "math_bound": "For each 3h series life, SAMPLES bucket rows per ID = 10800/step = 12,3,1 for steps 900,3600,10800. D=28896 distinct IDs, R=346752/86688/28896 bucket rows. Illustrative raw-LC UUID bytes before compression for 2-byte dictionary indexes: (16-2)*R-16*D=4392192/751296/-57792 bytes; not a compressed-IO or latency prediction. Smaller buckets increase rows/metadata and possibly pruning, but can reduce result-array fan-in; large buckets may increase late-window scanned points.",
+  "falsifier": "Any native output label/timestamp/value mismatch including 1d/3d grid, data hash mismatch, physical point count not equal to fixture, high control drift >25%, server OOM, or write/merge/read CPU+RSS regression beyond budget; preserve negative evidence.",
+  "test_matrix": "Same runner, 6 v11 tables (3 bucket sizes x 2 ID types), one active part each after OPTIMIZE FINAL, 28896 series and 2488320 sample elements per table. 4 native selectors node_broad, pod_namespace, pod_broad, burst15; 3d windows; compare LC/RAW A/B/B/A per bucket width, and bucket 900/10800 versus 3600 controls in same ID type on selected cases; 2 warmups+6 measured per phase, QueryFinish CPU/memory/IO, exact outputs, drift.",
+  "runner_budget": "One isolated ubuntu-24.04 4-core runner, <=90 minutes, 6 ingests x~97MB via HTTP, no C++ compile and no shared checkout; max server RSS 4.8e9 bytes, fail on OOM not retry blindly",
+  "planned_workflow": ".github/workflows/ts-lab-r10-bucket-id-factorial-20261103.yml self-path-only push + workflow_dispatch; run-unique concurrency, no scheduled runs",
+  "dependencies": [
+    "R01-k8s-mixed-v1"
+  ]
+}
