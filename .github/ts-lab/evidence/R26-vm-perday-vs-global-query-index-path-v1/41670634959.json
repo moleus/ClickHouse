@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "question_id": "R26",
+  "claim_id": "R26-vm-perday-vs-global-query-index-path-v1",
+  "created_utc": "2026-11-03",
+  "status": "ACCEPT_DIAGNOSTIC_PATH_ABBA",
+  "scientific_conclusion": "VM v1.134.0 per-day tag-index query path reduced full PromQL p50 and whole-process CPU for held-out one-evaluation broad node and pod selectors vs global index, with identical indexed data and single release binary. Three-evaluation benefit was small. Not a ClickHouse improvement.",
+  "workflow": {
+    "run_id": 41670634959,
+    "job_id": 126037732208,
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41670634959",
+    "run_head_commit": "227d2c1a11b81b77f08e3883bc03d28e41f3ce9a",
+    "conclusion": "success"
+  },
+  "artifact": {
+    "artifact_id": 13247797677,
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41670634959/artifacts/13247797677",
+    "name": "tslab-r26-vm-index-path-41670634959",
+    "zip_digest": "sha256:9d3d8f2c2fff7744db2b36ac87eb490cf8e6303727b0006014a951a3f2a85274",
+    "zip_size_bytes": 26605
+  },
+  "source": {
+    "engine": "VictoriaMetrics 1.134.0",
+    "source_commit": "eaf7a68c92c8069a67ae02e601e81453a5e002de",
+    "optimized_release_archive_sha256": "cd6e109bae85ff7c138d838b32be9a7fe2a6d7a9b3a387a7cf9234f22991da10",
+    "baseline_build_run": 41288854734,
+    "source_path": "lib/storage/storage.go::adjustTimeRange lines 1623-1651"
+  },
+  "fixture": {
+    "source": "R01 400-node-slot deterministic 3-day aligned mixed cadence 15s/60s/300s",
+    "sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+    "unique_series": 28896,
+    "points": 2488320,
+    "read_only_snapshot_cloned_after_single_import": true,
+    "storage_base_fingerprint_preserved": true
+  },
+  "method": {
+    "variable": "-disablePerDayIndex (global path when present, vs default day-index)",
+    "phases": [
+      "global",
+      "day",
+      "day",
+      "global"
+    ],
+    "fresh_vm_process_per_phase": true,
+    "immutable_data_clones": true,
+    "cache_settings": {
+      "-storage.cacheSizeIndexDBTagFilters": 1,
+      "-search.disableCache": true,
+      "nocache": 1
+    },
+    "max_unique_series": 165000,
+    "memory_allowed_bytes": 4294967296,
+    "queries": {
+      "selector_cases": [
+        "node_broad",
+        "pod_namespace",
+        "pod_broad",
+        "burst15"
+      ],
+      "windows": [
+        "one_tick",
+        "three_tick"
+      ],
+      "lookbehind": "1d",
+      "step_seconds": 86400
+    },
+    "warmups_per_case_per_phase": 8,
+    "measured_per_case_per_phase": 48,
+    "concurrent_clients": 1,
+    "measure": "p50/p95/p99 HTTP wall, /proc/<vm_pid>/stat whole-process CPU delta per request, VM query trace after timed phase, VM tag-filter cache metrics and process RSS",
+    "oracle": "Exact full labels, timestamp grid, numeric tolerance 1e-10 rel /1e-8 abs; non-empty, 4 fresh processes",
+    "validity": "trace confirms selected index path for all 32 cases, 7/8 selector-window comparisons pass 25% A/A drift (4/4 primary broad), no source/fixture mismatch",
+    "cpu_note": "process CPU whole-server, not exact CPU of index search or time-critical path; coarse clock ticks especially for <5ms cases"
+  },
+  "cases": {
+    "burst15_one_tick": {
+      "control_drifts": {
+        "day_cpu": 0.18181500826907881,
+        "day_wall": 0.10779606006996635,
+        "global_cpu": 0,
+        "global_wall": 0.1605514950571829
+      },
+      "global_cpu_ms_per_request": 1.45833,
+      "global_div_perday_cpu": 1.27272,
+      "global_div_perday_p50": 1.08922,
+      "global_p50_ms": 0.81886,
+      "perday_cpu_ms_per_request": 1.14583,
+      "perday_p50_ms": 0.75179,
+      "primary_case": false,
+      "trace_path_verified": true,
+      "valid": true
+    },
+    "burst15_three_tick": {
+      "control_drifts": {
+        "day_cpu": 0.20000143999884795,
+        "day_wall": 0.007588938659164093,
+        "global_cpu": 0.11764506574582043,
+        "global_wall": 0.0025709428172557905
+      },
+      "global_cpu_ms_per_request": 1.77083,
+      "global_div_perday_cpu": 0.85,
+      "global_div_perday_p50": 1.00434,
+      "global_p50_ms": 1.0852,
+      "perday_cpu_ms_per_request": 2.08333,
+      "perday_p50_ms": 1.08052,
+      "primary_case": false,
+      "trace_path_verified": true,
+      "valid": true
+    },
+    "node_broad_one_tick": {
+      "control_drifts": {
+        "day_cpu": 0.06837579487179488,
+        "day_wall": 0.14330004171867622,
+        "global_cpu": 0.10218990377751262,
+        "global_wall": 0.1129097074611347
+      },
+      "global_cpu_ms_per_request": 28.54167,
+      "global_div_perday_cpu": 1.17094,
+      "global_div_perday_p50": 1.29939,
+      "global_p50_ms": 11.69554,
+      "perday_cpu_ms_per_request": 24.375,
+      "perday_p50_ms": 9.00077,
+      "primary_case": true,
+      "trace_path_verified": true,
+      "valid": true
+    },
+    "node_broad_three_tick": {
+      "control_drifts": {
+        "day_cpu": 0.07821224406229627,
+        "day_wall": 0.06418470662575464,
+        "global_cpu": 0.030769276213018722,
+        "global_wall": 0.046587230898958505
+      },
+      "global_cpu_ms_per_request": 74.47916,
+      "global_div_perday_cpu": 0.9986,
+      "global_div_perday_p50": 1.01189,
+      "global_p50_ms": 26.55857,
+      "perday_cpu_ms_per_request": 74.58334,
+      "perday_p50_ms": 26.24659,
+      "primary_case": true,
+      "trace_path_verified": true,
+      "valid": true
+    },
+    "pod_broad_one_tick": {
+      "control_drifts": {
+        "day_cpu": 0.031152448598130635,
+        "day_wall": 0.06579253651965734,
+        "global_cpu": 0.06417112848523025,
+        "global_wall": 0.09938171151410982
+      },
+      "global_cpu_ms_per_request": 38.95833,
+      "global_div_perday_cpu": 1.16511,
+      "global_div_perday_p50": 1.36213,
+      "global_p50_ms": 21.27081,
+      "perday_cpu_ms_per_request": 33.4375,
+      "perday_p50_ms": 15.6159,
+      "primary_case": true,
+      "trace_path_verified": true,
+      "valid": true
+    },
+    "pod_broad_three_tick": {
+      "control_drifts": {
+        "day_cpu": 0.1046397140432029,
+        "day_wall": 0.10835240279674617,
+        "global_cpu": 0.0684410667206408,
+        "global_wall": 0.04691408601167875
+      },
+      "global_cpu_ms_per_request": 109.58333,
+      "global_div_perday_cpu": 1.0385,
+      "global_div_perday_p50": 1.05566,
+      "global_p50_ms": 47.59935,
+      "perday_cpu_ms_per_request": 105.52084,
+      "perday_p50_ms": 45.08954,
+      "primary_case": true,
+      "trace_path_verified": true,
+      "valid": true
+    },
+    "pod_namespace_one_tick": {
+      "control_drifts": {
+        "day_cpu": 0.07407644444444436,
+        "day_wall": 0.0924832946626497,
+        "global_cpu": 0.46153846153846156,
+        "global_wall": 0.4797538745461119
+      },
+      "global_cpu_ms_per_request": 4.0625,
+      "global_div_perday_cpu": 1.44444,
+      "global_div_perday_p50": 1.79421,
+      "global_p50_ms": 2.25413,
+      "perday_cpu_ms_per_request": 2.8125,
+      "perday_p50_ms": 1.25633,
+      "primary_case": false,
+      "trace_path_verified": true,
+      "valid": false
+    },
+    "pod_namespace_three_tick": {
+      "control_drifts": {
+        "day_cpu": 0.10526275900268613,
+        "day_wall": 0.0682359992711052,
+        "global_cpu": 0.21052678116353285,
+        "global_wall": 0.02554590229775723
+      },
+      "global_cpu_ms_per_request": 7.91667,
+      "global_div_perday_cpu": 1,
+      "global_div_perday_p50": 1.1399,
+      "global_p50_ms": 3.78456,
+      "perday_cpu_ms_per_request": 7.91667,
+      "perday_p50_ms": 3.3201,
+      "primary_case": false,
+      "trace_path_verified": true,
+      "valid": true
+    }
+  },
+  "primary_cases": [
+    "node_broad_one_tick",
+    "node_broad_three_tick",
+    "pod_broad_one_tick",
+    "pod_broad_three_tick"
+  ],
+  "valid_comparison_count": 7,
+  "invalid_comparison_count": 1,
+  "invalid_cases": [
+    {
+      "name": "pod_namespace_one_tick",
+      "reason": "A/A drift exceeds 25% for at least one phase metric",
+      "control_drifts": {
+        "day_cpu": 0.07407644444444436,
+        "day_wall": 0.0924832946626497,
+        "global_cpu": 0.46153846153846156,
+        "global_wall": 0.4797538745461119
+      }
+    }
+  ],
+  "raw_phase_cases_count": 32,
+  "all_trace_paths_verified": true,
+  "limits": [
+    "Single synthetic 3d fixture; only aligned node starts, not real HPA lifecycle/long retention",
+    "One client, read-only data after full import and clean shutdown, no merge/ingest competition",
+    "One one-tick [1d] and one three-tick query_range shape per selector, not a general optimizer threshold",
+    "VM v1.134 release only: measures index-path effect, not ClickHouse vs VictoriaMetrics",
+    "Index-cache fixed to 1 byte and response cache disabled: does not quantify default warm-cache production behavior",
+    "Replica semantics, disk write amplification, long-term maintenance and full-retention costs not measured",
+    "One secondary namespace one-tick case invalid due to >25% control drift and excluded from any gain claim"
+  ],
+  "next_gate": "Repeat on 14d/1.33m sparse Jenkins with 1/3/7/14d windows and vary time-filter index scope while holding VM cache and source constant; coordinate E03 for cost-model transfer, no independent R07 sidecar."
+}
