@@ -141,3 +141,32 @@ A/B/B/A with 2 warmup and 8 measured waves per phase, identical full native Prom
 - Full report includes verified source/binary/data hashes, complete physical parity where jobs completed, baseline control drift, p95, throughput, RSS and CPU taxonomy.
 - Isolated [fresh-process 8-client project14d #41607617562](https://github.com/moleus/ClickHouse/actions/runs/41607617562) measures whether memory retained between loads causes the OOM, with fresh server per variant ABBA; pending at checkpoint write.
 - [Source safety audit](LC_DECODER_FASTPATH_SAFETY_AUDIT_20261103.md) confirms the staged C++ LC decoder bypasses `checkIndexesAreLimited` on fresh dictionary adoption. It cannot be promoted until type/index bounds and malformed-data cases are guarded; this is a static finding, not an observed crash.
+
+## 2026-11-03: project8 OOM reproduced in four fresh-process trials
+
+[Negative result #41607617562](https://github.com/moleus/ClickHouse/actions/runs/41607617562) and
+[full report](NATIVE_FRESH8_MEMORY_FAILURE_20261103.md):
+all four isolated freshly restarted ClickHouse processes (LC/RAW/RAW/LC)
+with the same frozen 1.33m data, stock O1, 4.47GiB server cap,
+`max_threads=2`, and **eight simultaneous independent clients** pass
+two 8-client warmup waves but **all fail on the third wave** with Code 241
+total-RSS OOM near 4.47–4.49GiB. Thus prior 1/4-client phase retention is
+not a necessary cause. The failing `AggregatingTransform` is a termination
+site, **not established memory source**. Full four server process PIDs,
+per-phase logs, and original binary/fixture SHA checks are retained.
+
+The pinned O1 lab binary uses glibc and lacks production jemalloc, so
+these capacity results cannot predict an official optimized build or
+production allocator without an exact allocator-matched control.
+
+[Native RAW_ID threads1-vs-2 client-load CI #41608382567](https://github.com/moleus/ClickHouse/actions/runs/41608382567):
+stage14d n8 and project14d n4 have completed full native parity A/B/B/A.
+Stage: `max_threads=2` p50 1521ms/CPU737ms; `max_threads=1`
+p50 1452ms/CPU696ms, baseline control drift 4.65% (effect same size
+as drift, so no robust win claim). Project n4: threads2 p50
+3959ms/CPU3615ms, threads1 p50 3849ms/CPU3522ms,
+baseline drift 3.75% (p50 change only 2.76%; not robust).
+Whole n8 pending at this checkpoint.
+The follow-up [fresh-server project8 `max_threads=1` #41609140400](https://github.com/moleus/ClickHouse/actions/runs/41609140400)
+is an independent memory-survival test and does not cancel the ongoing build.
+
