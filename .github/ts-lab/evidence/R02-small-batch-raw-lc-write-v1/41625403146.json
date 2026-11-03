@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "question_id": "R02-small-batch-raw-lc-write-v1",
+  "subexperiment": "independent-GitHub-runner-replicated-96-batch-process-CPU-ABBA",
+  "decision": "REPLICATED_LAB_EFFECT",
+  "ci_status": "success",
+  "verified_utc": "2026-11-03T11:12:00Z",
+  "scope": "Three GitHub-hosted Ubuntu jobs, each four fresh ClickHouse servers in LC/RAW/RAW/LC order, all same compiled stock O1, source and fixture, no C++ modification. Replicated process CPU benefit, NOT production speed claim.",
+  "pinned_source": {
+    "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+    "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "optimization": "O1 unmodified stock, glibc, LLVM22.1.8",
+    "fixture_sha256": "dd2dd55ee8fcf3c11c1fef94ebdd54ac8b3a6a53cea6deaae991b3b94c88b931",
+    "scripts_sha256": {
+      "r02_small_batch_write_merge.py": "ade7b4fcf5d0e103c28909bcd28841392c5ef4d2c38f115ebaf626fd5fc1f749",
+      "r02_process_cpu_abba.py": "aff76393d98c96790cd4334edbc2f884ff3c71f1d057b0b8e5e32b474a7e6383"
+    },
+    "fixture": {
+      "batches_per_phase": 96,
+      "rows_per_batch": 4000,
+      "sample_points_per_phase": 384000,
+      "unique_series": 66000,
+      "post_merge_bucketed_sample_rows": 68000,
+      "physical_part_count_after": {
+        "tags": 1,
+        "samples": 1,
+        "timeranges": 1
+      }
+    }
+  },
+  "math_bound": "For each runner r, compare the raw UUID mean across B1/B2 to the LC mean across A0/A3; do not pool absolute CPU seconds across different machines. A/A LC drift bound 25%, each per-runner CPU effect must exceed max(5%, local A/A drift) and have the same sign. Compare source input SHA, executable SHA manifest and native output before considering performance. Three runner jobs can reproduce a lab effect but cannot establish a statistical production hardware gain.",
+  "replications": [
+    {
+      "runner": 1,
+      "run_id": 41624336193,
+      "job_id": 125877763675,
+      "artifact_id": 13224084337,
+      "github_artifact_sha256": "dae14fcafa6a28c61f285c75d50874c0e8de12eb89c46999a041ae585d6776ee",
+      "write_cpu_raw_over_lc": 0.84269,
+      "merge_cpu_raw_over_lc": 0.71182,
+      "write_wall_raw_over_lc": 0.91857,
+      "merge_wall_raw_over_lc": 0.76014,
+      "lc_control_write_cpu_drift": 0.02392,
+      "lc_control_merge_cpu_drift": 0.02882
+    },
+    {
+      "runner": 2,
+      "run_id": 41624764688,
+      "job_id": 125879222541,
+      "artifact_id": 13224747863,
+      "github_artifact_sha256": "37eba3245a671cd3766faa4378da593e3d3654a767b3e6147ceeeafef9d57a25",
+      "write_cpu_raw_over_lc": 0.88439,
+      "merge_cpu_raw_over_lc": 0.77857,
+      "write_wall_raw_over_lc": 0.99914,
+      "merge_wall_raw_over_lc": 0.75797,
+      "lc_control_write_cpu_drift": 0,
+      "lc_control_merge_cpu_drift": 0.14286
+    },
+    {
+      "runner": 3,
+      "run_id": 41624764688,
+      "job_id": 125879222765,
+      "artifact_id": 13224819045,
+      "github_artifact_sha256": "da1808c1f14a53ff360d7a2624d789ee0a501670102426332b3c51dbbbd42821",
+      "write_cpu_raw_over_lc": 0.8107,
+      "merge_cpu_raw_over_lc": 0.70526,
+      "write_wall_raw_over_lc": 0.89619,
+      "merge_wall_raw_over_lc": 0.73472,
+      "lc_control_write_cpu_drift": 0.01481,
+      "lc_control_merge_cpu_drift": 0.02105
+    }
+  ],
+  "aggregate_geometric_mean_ratios": {
+    "write_cpu_raw_over_lc": 0.84539,
+    "merge_cpu_raw_over_lc": 0.73115,
+    "write_wall_raw_over_lc": 0.93694,
+    "merge_wall_raw_over_lc": 0.75085,
+    "process_write_bytes_raw_over_lc": 0.93734,
+    "merge_write_bytes_raw_over_lc": 0.96431
+  },
+  "physical_compressed_bytes_after_merge": {
+    "lc": 6238086,
+    "raw": 6026894,
+    "raw_fraction_smaller": 0.033856
+  },
+  "semantic_gates": {
+    "all_twelve_ABBA_phases_passed": true,
+    "all_pinned_inputs_equal": true,
+    "all_96_queryfinish_inserts_per_phase": true,
+    "all_4h_native_queries_exact_labels_timestamps_and_numeric_with_tolerance": true,
+    "all_physical_sample_points_exact": true,
+    "all_AA_wall_cpu_drifts_within_25pct": true,
+    "all_three_cpu_effect_signs_match": true
+  },
+  "reducer": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41625403146",
+    "job_id": 125881354966,
+    "artifact_id": 13226010696,
+    "github_artifact_sha256": "4f32c2dc0fa34b2b5390976eaeb043ec811f9326610292847705c11c84d4e8fb",
+    "workflow_file": ".github/workflows/ts-lab-r02-reduce-three-runners-20261103.yml",
+    "reducer_source": ".github/ts-lab/experiments/r02_reduce_cpu_replicates.py",
+    "source_commit": "0bebe3c3d16c3fcb3bd783baf36da0f033513a24",
+    "workflow_commit": "b59c9e2e6ab2129cede0692280df25b0a5f533dc",
+    "note": "CI reducer validated three ZIP content manifests and hashes of locally repacked archives; official artifact digest PINs checked separately via GitHub API."
+  },
+  "limitations": [
+    "Three jobs still only one synthetic 400-node-independent fixture and same class of hosted runners. Not a general production statistical guarantee.",
+    "Absolute CPU values varied strongly across GitHub hosts; ratios were therefore computed within each runner, never pooled as raw timings.",
+    "Ingest wall benefit was inconsistent: one runner ~0.09% improvement despite lower CPU; do not promise write latency improvement.",
+    "Natural background merges and simultaneous native reads were disabled/absent during write stage; p95 Grafana latency and total system cost not measured.",
+    "No production-optimized jemalloc ClickHouse benchmark; do not extrapolate from -O1 glibc or assume config equivalence.",
+    "Read/DDL behavior limited to finite gauges and one grouping; no NaN/counters/ACL/multi-tenant security tests."
+  ],
+  "next_action": {
+    "question_id": "R02",
+    "step": "Run independent same-runner ABBA of continuous insert with natural merges enabled while one fixed native PromQL reader runs against an immutable 12-batch prefix; compare p95/p99 latency and whole-process CPU with exact oracle and valid A/A drift. Do not conflate those mixed results with write-only CI. Production allocator gate remains open.",
+    "stop_condition": "Abort promotion on any native mismatch, OOM, unbounded background-merge backlog, profiler perturbation or A/A drift >25%; keep negative evidence."
+  }
+}
