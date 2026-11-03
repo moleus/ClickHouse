@@ -51,7 +51,7 @@ jobs:
           cp "$RUNNER_TEMP/r02cpu-bin/BUILD_INFO.txt" evidence/r02cpu/build-info.txt
           chmod +x "$RUNNER_TEMP/r02cpu-bin/clickhouse"
           "$RUNNER_TEMP/r02cpu-bin/clickhouse" --version | tee evidence/r02cpu/version.txt
-      - name: Repeated fresh-server A B B A with Linux process CPU and merge accounting
+      - name: Repeated fresh-server A B B A with watchdog and worker process CPU
         run: |
           set -euo pipefail
           python3 .github/ts-lab/experiments/r02_process_cpu_abba.py \
