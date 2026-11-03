@@ -262,3 +262,61 @@ candidate pairs (same runner), arena4/trim are exploratory CPU/RSS Pareto
 choices; arena8 RSS varies **43%** between repeated phases and must not be
 treated as stable. glibc tuning is not a production jemalloc recommendation.
 
+## 2026-11-03: R10 1/4/8 concurrent clients full-native matched controls PASS
+
+[Machine-readable 9-case A/B/B/A evidence](evidence/R10-concurrent-buckets-41617111380.json),
+[CI #41617111380](https://github.com/moleus/ClickHouse/actions/runs/41617111380):
+same pinned stock O1/binary, same R01 SHA-verified 3d 400-slot multi-sample fixture,
+3600 vs10800s RAW UUID buckets, **four new server processes per contrast**.
+3 native selectors ×1/4/8 independent clients; 2 warmup+8 measured concurrent
+waves/phase, exact nonempty full PromQL label/time/value equality,
+identical logical ID digest/physical parts, no OOM; all A/A p50/CPU/QPS
+control gates pass. `max_threads=2` per request.
+
+At **8 clients**:
+| Selector | p50 ms 3600→10800 | CPU/query ms 3600→10800 | requests/s 3600→10800 | A/A p50 drift |
+|---|---|---|---|---|
+| node_broad | 980→941 | 466→448 | 7.656→7.931 | 1.35% |
+| pod_namespace | 254→237 | 121→113 | 28.775→30.595 | 1.95% |
+| pod_broad | 921→864 | 429→406 | 8.127→8.579 | 0.78% |
+
+Caveats: n4 node-broad p50 improvement ~13.2% vs
+**21.4% baseline drift**, so cannot claim robust latency from that case;
+n8 namespace **p99 regresses** 300.36→303.74ms.
+R10 read marks fall 117→53 for node, 229→82 for namespace, 233→82 for
+broad pods; this is *physical index work*, not proof of mutex contention.
+Do not claim production RSS or p99 gain based on one runner or 4Hz RSS snapshots.
+**Next gate:** check sensitivity to aligned 3h synthetic node startup and
+then 14d/staggered real-shaped load with write/merge concurrency.
+
+## 2026-11-03: Glibc diagnostic reducer repaired without fabricated queries
+
+[Historical eight-phase #41607288907](https://github.com/moleus/ClickHouse/actions/runs/41607288907),
+[OOM-aware reducer validation #41617708973](https://github.com/moleus/ClickHouse/actions/runs/41617708973) **SUCCESS**,
+[immutable result](evidence/CBO-glibc-frontier-oomaware-41617708973.json).
+101 verified unique query IDs rather than 104, because first default phase
+aborted after the 10th query on Code241. Second default phase OOM on 14d.
+Two complete phases each for arena4, arena8, trim PASS full 7d+14d;
+arena8 RSS A/A drift **43%**. Original strict reducer assuming 104
+complete requests was invalid for this expected diagnostic failure;
+new reducer treats default as censored and does **not** produce a spurious
+matched default performance baseline. These glibc observations are **not**
+production-jemalloc guidance.
+
+## 2026-11-03: R10 timestamp-alignment confounder source-proof and fixture gate
+
+[Staggered fixture CI #41618267456](https://github.com/moleus/ClickHouse/actions/runs/41618267456)
+PASS. The **original aligned** 97,177,010-byte fixture SHA stays exactly
+`ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d`.
+The new **staggered** source variant offsets each node slot
+by `(slot*317)%10800` seconds, SHA
+`ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a`.
+Both still contain 28,896 distinct series and 2,488,320 points,
+but independently calculated SAMPLES bucket-row predictions change
+900s: 346,752→368,544; 3600s: 86,688→113,760; 10800s:
+28,896→57,120. This is a model/fixture validation, **not yet a ClickHouse
+physical read benchmark**. First/last shifted lifetimes may extend beyond
+the three-day window; not a true 400-active-node capacity simulator.
+[Physical and native ABBA CI #41618941657](https://github.com/moleus/ClickHouse/actions/runs/41618941657)
+tests the actual count and query cost without a new C++ build.
+
