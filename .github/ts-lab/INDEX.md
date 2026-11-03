@@ -701,3 +701,88 @@ Exact same stock O1/LLVM22 binary and source, v11 RAW_UUID schema, identical 200
 All four latency/CPU effects exceed local A/A drifts on every runner. Source evidence + physical writes confirm persistence; the demonstrated query penalty is real for this synthetic fixture. Earlier [#41635086542](https://github.com/moleus/ClickHouse/actions/runs/41635086542) is **INFRA_FAIL**, connection refused before SQL because server was not started; [negative evidence](evidence/R19-expired-samples-retained-tags-timeranges-v1/41635086542.json). No failure numbers pooled.
 
 **Production-style bound (not measured):** 400 nodes with 3h lifetime imply 3200 new IDs/day/metric; 15d main SAMPLES retention≈48000 live IDs, but 365d TAGS may accumulate≈1.168m identities (24.3x live) if no maintenance. Do **not** extrapolate wall latency linearly. Distinct next gate: actual SAMPLES TTL expiry plus late/resumed series semantic safety, then selective metadata pruning/retirement without invalidating old IDs. R07 already owns time-day covering sidecar; do not create a duplicate R07 index. No production changes or default DDL promotion.
+
+## 2026-11-03: R18 start alignment × value codec 4992 native concurrent requests
+
+[Successful 1/4/8-client nested native ABBA #41633815009](https://github.com/moleus/ClickHouse/actions/runs/41633815009),
+[immutable 36-panel/9-interaction codec evidence](evidence/R18-codec-start-stagger-concurrency-41633815009.json),
+[exact same-codec timestamp-cost reduction](evidence/R18-timestamp-alignment-cost-41633815009.json),
+[full source and limitations](../ts-lab-r18/START_STAGGER_CODEC_CONCURRENCY_20261103.md).
+Stock SHA-verified O1 LLVM22/glibc, RAW UUID TimeSeries v11, 3600s bucket,
+28,896 IDs,2,488,320 original gauge points; only node-start alignment
+`(slot*317)%10800` and SAMPLES.value `ALP+ZSTD(3)` vs `ZSTD(1)`
+varied. Same-runner outer aligned/stagger/stagger/aligned with
+inner ALP/ZSTD1/ZSTD1/ALP for three native full PromQL selectors
+× clients1/4/8. **4992 requests** (3744 measured), 144 phases,
+36 valid ABBA panels and nine repeated interactions; complete
+native within-alignment label/timestamp/value parity, physical
+parts/hash identical except expected staggered bucket count, no OOM.
+
+| Physical SAMPLES | Aligned | Staggered |
+|---|---:|---:|
+| Rows / marks | 86,688 / 340 | 113,760 / 446 |
+| ALP+ZSTD3 compressed bytes | 5,303,391 | 5,952,971 |
+| ZSTD1 compressed bytes | 3,414,486 (−35.62%) | 4,126,572 (−30.68%) |
+
+On **unchanged ALP+ZSTD3** with eight clients, staggering node starts
+raises broad-node native p50 **492.074→781.375ms (+58.8%)**,
+CPU/request **235.002→381.293ms (+62.25%)**; read_rows
+57,728→67,136 (+16.3%), compressed bytes4.149→4.526MB (+9.08%).
+The two outer-panel baseline p50 repeat drifts were 1.51%/1.37%.
+Namespace and burst also regress. This is a **whole-workload
+timestamp-offset effect**, not proof of any single operator/codec
+causing the extra CPU. Under eight clients the codec CPU ratios
+ZSTD1/ALP remain ~0.982–1.003 depending selector/alignment;
+no global CPU upgrade despite >30% compressed storage saving.
+The synthetic shifted source does **not** model constant 400
+active nodes at lifecycle boundaries, and no natural merging
+or true prod O2/O3+jemalloc equivalence was tested.
+
+## 2026-11-03: R18 orthogonal ALP transform × ZSTD level 2×2 factorial
+
+[Full native 2-job SUCCESS #41635457586](https://github.com/moleus/ClickHouse/actions/runs/41635457586),
+[immutable 24 matched ABBA factor results](evidence/R18-alp-zstd-level-factorial-41635457586.json),
+[full source/CPU stack audit](../ts-lab-r18/ALP_ZSTD_2X2_CPU_AND_STORAGE_20261103.md),
+[predeclared confound correction](../ts-lab-r18/VALUE_CODEC_2X2_FACTORIAL_PLAN_20261103.md).
+Prior R18 comparison **changed two variables simultaneously**:
+ALP transform and ZSTD level3→1. Now four explicit identical v11
+SAMPLES schemas vary only `samples.value`: ALP+ZSTD3,
+ALP+ZSTD1, ZSTD3, ZSTD1. Two SHA-pinned original patterned
+and high-entropy Float64 fixture jobs independently verify
+effective codecs, 2,488,320 points, identical native labels,
+timestamps and values, immutable parts, 24/24 ABBA,
+1728 HTTP queries, CPU and p50/p95 with valid baseline drift.
+
+| SAMPLES value codec | Patterned compressed bytes | High-entropy bytes |
+|---|---:|---:|
+| ALP+ZSTD3 | 5,303,391 | **19,686,139** |
+| ALP+ZSTD1 | 5,550,516 | **19,686,139** |
+| ZSTD3 | **3,355,724** | 20,216,284 |
+| ZSTD1 | 3,414,486 | 20,216,284 |
+
+**Isolated ALP removal at fixed ZSTD3** saves36.72% SAMPLES
+bytes on patterned values but **increases bytes2.69%** on
+high-entropy values. ZSTD3→1 at fixed ALP adds4.66% patterned
+bytes (without ALP +1.75%), no entropy byte difference.
+On high entropy, removing ALP at fixed ZSTD3 reduces
+`pod_namespace` CPU **111.914→102.548ms (−8.37%, A/A CPU
+drift0.74%)** and `burst15` CPU **74.499→66.506ms (−10.73%,
+drift4.90%)** with exact full-native parity. Patterned namespace
+CPU54.633→54.681ms (near neutral, CPU drift7.08%).
+Thus the earlier one-run +10% namespace CPU penalty for
+two-variable ZSTD1 must **not** be attributed to ALP alone or
+promoted as a reproducible global regression. One-query sampled
+ALP CPU stacks support decompression overhead, but not precise
+causal function percentages.
+
+Both invalid pilot runs [#41634612567](https://github.com/moleus/ClickHouse/actions/runs/41634612567)
+(backtick DDL guard) and [#41634883798](https://github.com/moleus/ClickHouse/actions/runs/41634883798)
+(selector dictionary shadowing after valid physical storage, before
+queries) are preserved as [M43](METHODOLOGY_AND_FAILURES.md).
+Now five pure preflight unit tests run **before binary/fixture download**.
+**DECISION:** no global codec switch. Need realistic value entropy and
+3h node starts, natural repeated writer/merge, multiple clients
+with an optimized+jemalloc binary. The independent C++ build
+[#41607779848](https://github.com/moleus/ClickHouse/actions/runs/41607779848)
+was still compiling in the last check; do not cancel or replace.
+
