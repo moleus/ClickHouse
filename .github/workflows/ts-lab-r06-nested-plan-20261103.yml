@@ -91,6 +91,19 @@ jobs:
           python3 .github/ts-lab-r06/probe_nested_selector_plan.py \
             --log evidence/r06-server.log --out evidence/r06-nested --series 8192 \
             | tee evidence/r06-plan-probe.log
+      - name: Record diagnostic status even if generated SQL capture fails
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json,pathlib
+          path=pathlib.Path('evidence/r06-nested/report.json')
+          if path.exists():
+              r=json.loads(path.read_text())
+              print('R06_DIAGNOSTIC_STATUS',r.get('status'),'errors',r.get('errors'),
+                    'cases',{k:list(v) for k,v in r.get('cases',{}).items()})
+          else:
+              print('R06_DIAGNOSTIC_NO_REPORT')
+          PY
       - name: Preserve complete source, fixture, SQL and plan evidence
         if: always()
         uses: actions/upload-artifact@v4
