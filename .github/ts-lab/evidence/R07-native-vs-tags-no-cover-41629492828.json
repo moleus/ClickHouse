@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "question_id": "R07",
+  "claim_id": "R07-time-day-covering-metadata-v1",
+  "status": "PASS_SQL_REWRITE_NO_SIDECAR",
+  "run_id": 41629492828,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41629492828",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "stock_o1_binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "workflow_commit": "68dae3366b00999db31563fe0ce067d0722dba71",
+  "artifact": {
+    "name": "tslab-r07-native-tags-41629492828",
+    "zip_sha256": "73c7950fd305c014cf4797dc7a67e4874fd6442ba7489d488a1e2b15e96c6a7a",
+    "full_report": "r07sql/report.json"
+  },
+  "fixture_sha256": "351dff6b4f49986bb7f0f586459b86b918d99fd4d4cbb0b3293b4dfa680a8efb",
+  "fixture": "14 UTC days,70000 distinct high-churn one-sample-per-ID series, rawUUID TimeSeries v11 with daily SAMPLES, recent TTL off",
+  "intervention": "Rewrite specialized avg by(stage)(avg_over_time(metric[window])) to explicit SQL per-ID avg on SAMPLES plus stage label from original TAGS. No day-cover/sidecar table created; no changes to source C++ or original table schema relative to control.",
+  "comparison": {
+    "order": [
+      "native",
+      "tags_sql",
+      "tags_sql",
+      "native"
+    ],
+    "phases_per_case": 4,
+    "measured_per_phase": 4,
+    "warmup_per_phase": 2,
+    "cases": 4,
+    "total_measured_queries": 64,
+    "total_warmups": 32,
+    "output_parity": "Full native timestamp/labels/Float64 for finite gauge synthetic fixture, 38 or1 output point per query, no missing results",
+    "all_controls_valid_under25pct": true,
+    "paired_same_runner_same_binary": true
+  },
+  "cases": [
+    {
+      "name": "broad1d",
+      "native_p50_ms": 69.4205,
+      "tags_sql_p50_ms": 175.3575,
+      "native_over_tags_sql_wall_ratio": 0.39587984545856325,
+      "native_cpu_ms": 106.1945,
+      "tags_sql_cpu_ms": 194.66825,
+      "native_read_rows": 145000,
+      "tags_sql_read_rows": 150000,
+      "native_read_bytes": 14920000,
+      "tags_sql_read_bytes": 4970000,
+      "native_selected_marks": 38,
+      "tags_sql_selected_marks": 58,
+      "control_drift": 0.0506910783,
+      "output_groups": 38,
+      "valid_control": true
+    },
+    {
+      "name": "stage1d",
+      "native_p50_ms": 38.8805,
+      "tags_sql_p50_ms": 35.7425,
+      "native_over_tags_sql_wall_ratio": 1.087794642232636,
+      "native_cpu_ms": 44.6895,
+      "tags_sql_cpu_ms": 43.6175,
+      "native_read_rows": 145000,
+      "tags_sql_read_rows": 150000,
+      "native_read_bytes": 14990000,
+      "tags_sql_read_bytes": 5110000,
+      "native_selected_marks": 38,
+      "tags_sql_selected_marks": 58,
+      "control_drift": 0.0147889045,
+      "output_groups": 1,
+      "valid_control": true
+    },
+    {
+      "name": "broad3d",
+      "native_p50_ms": 105.8415,
+      "tags_sql_p50_ms": 191.383,
+      "native_over_tags_sql_wall_ratio": 0.553035013559198,
+      "native_cpu_ms": 199.58775,
+      "tags_sql_cpu_ms": 222.917,
+      "native_read_rows": 155000,
+      "tags_sql_read_rows": 160000,
+      "native_read_bytes": 15640000,
+      "tags_sql_read_bytes": 5530000,
+      "native_selected_marks": 78,
+      "tags_sql_selected_marks": 98,
+      "control_drift": 0.0666184814,
+      "output_groups": 38,
+      "valid_control": true
+    },
+    {
+      "name": "broad14d",
+      "native_p50_ms": 395.89,
+      "tags_sql_p50_ms": 254.865,
+      "native_over_tags_sql_wall_ratio": 1.5533321562395777,
+      "native_cpu_ms": 786.4975,
+      "tags_sql_cpu_ms": 405.2885,
+      "native_read_rows": 210000,
+      "tags_sql_read_rows": 210000,
+      "native_read_bytes": 19600000,
+      "tags_sql_read_bytes": 8330000,
+      "native_selected_marks": 298,
+      "tags_sql_selected_marks": 298,
+      "control_drift": 0.0134835434,
+      "output_groups": 38,
+      "valid_control": true
+    }
+  ],
+  "findings": [
+    "14d broad same-runner SQL without cover improved native p50 395.89->254.865ms (1.553x) and CPU786.50->405.29ms; scanned rows same210000 and selected marks same298. This supports query execution/column projection rather than fewer physical marks as source of gain.",
+    "3d broad TAGS SQL was slower by ~81%, 1d broad slower by~153%, so a global SQL rewrite is rejected. Stage1d SQL 8.8% faster on this fixture.",
+    "Full-native vs daycover SQL 14d previously 2.97x in another runner and direct tag SQL vs cover SQL 14d sidecar ~4% slower on another runner; do not multiply or subtract cross-runner ratios as a causal estimator.",
+    "Steady full-sample write cost absent; a no-sidecar plan would avoid sidecar write cost, but only for admitted query subset and exact native semantics."
+  ],
+  "falsifiers": [
+    "Different expression trees, arrayJoin/explicit aggregation and native PromQL toVectorGrid mean no general semantic equivalence for NaNs, staleness, repeated sample timestamps, histogram/rate, build/job regex or multiple evaluation steps was proved.",
+    "One-sample-per-series gauge test only; require R01 multi-sample/staggered 15/60/300s and Jenkins high churn, full numerical parity, time boundaries, duplicate updates and index/ACL/tenancy.",
+    "No source-pinned C++ integration or production O2/jemalloc throughput/p99; not a stock native planner improvement."
+  ],
+  "next_action": "Collect query CPU processor attribution for native vs TAGS SQL under same runner, then repeat exact multi-sample R01 3d with snapshots/merges and 1/4/8 concurrent clients. Only if robust, consider guarded native SQL planner specialization, not global rewrite."
+}
