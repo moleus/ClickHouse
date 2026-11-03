@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0,str(pathlib.Path(__file__).parent))
-from bench_any_duplication_curve import LEVELS,table_name,census,target
+from bench_any_duplication_curve import LEVELS,table_name,census,target,freeze_time_ranges_before_insert
 
 
 class CurveTests(unittest.TestCase):
@@ -21,6 +21,14 @@ class CurveTests(unittest.TestCase):
                    return_value='{"uuid":"ab12cd34-ef56-7890-abcd-112233445566"}\n'):
             self.assertEqual(target('r30_curve_4'),
                              'default.`' + '.inner_id.timeranges.ab12cd34-ef56-7890-abcd-112233445566' + '`')
+
+    def test_each_new_inner_table_is_frozen_before_insert(self):
+        path='default.`.inner_id.timeranges.test-uuid`'
+        with patch("bench_any_duplication_curve.target",return_value=path), \
+             patch("bench_any_duplication_curve.request") as post:
+            got=freeze_time_ranges_before_insert('r30_curve_8')
+            self.assertEqual(got,path)
+            post.assert_called_once_with("SYSTEM STOP MERGES "+path)
 
     def test_census_exact_expected_multiplier(self):
         with patch("bench_any_duplication_curve.target",
