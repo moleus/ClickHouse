@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "question_id": "R02-small-batch-raw-lc-write-v1",
+  "subexperiment": "independent-fixed-open-loop-native-40read-84insert-natural-merge-reduction",
+  "decision": "REPLICATED_LAB_EFFECT",
+  "ci_status": "success",
+  "verified_utc": "2026-11-03T12:21:00Z",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary": {
+    "sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "compiler": "LLVM22.1.8",
+    "optimization": "-O1 unmodified stock glibc",
+    "build_run": 41596421285
+  },
+  "fixture": {
+    "sha256": "dd2dd55ee8fcf3c11c1fef94ebdd54ac8b3a6a53cea6deaae991b3b94c88b931",
+    "samples_per_phase": 384000,
+    "unique_series": 66000,
+    "query_expression": "avg by(scope)(avg_over_time(tslab_r02_periodic[30m]))",
+    "read_time": "fixed first twelve minutes of 96 minutes",
+    "native_query_range": "single fixed evaluation timestamp",
+    "insert_batches_per_phase": 84,
+    "reader_requests_per_phase": 40,
+    "insert_interval_s": 0.2,
+    "read_interval_s": 0.4,
+    "reader_offset_s": 0.1,
+    "per_phase_fresh_server": true,
+    "phase_order": [
+      "A0 LC",
+      "B1 RAW",
+      "B2 RAW",
+      "A3 LC"
+    ],
+    "natural_merge": "enabled, not stopped or OPTIMIZE forced"
+  },
+  "protocol": "Two independent GitHub Ubuntu runners. Each fresh-server A/B/B/A phase receives exactly 84 fixed-time INSERTs and 40 native requests at absolute clock deadlines, with exact source binary and 96-batch fixture SHA, full label/timestamp/float native oracle, per-query physical and QueryFinish controls. Schedule max late <=75ms and progress <=2 batches; no QueryResultCache. Within-runner compare candidate mean B1/B2 against control mean A0/A3; require p95 and mixed process CPU candidate improvement exceed max(5%, local A/A drift). Do not compare absolute latency between host machines.",
+  "replications": [
+    {
+      "runner": "one",
+      "workflow_run": 41634084470,
+      "job_id": 125910717564,
+      "artifact_id": 13229182695,
+      "artifact_sha256": "626bf07206fc4cb56eb121d234a1f89b8cd1630cc08e50215d0e52a243ada386",
+      "read_p95_raw_over_lc": 0.65677,
+      "mixed_cpu_raw_over_lc": 0.77509,
+      "total_window_raw_over_lc": 0.99948,
+      "read_p95_control_drift": 0.11304,
+      "cpu_control_drift": 0.0608
+    },
+    {
+      "runner": "two",
+      "workflow_run": 41634084470,
+      "job_id": 125910717013,
+      "artifact_id": 13229852006,
+      "artifact_sha256": "21c40affcd6f269342535be13a57ef89e2742ec271fecdc981d65444966edefa",
+      "read_p95_raw_over_lc": 0.68626,
+      "mixed_cpu_raw_over_lc": 0.80339,
+      "total_window_raw_over_lc": 0.99957,
+      "read_p95_control_drift": 0.05137,
+      "cpu_control_drift": 0.02507
+    }
+  ],
+  "geometric_means": {
+    "read_p95_raw_over_lc": 0.67135,
+    "read_p95_reduction": 0.32865,
+    "mixed_cpu_raw_over_lc": 0.78911,
+    "mixed_cpu_reduction": 0.21089,
+    "total_window_wall_raw_over_lc": 0.99952
+  },
+  "proof": {
+    "strict_reducer_run": 41634795775,
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41634795775",
+    "job_id": 125913151541,
+    "artifact_id": 13230365997,
+    "artifact_sha256": "8d3a5aa893e1f29ef83f93f9938cfb1d7555c9e1281ecefa33dde9d4319e770f",
+    "script": ".github/ts-lab/experiments/r02_reduce_fixed_schedule.py",
+    "source": ".github/ts-lab/experiments/r02_fixed_schedule_read_write.py",
+    "workflow": ".github/workflows/ts-lab-r02-reduce-fixed-two-runners-20261103.yml",
+    "script_sha_manifest_matched": true,
+    "source_fixture_sha_matched": true,
+    "offered_query_count_identical": true,
+    "native_oracle_exact": true,
+    "cpu_process_watchdog_and_worker": true,
+    "all_control_drifts_within_bound": true
+  },
+  "negative_evidence": {
+    "excluded_run": 41633619697,
+    "reason": "Initial independent fixed-rate ABBA valid native responses and schedules but LC p95 A/A drift 26.30% exceeded 25% preregistered threshold. It was excluded without modification of drift threshold or traffic cadence.",
+    "file": ".github/ts-lab/evidence/R02-small-batch-raw-lc-write-v1/41633619697.json"
+  },
+  "limitations": [
+    "Two independent GitHub-hosted runners, one 96-batch synthetic high churn workload; this cannot support a general production hardware/SLA guarantee.",
+    "Read query fixed to first 12 batches and one evaluation time; the 14d/1.33m broad Grafana workload and multi-tenant ACL semantics are different.",
+    "Mixed CPU includes writer, native reader and natural background merges; read-path causal operator attribution not isolated.",
+    "Optimized ClickHouse O2+jemalloc production-like build and matched VictoriaMetrics under identical hardware/cgroups have not been tested here.",
+    "Open-loop means one in-flight reader; queueing under many concurrent client sockets remains a separate workload.",
+    "Fixed offered wall rate is identical for both variants, so a near-unity total-window wall ratio is a design outcome, not a test of write latency."
+  ],
+  "next_action": {
+    "question_id": "R02",
+    "step": "Validate CPU/RSS/operator bottlenecks of RAW UUID under fixed arrivals using production-like optimized ClickHouse when the existing jemalloc build becomes ready; separately compare larger 14d windows and 1/4/8 clients before release approval. No duplicate source compilation.",
+    "stop_condition": "Do not promote global Raw UUID default; opt-in for high churn only. Stop if native parity, memory cap, relative p95 or background merge cost regress in heldout configuration."
+  }
+}
