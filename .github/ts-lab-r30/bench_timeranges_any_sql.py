@@ -247,6 +247,8 @@ def main():
     ap.add_argument("--log", required=True)
     ap.add_argument("--series", type=int, default=4096)
     ap.add_argument("--updates", type=int, default=16)
+    ap.add_argument("--postmerge-control", action="store_true",
+                    help="After premerge ABBA, merge TimeRanges only and repeat ID parity/ABBA")
     a=ap.parse_args()
     if not (1024<=a.series<=32768 and 2<=a.updates<=32):
         raise ValueError("Out of bounded diagnostic fixture range")
@@ -278,6 +280,7 @@ def main():
             report["results"][case]={
                 "stock_native_sql":native,"native_output_sha256":hashlib.sha256(native_response.encode()).hexdigest(),
                 "generated_sql_sha256":hashlib.sha256(generated.encode()).hexdigest(),
+                "generated_selector_sql":generated,
                 "ids_all_sql":ids_all,"ids_any_sql":ids_any,
                 "plans":plans(ids_all,ids_any),
                 "parity":checked_pair(ids_all,ids_any,generated,selector_any,case,runid)}
@@ -285,7 +288,35 @@ def main():
             save(path/"report.json",report)
         report["benchmark"]=abba(explicit_id_alias(report["results"]["project"]["ids_all_sql"]),
                                  explicit_id_alias(report["results"]["project"]["ids_any_sql"]),"project",runid)
-        report["status"]="PASS" if report["benchmark"]["passed"] else "INCONCLUSIVE"
+        if a.postmerge_control:
+            target=report["physical"]["timeranges"]["target"]
+            # Scope START and STOP MERGES to TimeRanges. Do not touch SAMPLES/TAGS.
+            request("SYSTEM START MERGES " + target)
+            request("OPTIMIZE TABLE " + target + " FINAL")
+            request("SYSTEM STOP MERGES " + target)
+            merged={"physical":physical_census(),"cases":{}}
+            right=merged["physical"]["timeranges"]
+            if int(right["physical_rows"]) != int(right["ids"]):
+                raise ValueError(f"TimeRanges FINAL failed to collapse duplicates: {right}")
+            for case,prior in report["results"].items():
+                ids_all,ids_any=prior["ids_all_sql"],prior["ids_any_sql"]
+                # Generated source SQL is frozen; same queries on merged right-side parts.
+                outer_all=prior["generated_selector_sql"]
+                outer_any=rewritten(outer_all)
+                result=checked_pair(ids_all,ids_any,outer_all,outer_any,case,runid+"_merged")
+                if result["membership"] != prior["parity"]["membership"] or result["samples"] != prior["parity"]["samples"]:
+                    raise ValueError(f"{case}: physical merge changed membership or sample values")
+                merged["cases"][case]=result
+            merged["benchmark"]=abba(explicit_id_alias(report["results"]["project"]["ids_all_sql"]),
+                                     explicit_id_alias(report["results"]["project"]["ids_any_sql"]),
+                                     "project",runid+"_merged")
+            report["postmerge"]=merged
+            print("R30_POSTMERGE",
+                  json.dumps({"physical":right,
+                              "multiplicity":{k:v["right_multiplicity_reduction"] for k,v in merged["cases"].items()},
+                              "benchmark":merged["benchmark"]["summary"]}),flush=True)
+        report["status"]="PASS" if (report["benchmark"]["passed"]
+            and (not a.postmerge_control or report["postmerge"]["benchmark"]["passed"])) else "INCONCLUSIVE"
     except Exception as exc:
         report["errors"].append(str(exc))
         report["status"]="INCONCLUSIVE"
