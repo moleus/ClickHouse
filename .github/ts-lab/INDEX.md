@@ -7,6 +7,7 @@
 | Purpose | Resource |
 |---|---|
 | Shared agent workflow and conflict rules | [AGENT_GUIDE.md](AGENT_GUIDE.md) |
+| Root-level question owners and collision gate | [R01 owner](claims/roots/R01.json), [R04 owner](claims/roots/R04.json), [R08 owner](claims/roots/R08.json); [validated CI](https://github.com/moleus/ClickHouse/actions/runs/41612252018) |
 | ChatGPT web restarts, GitHub auth, token limits, VM scratch and hourly monitoring | [SESSION_BOOTSTRAP.md](SESSION_BOOTSTRAP.md) |
 | Research coordination, prioritized next hypotheses, atomic claims and evidence protocol | [RESEARCH_COORDINATION_20261103.md](RESEARCH_COORDINATION_20261103.md) |
 | Known experimental failures and source caveats | [METHODOLOGY_AND_FAILURES.md](METHODOLOGY_AND_FAILURES.md) |
