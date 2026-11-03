@@ -79,7 +79,7 @@ def get_reference(name,case,end,tag):
     return rows
 
 
-def run_inner(case,variant,outer_i,pid,end,reference,output,record):
+def run_inner(case,variant,outer_i,pid,end,reference,output,record,root_report):
     phases=[]
     for order,step in enumerate(STEP_ORDER):
         name=table(variant,step)
@@ -89,7 +89,7 @@ def run_inner(case,variant,outer_i,pid,end,reference,output,record):
         )
         phases.append(phase)
         record["phases"]=phases
-        save(output,record)
+        save(output,root_report)
     a=[v["summary"] for v in phases if "_b3600" in v["variant"]]
     b=[v["summary"] for v in phases if "_b10800" in v["variant"]]
     if len(a)!=2 or len(b)!=2:
@@ -122,7 +122,7 @@ def run_inner(case,variant,outer_i,pid,end,reference,output,record):
     }
     print("R10_INTERACTION_INNER",json.dumps(summary,separators=(",",":")),flush=True)
     record["summary"]=summary
-    save(output,record)
+    save(output,root_report)
     return summary
 
 
@@ -241,7 +241,7 @@ def main():
                 panel["cases"][case]=rec
                 run_inner(
                     case,variant,outer_i,pid,int(manifest[variant]["end"]),
-                    reference[(variant,case)],args.output,rec
+                    reference[(variant,case)],args.output,rec,report
                 )
                 if not rec["summary"]["valid_control"]:
                     report["errors"].append({
