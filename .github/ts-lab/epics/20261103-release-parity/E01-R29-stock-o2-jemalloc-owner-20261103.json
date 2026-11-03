@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "epic": "E01",
+  "question_id": "R29",
+  "owner": "chatgpt-e01-stock-o2-jemalloc-20261103",
+  "status": "build_running",
+  "scope": "E01 stock baseline build artifact only. Same pinned upstream source and LLVM22.1.8 as previously verified stock O1, -O2 Release, jemalloc ON; no lab C++ patches, no cumulative patch stack. Publication of SHA-verified artifact and runtime smoke; E02 later separately benchmarks optimized stock against VictoriaMetrics. Does not take ownership of E03/E04/E05 patches or other agent RNN roots.",
+  "root": ".github/ts-lab/claims/roots/R29.json",
+  "claim": ".github/ts-lab/claims/R29-stock-o2-jemalloc-source-parity-v1.json",
+  "workflow": ".github/workflows/ts-lab-r29-stock-o2-jemalloc-20261103.yml",
+  "run_id": 41685467438,
+  "negative_pilot": {
+    "run_id": 41685290429,
+    "classification": "INVALID_WORKFLOW_YAML",
+    "effect": "GitHub did not create any job; no source checkout/compile and no artifact. Caused by unsafe JS replacement of literal $' in shell grep; fixed using literal split/join source transform, and preflight moved before upload."
+  },
+  "promotion_gate": "No speed or source parity claims before verified O2 binary SHA, unchanged source diff, CMake options, jemalloc runtime and matched native PromQL. Build success alone is not an E02 performance result.",
+  "created_utc": "2026-11-03"
+}
