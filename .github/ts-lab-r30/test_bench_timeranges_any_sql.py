@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
-from bench_timeranges_any_sql import rewritten, write_fixture
+from bench_timeranges_any_sql import rewritten, write_fixture, explicit_id_alias
 
 
 class AnyMembershipTests(unittest.TestCase):
@@ -15,6 +15,15 @@ class AnyMembershipTests(unittest.TestCase):
         self.generated = ("SELECT timeSeriesStoreTags(id,tags) FROM tags"
                           " ALL LEFT JOIN (SELECT id,1 AS matched FROM timeranges)"
                           " AS time_ranges_subquery USING(id) WHERE matched=1")
+
+    def test_generated_id_selector_has_no_alias_but_diagnostic_must(self):
+        source = ("SELECT timeSeriesStoreTags(id, tags, '__name__', metric_name)"
+                  " FROM tags ALL LEFT JOIN (SELECT id FROM r) AS time_ranges_subquery USING (id)")
+        named=explicit_id_alias(source)
+        self.assertIn("metric_name) AS id FROM tags",named)
+        self.assertEqual(named.count("ALL LEFT JOIN"),1)
+        with self.assertRaisesRegex(ValueError,"already aliased"):
+            explicit_id_alias(named)
 
     def test_exact_one_join_rewrite(self):
         out=rewritten(self.generated)
