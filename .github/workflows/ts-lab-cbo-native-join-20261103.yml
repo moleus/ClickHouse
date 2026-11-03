@@ -1,6 +1,8 @@
 name: TimeSeries native PromQL JOIN override ABBA 1.33m
 on:
-  workflow_dispatch:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-cbo-native-join-20261103.yml']
 permissions:
   contents: read
   actions: read
