@@ -1,0 +1,183 @@
+{
+  "schema_version": 1,
+  "question_id": "R12-lc-decoder-matched-binaries-v1",
+  "decision": "REJECT",
+  "ci_conclusion": "SUCCESS",
+  "date_utc": "2026-11-03",
+  "scientific_scope": "Experimental normal-data C++ LowCardinality fresh-dictionary adoption on full native PromQL versus exactly matched O1 control. Four ABBA cases, all output parity and drift gates passed. NO production safety claim.",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_identity": {
+    "source": "ClickHouse source 52529f0, LLVM22.1.8, Release -O1 -DNDEBUG -g0",
+    "control": {
+      "build_run_id": 41531656434,
+      "artifact_id": 13194461800,
+      "binary_sha256": "3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221",
+      "patches": [
+        "src/Storages/StorageTimeSeriesSelector.cpp",
+        "src/Storages/TimeSeries/PrometheusQueryToSQL/Converter.cpp"
+      ]
+    },
+    "candidate": {
+      "build_run_id": 41591617794,
+      "artifact_id": 13221652968,
+      "binary_sha256": "bcafb369ccbfb063faea9c82694c4b3a527430432a81401225e2a8091a3c2cb9",
+      "additional_patch_only": "src/DataTypes/Serializations/SerializationLowCardinality.cpp"
+    },
+    "compiled_cmake_flags_identical": true,
+    "patch_diff_verified_in_r12": true,
+    "archive_and_executable_manifests_verified": true,
+    "mismatch_guard_passed": true
+  },
+  "fixture": {
+    "generator": ".github/ts-lab-bench/generate_95k_daily_churn_ts.py",
+    "sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+    "series": 1330000,
+    "days": 14,
+    "new_series_per_day": 95000,
+    "storage": "Same v11 default LC UUID TimeSeries table read by both executables, inner 3 targets exactly 1 active part each after OPTIMIZE FINAL, merges stopped",
+    "tag_rows": 1330000,
+    "timeranges_rows": 1330000,
+    "samples_rows": 1330000,
+    "unchanged_part_bytes": {
+      "tags": 61869152,
+      "timeranges": 37864849,
+      "samples": 49532596
+    }
+  },
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41620022189",
+    "head_commit": "c0323194653257c810dc73525fea77b9ba2406f5",
+    "path": ".github/workflows/ts-lab-r12-lc-decoder-matched-20261103.yml",
+    "job_id": 125863089320,
+    "artifact_id": 13223980393,
+    "artifact_name": "tslab-r12-lc-decoder-normal-fixture-41620022189",
+    "artifact_zip_digest": "sha256:9b0d8cbd13691383877188be9beaed0e4526493dfa63c7f760fbc085987229dd",
+    "log": "r12/compare.log",
+    "report": "r12/report.json",
+    "patch_identity": "r12/patch-identity.json"
+  },
+  "method": {
+    "query": "SELECT * FROM prometheusQueryRange(churn_ts,'avg by(stage)(avg_over_time(jenkins_ci_95k_daily{selector}[1d]))',start,end,86400) with max_threads=2 and source-pinned full native computation",
+    "cases": [
+      "stage14d",
+      "project14d",
+      "regex14d",
+      "whole1d"
+    ],
+    "phases": "For each case, independent fresh server per baseline/candidate/candidate/baseline phase; 2 warmups+6 measured queries; all query ids phase-specific; same physical parts, same query and same user",
+    "metrics": "Client p50/p95, QueryFinish OSCPUVirtualTime, runnable wait, read rows/bytes/SelectedMarks, query peak memory, low-overhead /proc server VmRSS, representative processors_profile_log grouped work, trace_log categories when available",
+    "confidence_gate": "A/A control drift <=25% for wall p50 and CPU. All passed; robust gain requires improvement exceed measured drift and no safety regressions.",
+    "safety": "Candidate bypasses ColumnLowCardinality::checkIndexesAreLimited for no-global fresh dictionary adoption and assumes unique dictionary keys. Known source audit blocks deployment regardless of normal-data performance."
+  },
+  "cases": {
+    "stage": {
+      "days": 14,
+      "baseline_p50_ms": 916.225,
+      "candidate_p50_ms": 1022.784,
+      "latency_change_percent": 11.63,
+      "baseline_p95_ms": 942.975,
+      "candidate_p95_ms": 1044.283,
+      "baseline_cpu_ms": 1694.628,
+      "candidate_cpu_ms": 1876.203,
+      "cpu_change_percent": 10.715,
+      "wall_control_drift": 0.00109,
+      "cpu_control_drift": 0.00096,
+      "read_rows": 3988720,
+      "baseline_query_max_memory_bytes": 100451948,
+      "candidate_query_max_memory_bytes": 111981947,
+      "judgment": "REJECT; strong same-runner 11.6% p50 and 10.7% CPU regression"
+    },
+    "project": {
+      "days": 14,
+      "baseline_p50_ms": 1795.351,
+      "candidate_p50_ms": 1774.902,
+      "latency_change_percent": -1.139,
+      "baseline_p95_ms": 1822.26,
+      "candidate_p95_ms": 1803.218,
+      "baseline_cpu_ms": 3080.3,
+      "candidate_cpu_ms": 3054.194,
+      "cpu_change_percent": -0.848,
+      "wall_control_drift": 0.04347,
+      "cpu_control_drift": 0.04594,
+      "read_rows": 3990000,
+      "judgment": "INCONCLUSIVE; 1.1% effect below 4.3% A/A drift"
+    },
+    "regex": {
+      "days": 14,
+      "baseline_p50_ms": 1956.876,
+      "candidate_p50_ms": 1919.19,
+      "latency_change_percent": -1.926,
+      "baseline_p95_ms": 2054.686,
+      "candidate_p95_ms": 1964.61,
+      "baseline_cpu_ms": 3417.883,
+      "candidate_cpu_ms": 3353.601,
+      "cpu_change_percent": -1.881,
+      "wall_control_drift": 0.02291,
+      "cpu_control_drift": 0.02296,
+      "read_rows": 3990000,
+      "judgment": "INCONCLUSIVE; 1.9% effect close to 2.3% drift"
+    },
+    "whole": {
+      "days": 1,
+      "baseline_p50_ms": 1370.533,
+      "candidate_p50_ms": 1403.063,
+      "latency_change_percent": 2.373,
+      "baseline_p95_ms": 1394.727,
+      "candidate_p95_ms": 1417.789,
+      "baseline_cpu_ms": 2311.228,
+      "candidate_cpu_ms": 2344.173,
+      "cpu_change_percent": 1.425,
+      "wall_control_drift": 0.0277,
+      "cpu_control_drift": 0.03206,
+      "read_rows": 3990000,
+      "judgment": "INCONCLUSIVE; 2.4% wall change close to 2.8% drift"
+    }
+  },
+  "correctness": {
+    "passed": true,
+    "full_nonempty_native_promql_labels_timestamps_numeric_equal": true,
+    "same_physical_parts_before_after": true,
+    "same_ID_schema": "Tuple(UInt64, LowCardinality(UUID))",
+    "same_read_rows_and_selected_marks_per_variant": true,
+    "no_oom": true,
+    "all_control_drift_under_25percent": true
+  },
+  "profiles": {
+    "sampled_cpu_trace_status": "No rows in cpu_components, folded_stacks or hot_leaves in final artifact for either variant; cannot attribute trace CPU hotspots or claim dictionary ReverseIndex elimination in actual run. Investigate trace_log sampling availability separately if this hypothesis were to be reopened.",
+    "processor_count_per_case": 48,
+    "representative_processor_sum_work_ms": {
+      "stage": {
+        "control": 1664.07,
+        "candidate": 1666.01
+      },
+      "project": {
+        "control": 3182.16,
+        "candidate": 3143.27
+      },
+      "regex": {
+        "control": 3625.35,
+        "candidate": 3693.12
+      },
+      "whole": {
+        "control": 2332.93,
+        "candidate": 2381.21
+      }
+    },
+    "interpretation": "In stage, the representative sum of recorded processor work changes by ~2ms despite median QueryFinish total CPU +182ms and client wall +107ms. It is not valid to attribute regression to a specific C++ call path or mutex from available trace. QueryFinish CPU counts can include work not mapped to per-processor elapsed groups; single profiled query is not median.",
+    "off_cpu_note": "Processor input/output waits sum across instances and cannot be interpreted as critical-path wall time or contended mutex wait."
+  },
+  "source_safety": {
+    "audit": ".github/ts-lab-cpu/LC_DECODER_FASTPATH_SAFETY_AUDIT_20261103.md",
+    "analysis": ".github/ts-lab-r12/LC_FRESH_DICTIONARY_SAFETY_AND_COST_20261103.md",
+    "bounds_validation_missing": true,
+    "duplicate_dictionary_key_assumption_unverified": true,
+    "nullable_and_partial_reads_unverified": true,
+    "necessary_gate": "Retain stock INCORRECT_DATA semantics and index type checks for bad 8/16/32/64 indexes; prove or check dictionary uniqueness, continuation, nullable and merge behavior before any future C++ optimization.",
+    "never_promote_candidate": true
+  },
+  "comparison_to_existing_optin_raw_uuid": "Do not multiply theoretical LC patch benefit with raw UUID schema gain; both target overlapping LowCardinality dictionary work and experimental patch is rejected on measured performance and known correctness risk.",
+  "limitations": [
+    "Valid synthetic fixture only, no malformed-index runtime test, sanitizer, hot production data, 8-client capacity or production jemalloc; does not imply stock LC format is globally inferior. Trace CPU sampling missing in artifact, so no causal function-stack attribution."
+  ],
+  "next_action": "Close R12 unguarded LC adoption as rejected. Prioritize existing source-pinned RAW UUID opt-in and R10 bucket trade-offs; wait for the one running jemalloc build 41607779848 without replacing/cancelling. Only reopen a *new guarded* LC decoder approach if independent source proof + corruption behavior + measured CPU upper bound justify build."
+}
