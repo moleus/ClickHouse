@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "question_id": "R28",
+  "primary_claim_id": "R28-native-query-slot-admission-v1",
+  "owner": "chatgpt-r28-native-admission-20261103",
+  "scope": "ClickHouse-only production admission and capacity: native TimeSeries PromQL with one fixed 8-client arrival workload and unchanged pinned O1 binary/RAW_UUID fixture, compare workload QUERY-slot maxima unlimited vs 2/4 using the same server query semantics, bounded waiting and request deadlines. Prove syntax/queue behavior with a cheap functional smoke before heavy 1.33m/14d native A/B/B/A; measure accepted/completed/error QPS, full client p95/p99 including queue time, CPU, tracked/query and process RSS. No VM comparison, no new C++ build, no label index, physical layout, query plan/aggregation rewrite, allocator change, or global system policy. Distinct from R03 whole-engine 400-node VM comparison, R06 CBO, R20 rollup, R01/R02 fixtures and E01 build integration.",
+  "allowed_support_claims": [],
+  "source_proof": "Pinned src/Interpreters/ProcessList.cpp query slot is acquired before query execution; tests/integration/test_scheduler_query/test.py uses CREATE RESOURCE query (query), CREATE WORKLOAD ... max_concurrent_queries and verifies inflight/queued counters. Pinned src/Core/Settings.cpp documents workload_admission_timeout_ms and distinct RESOURCE_LIMIT/QUERY_SLOT_ACQUISITION_TIMEOUT behavior. Query-slot queuing is not a promise of lower per-request latency or process-RSS safety.",
+  "math_bound": "For C=8 simultaneous client requests, slot cap k=2/4 bounds at most k admitted workload queries, not their individual peak RSS. If peak process RSS is B + k*m + O, k must be below (M-B-O)/m; all B,m,O require measurements. The capacity ceiling and queueing latency follow service-time distribution and K core availability; wall p99 includes waiting, while completed throughput may improve if unlimited causes OOM. An idle-resident cache and background merges invalidate a simple sum-of-query tracker proof.",
+  "created_utc": "2026-11-03"
+}
