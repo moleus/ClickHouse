@@ -1,0 +1,31 @@
+name: TimeSeries lab state contract
+
+on:
+  push:
+    branches:
+      - lab/ts-cbo-adaptive-20261103
+    paths:
+      - '.github/ts-lab/handoffs/**'
+      - '.github/ts-lab/claims/**'
+      - '.github/ts-lab/ts_lab_state.py'
+      - '.github/ts-lab/test_ts_lab_state.py'
+      - '.github/workflows/ts-lab-state-validate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ts-lab-state-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test resume and claim contracts
+        run: python3 -m unittest discover -s .github/ts-lab -p 'test_ts_lab_state.py' -v
+      - name: Verify all immutable claims and handoffs
+        run: python3 .github/ts-lab/ts_lab_state.py validate-tree .
