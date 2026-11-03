@@ -1,6 +1,8 @@
 name: TimeSeries exact collector lock wait hold native A B B A
 on:
-  workflow_dispatch:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-tagcollector-lock-profile-20261103.yml']
 permissions:
   contents: read
   actions: read
