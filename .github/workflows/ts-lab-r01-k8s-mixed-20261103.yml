@@ -148,7 +148,7 @@ jobs:
           },sort_keys=True),flush=True)
           PY
 
-      - name: Full native PromQL LC versus RAW UUID A B B A mixed real-shaped repeated IDs
+      - name: Full native PromQL A B B A with v11 sample-bucket element-count audit
         run: |
           set -euo pipefail
           python3 -u .github/ts-lab-r01/bench_k8s_mixed_native.py \
