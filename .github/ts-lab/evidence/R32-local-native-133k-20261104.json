@@ -1,0 +1,22 @@
+{
+  "experiment_id": "R32-grid-single-bucket-finalization-v1",
+  "decision": "NO_EFFECT",
+  "promotion": "DO_NOT_PROMOTE",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "stock_sha256": "5d629ddfda91919402fdf8475ec3da9fe718d48ef386bc51be677264df6dc9ef",
+  "candidate_sha256": "58f14a1d635a49aa77459b3a789c65387d353825693577717e75f3fec4f50c09",
+  "candidate_build": "https://github.com/moleus/ClickHouse/actions/runs/41728002199",
+  "build_contract": "Both LLVM22.1.8 O2 jemalloc, same pinned source, only R32 finalizer delta",
+  "host": "ChatGPT local Linux container, cgroup cpu.max=400000 100000, memory.max=4294967296; query max_threads=2; server memory limit=2850000000; query limit=1900000000",
+  "fixture": "250 builds/day x38 stages/build x14 days =133000 distinct one-sample series. RAW_UUID v11. Build-level project, branch and job labels. No physical table changes across phases.",
+  "query": "avg by(stage)(avg_over_time(ci_duration{selector}[1d])) via prometheusQueryRange, 14 daily evaluation timestamps",
+  "protocol": "stock/candidate/candidate/stock, fresh server each phase, 2 warmups plus4 measured requests per selector per phase. Full independent Python label/time/value oracle on every request; tolerance1e-10. QueryFinish records complete after asynchronous log polling.",
+  "summary_mean_of_phase_medians": {
+    "stage": {"wall_ms_stock":143.5,"wall_ms_candidate":149.25,"cpu_ms_stock":108.3615,"cpu_ms_candidate":109.01175,"memory_bytes_stock":16205934,"memory_bytes_candidate":16205868,"control_wall_drift_stock":0.04181,"control_wall_drift_candidate":0.11725},
+    "project": {"wall_ms_stock":193.5,"wall_ms_candidate":179.25,"cpu_ms_stock":154.63925,"cpu_ms_candidate":142.986,"memory_bytes_stock":39243228,"memory_bytes_candidate":39242844,"control_wall_drift_stock":0.07752,"control_wall_drift_candidate":0.20921},
+    "whole": {"wall_ms_stock":902.75,"wall_ms_candidate":946.5,"cpu_ms_stock":864.975,"cpu_ms_candidate":902.1825,"memory_bytes_stock":292533268,"memory_bytes_candidate":292532980,"control_wall_drift_stock":0.02825,"control_wall_drift_candidate":0.09931}
+  },
+  "limitations": "Small sample count; fixed selector order; not a production SLA or VM comparison. Project apparent gain is smaller than control drift. R32 changes transient finalization allocation, not live aggregate-state map memory.",
+  "method_correction": "Initial final stock phase missed asynchronous QueryFinish rows and was retained as invalid. Added bounded log polling and reran the entire final stock phase. No fabricated observations.",
+  "next_experiment": "R34 initial sparse bucket-map capacity, isolated from R32, then native full 1.33m and dense negative controls."
+}
