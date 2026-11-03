@@ -1,0 +1,79 @@
+name: TimeSeries CBO glibc frontier OOM-aware immutable artifact reduction
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-cbo-oomaware-frontier-reduce-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-cbo-oomaware-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  reduce:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Validate original symlink and pure reducer
+        run: |
+          set -euo pipefail
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          python3 -m py_compile .github/ts-lab-cbo/reduce_glibc_frontier_oomaware.py
+          mkdir -p evidence/reduced
+          git rev-parse HEAD | tee evidence/reduced/reducer-commit.txt
+          sha256sum .github/ts-lab-cbo/reduce_glibc_frontier_oomaware.py \
+            | tee evidence/reduced/reducer-source-sha256.txt
+      - name: Fetch complete SHA-tagged historical eight-phase artifact (no new C++)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/frontier"
+          gh run download 41607288907 -R "$REPO" \
+            --pattern 'tslab-cbo-allocator-frontier-evidence' -D "$RUNNER_TEMP/frontier"
+          report="$(find "$RUNNER_TEMP/frontier" \
+            -path '*/allocator-frontier-phase0-default/report.json' \
+            -type f -print -quit)"
+          test -s "$report"
+          root="$(dirname "$(dirname "$report")")"
+          echo "$root" > "$RUNNER_TEMP/frontier-root.txt"
+          for n in $(seq 0 7); do
+            test "$(find "$root" -path "*/allocator-frontier-phase$n-*/report.json" \
+              -type f | wc -l)" -eq 1
+          done
+          echo 'FRONTIER_EIGHT_PHASE_ARTIFACT_FOUND'
+      - name: Reduce expected Code241 OOM without inventing unattempted queries
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-cbo/reduce_glibc_frontier_oomaware.py \
+            --root "$(cat "$RUNNER_TEMP/frontier-root.txt")" \
+            --output evidence/reduced/oom-aware.json \
+            | tee evidence/reduced/oom-aware.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/reduced/oom-aware.json'))
+          assert d['glibc_diagnostic_valid'] is True,d['errors']
+          assert d['recorded_unique_query_ids']==101
+          assert d['omitted_due_terminal_oom']==3
+          assert d['default_performance_control_valid'] is False
+          assert [x['oom_index'] for x in d['phases'] if x['oom_index'] is not None]==[9,12]
+          assert all(x['success_14d'] for x in d['phases'] if x['mode']!='default')
+          assert d['paired_candidates']['arena8']['rss_after12_mib_drift']>.4
+          assert set(d['candidate_pareto_exploratory'])=={'arena4','trim'}
+          print('GLIBC_OOM_REDUCTION_VERIFIED',d['recorded_unique_query_ids'])
+          PY
+      - name: Publish reduction and failed checks, not duplicate binary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-cbo-oomaware-frontier-${{ github.run_id }}
+          path: evidence/reduced/
+          retention-days: 45
+          if-no-files-found: warn
