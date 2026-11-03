@@ -1,0 +1,21 @@
+{
+  "id": "R05-candidate-id-mark-bound-v1",
+  "question": "Can a candidate-TAGS-first ID set reduce SAMPLES primary-key marks for sparse time-series selectors, rather than only post-read rows?",
+  "owner": "chatgpt-r05-mark-bound-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Native stock TimeSeries v11 selector: TAGS/TimeRanges join supplies an ID set for bucketed SAMPLES; compare actual marks and CPU in existing frozen baseline.",
+  "candidate": "No code patch. Source-level audit plus occupancy bound; only propose opt-in sparse-ID plan if physical SAMPLES marks are measurably pruned.",
+  "fixture": "Canonical 1.33m Jenkins 14d SHA256 8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858, and R01 mixed Kubernetes SHA256 ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+  "single_variable": "Selector ID selectivity and actual ID-to-primary-key mark clustering; same binary, same stored parts for each controlled query.",
+  "math_bound": "Under independent uniform ID occupancy with g distinct IDs per mark and s selected fraction, expected marks touched is 1-(1-s)^g; for g=8192 illustrative, half touched requires s <= 0.0000846091. This is NOT a universal physical mark guarantee; compare actual primary-key correlation and g.",
+  "falsifier": "If actual selected marks remain nearly all marks or CPU/read bytes/latency do not improve under native PromQL, reject sparse-ID read optimization even if logical matching rows decline.",
+  "test_matrix": "Cheap deterministic math/unit edge cases g=1, g=8192; source audit (ID set and PART primary-key). Later bounded read-only EXPLAIN and selected-mark counts for stage, project, whole 1/3/7/14d with repeated/sorted ID clusters, nonempty and native output parity.",
+  "runner_budget": "No new ClickHouse build, zero high-cost Actions; documentation and local pure tests only.",
+  "planned_workflow": "None; reuse existing pinned source, binary, fixtures and CI evidence. Do not trigger scheduled workflows.",
+  "dependencies": [
+    "R01 mixed K8s evidence only, without taking its ownership",
+    "M06 no-pruning minmax negative evidence",
+    "Existing stock O1 binary and SAMPLES inner-key schema verification"
+  ]
+}
