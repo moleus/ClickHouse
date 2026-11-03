@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "question_id": "R25",
+  "primary_claim_id": "R25-vm-tagfilter-cache-capacity-abba-v1",
+  "owner": "chatgpt-e04-vm-index-cache-20261103",
+  "created_utc": "2026-11-03",
+  "scope": "VM v1.134.0 same-binary single-server read-only TagFilters->MetricIDs cache capacity 1B versus 64MiB on exact R01 400-slot 3d fixture. Four fresh processes and cloned post-ingest data in low/high/high/low ABBA phases; no ClickHouse source change, no repeated CH/VM R03 comparison. Attribute cache misses, native output parity, warm p50/p95, process CPU, operating set and cache reset controls. Distinct from E03/R06 CH CBO; R05 mark bound; R07 day metadata; R21-R24 CH write cache and labels; R03 whole-engine ratio.",
+  "allowed_support_claims": [],
+  "source_proof": "VM app/vmstorage/main.go storage.cacheSizeIndexDBTagFilters flag; lib/storage/index_db.go searchMetricIDs and tagFilters cache; lib/lrucache/lrucache.go evicts on byte budget.",
+  "note": "No production change, no concurrent workload, no new compiled binary. One experimental source variable: cache byte capacity. Measurement claims gated on hit/miss separation and invariant data/zero unexpected cache resets."
+}
