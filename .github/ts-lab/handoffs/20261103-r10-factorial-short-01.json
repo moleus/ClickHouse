@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "session_id": "r10-factorial-short-20261103-01",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "1fa65620058fff4430b324c87cb09a4e7385e0fc",
+  "last_verified_utc": "2026-11-03T09:53:08.960Z",
+  "question_id": "R10",
+  "summary": "New source-pinned R10 2x3 SAMPLES bucket x UUID ID factorial, plus short-lookback falsifier, both completed full native PromQL A/B/B/A on unchanged O1 binary and synthetic 400-slot 3d fixture. R01 predecessor was verified separately. No global bucket/ID default changes.",
+  "completed": [
+    "Created root claims/roots/R10.json, canonical R10 claim, six-table .github/ts-lab-r10/bench_bucket_id_factorial.py and self-path workflow.",
+    "CI 41613268106 PASS: 12 same-step ID-type comparisons and 8 matched bucket-step comparisons; full native label/timestamp/numeric parity, sample array count 2,488,320 in all six tables, exact logical ID digest and one active part per inner target, control drift <=12.944%.",
+    "Same source unmodified stock O1 binary f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e and R01 fixture SHA256 ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d.",
+    "Disk on RAW UUID 900/3600/10800s: 7,798,682 / 7,424,806 / 6,833,238 B, for SAMPLES bucket rows 346,752 / 86,688 / 28,896. LC 7,955,846 / 7,569,815 / 6,966,960 B respectively.",
+    "RAW namespace1d 900s vs3600s p50 37.270->48.052 ms (+28.93%), CPU61.184->88.962ms (+45.4%), read_rows102368->218592; A/A drift0.142%. Raw broad-node 10800s vs3600s p50 91.906->95.784ms (+4.22%), despite fewer rows and bytes.",
+    "Created short-lookback R10 dependency .github/ts-lab-r10/bench_short_window_pruning.py + self-path workflow, CI 41614179460 PASS: 12 short time-window A/B/B/A with exact native outputs and control drift <=12.892%.",
+    "Short lookback RAW namespace1h 900s vs3600s p50 29.708->32.115ms (+8.1%) and CPU40.537->45.649ms; drift0.404%. RAW broad-node15m 10800s vs3600s p50 44.416->40.123ms (-9.67%), CPU78.407->62.346ms (-20.48%), read_rows56704->38592; drift1.069%.",
+    "Immutable evidence: .github/ts-lab/evidence/R10-bucket-id-factorial-v1-41613268106.json and .github/ts-lab/evidence/R10-short-lookback-41614179460.json. Updated shared INDEX.md. Previous R01 evidence 41612120162 and M37 source-bucket correction preserved."
+  ],
+  "negative_results": [
+    "900s bucket performed worse for native 1d and even some 15m/1h lookback queries; smaller SAMPLES bucket is not automatically faster.",
+    "10800s disk and read-row saving did not improve native broad-node1d latency, while it improved broad-node15m. No global SAMPLES bucket default proven.",
+    "Some R10 small deltas are within baseline A/A drift; independent Prometheus correctness and 14d/concurrent/write-path tests not done.",
+    "R01 first run 41611838191 invalid benchmark gate confused 86,688 physical SAMPLES rows with 2,488,320 sample points, fixed and rerun in 41612120162; do not read invalid timing.",
+    "Historical experimental LC dictionary decoder build 41591617794 is unverified and staged C++ patch bypasses stock index validation; do not promote. Earlier project8 1-2 threads glibc-memory experiments 41607617562 and 41609140400 OOM. Independent jemalloc build 41607779848 not yet verified."
+  ],
+  "active_run_ids": [
+    41591617794,
+    41607779848
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "fixture_sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+  "relevant_paths": [
+    ".github/ts-lab/INDEX.md",
+    ".github/ts-lab/RESEARCH_COORDINATION_20261103.md",
+    ".github/ts-lab/claims/roots/R10.json",
+    ".github/ts-lab/claims/R10-bucket-id-factorial-v1.json",
+    ".github/ts-lab-r10/bench_bucket_id_factorial.py",
+    ".github/ts-lab-r10/bench_short_window_pruning.py",
+    ".github/ts-lab/evidence/R10-bucket-id-factorial-v1-41613268106.json",
+    ".github/ts-lab/evidence/R10-short-lookback-41614179460.json"
+  ],
+  "blocked_by": [
+    "Do not use source-only default estimates to promote a schema; measure write/merge cost and official allocator parity.",
+    "Other R02 agent owns R02 write-path question, R04 agent owns recent samples; avoid duplicate CI."
+  ],
+  "next_action": {
+    "question_id": "R10",
+    "step": "Before any new workflow, refresh ROOT claims/HEAD/active runs. Audit R10 short-window raw artifact for physical reader/processor CPU and compare same-source one-day versus 15-minute broad-node queries. Build a bounded cost model explaining 10800s wall crossover using measured operator read rows/marks and pipeline CPU; use R02 existing write/merge evidence and R01 HPA fixture rather than duplicate tests. If extra CI needed, pre-register one fresh R10 dependent test focused on independent 1/3/7/14d and allocator/merge constraints; do not change global SAMPLES bucket step.",
+    "stop_condition": "Stop on duplicate root/claim, missing SHA parity, invalid control drift, native result mismatch, memory OOM, or missing GitHub write access. Preserve failed CI and immutable evidence."
+  }
+}
