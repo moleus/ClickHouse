@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "question_id": "R07",
+  "status": "PROVEN_TINY_NATIVE_SEMANTICS_NOT_PERFORMANCE",
+  "run_id": 41642126884,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41642126884",
+  "workflow_commit": "aef708b9aaefb131cc75e956996f48e3f42a236b",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "stock_o1_binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "artifact": {
+    "name": "tslab-r07-bucket-grid-41642126884",
+    "sha256": "sha256:1165a6470311193c7431eb0927351d55dff1baa787e966c10f8de3aa3b5c9476",
+    "bytes": 4846,
+    "full_report": "r07-bucket/report.json"
+  },
+  "result": {
+    "passed": true,
+    "status": "PASS_5TICK_BUCKET_SUMCOUNT_NATIVE_SEMANTICS",
+    "errors": [],
+    "native_points": 22,
+    "source_points": {
+      "rows": 6,
+      "points": 18
+    },
+    "method": "per-bucket arrayFilter->arraySum + length, then sum(sum)/sum(count) by full ID, then label avg"
+  },
+  "math": "For each original full ID and evaluation time e, avg(samples in (e-window,e] excluding ONLY stale bit payload)=(sum over buckets of sum(filtered values))/(sum over buckets of number of filtered points), with HAVING total filtered count>0. Across time buckets this preserves sample-weighted per-series average rather than equal bucket-weight. Then avg by(stage) across full IDs. Floating-point reduction order changes slightly; exact output parity checked via finite tolerance and NaN classification.",
+  "data": "Tiny 6-series synthetic TimeSeries including exact stale 0x7ff0000000000002, ordinary NaN 0x7ff8000000000001, stale-only, left-open time boundary, duplicates within and across inserts after OPTIMIZE FINAL; native 5-tick avg by(stage)(avg_over_time[2m]) compared to two SQL plans on same TAGS/SAMPLES",
+  "outcome": "22 native output records matched 22 bucket (sum,count) SQL output records including timestamps/stage labels/NaN class/finite values; previous safe arrayJoin SQL also matches; this is a correctness gate, not a speed result",
+  "limitations": [
+    "Bucket-per-ID aggregation still reads/processes every sample. Number of hash aggregation rows may fall but actual CPU, memory and compression must be measured on 2.49m R01.",
+    "Only this constrained avg_over_time -> avg by(stage) finite/NaN gauge query; no arbitrary PromQL, multiple labels/offsets/rate/histograms or ACL equivalence.",
+    "ClickHouse release O1, no C++ planner patch or 1/4/8 clients."
+  ],
+  "next_gate": "Same-runner 2.49m R01 stock O1 CI 41642508119, no new index, compare exact label/time/value, CPU and p50 native/safe arrayJoin/fused per-bucket SQL with 6-phase ABBA."
+}
