@@ -82,8 +82,6 @@ jobs:
                 <url_prefix>/prometheus/api/v1</url_prefix>
                 <handler>
                   <type>prometheus_api_v1</type>
-                  <database>default</database>
-                  <table>grafana_r33</table>
                 </handler>
               </rule>
               <defaults/>
