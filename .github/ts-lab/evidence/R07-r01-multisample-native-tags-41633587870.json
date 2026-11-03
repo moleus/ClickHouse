@@ -1,0 +1,323 @@
+{
+  "schema_version": 1,
+  "question_id": "R07",
+  "claim_id": "R07-time-day-covering-metadata-v1",
+  "status": "PASS_SYNTHETIC_MULTISAMPLE_GAUGE_NO_INDEX_REWRITE_ABBA",
+  "run_id": 41633587870,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41633587870",
+  "run_job_id": 125909025795,
+  "workflow_commit": "9f5487bd8b75719c8b37438bd890111a72d128d4",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "stock_o1_binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "artifact": {
+    "name": "tslab-r07-r01-multisample-41633587870",
+    "id": 13230115773,
+    "sha256": "sha256:4caaa5e36f25f3ddb6169a324d3e3a5be5019b53758e20441cebb017092d116a",
+    "bytes": 31514,
+    "contains": "r07-r01/report.json (144 timed trial query rows, 18 grid parity rows, six two-path processor profiles), r07-r01/report.compact.json, pinned source-build and R01 manifest verification",
+    "retention_days": 45
+  },
+  "dataset": {
+    "fixture_source": ".github/ts-lab-r01/generate_k8s_churn_fixture.py",
+    "sha256": "ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a",
+    "synthetic": true,
+    "node_slots": 400,
+    "rotations": 24,
+    "duration_days": 3,
+    "source_life_hours": 3,
+    "cadences_seconds": [
+      15,
+      60,
+      300
+    ],
+    "stagger_policy": "(slot*317)%10800 seconds",
+    "distinct_series": 28896,
+    "sample_points": 2488320,
+    "samples_inner_rows": 113760,
+    "id_type": "Tuple(UInt64, UUID)",
+    "samples_physical_key": "ORDER BY (id, bucket)",
+    "samples_partition": "UTC month",
+    "recent_samples_ttl_seconds": 0,
+    "physical_summary": {
+      "tags": {
+        "name": ".inner_id.tags.4cd8f691-2449-49d6-a2f1-364887ea130d",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 28896,
+          "marks": 5,
+          "bytes": 1486557
+        }
+      },
+      "timeranges": {
+        "name": ".inner_id.timeranges.4cd8f691-2449-49d6-a2f1-364887ea130d",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 28896,
+          "marks": 5,
+          "bytes": 789150
+        }
+      },
+      "samples": {
+        "name": ".inner_id.samples.4cd8f691-2449-49d6-a2f1-364887ea130d",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 113760,
+          "marks": 446,
+          "bytes": 5952971
+        }
+      }
+    }
+  },
+  "correctness": {
+    "native_evaluation_points": [
+      "2026-08-05T00:00:00Z",
+      "2026-08-06T00:00:00Z",
+      "2026-08-07T00:00:00Z"
+    ],
+    "native_parity_cases": 6,
+    "three_evaluations_each": true,
+    "independent_native_sql_comparisons": 18,
+    "strict_group_time_set": true,
+    "float_compare": "rel_tol=1e-10 abs_tol=1e-8 via existing bench_bucket_cxx_abca.assert_same",
+    "expected_nonempty_by_case": {
+      "node_broad_1d": 8,
+      "pod_namespace_1d": 1,
+      "pod_broad_1d": 16,
+      "burst15_1d": 4,
+      "node_broad_3d": 8,
+      "pod_broad_3d": 16
+    }
+  },
+  "abba": {
+    "sequence": [
+      "native",
+      "sql",
+      "sql",
+      "native"
+    ],
+    "phases_per_case": 4,
+    "warmups_per_phase": 2,
+    "measured_queries_per_phase": 4,
+    "total_phases": 24,
+    "total_requests": 144,
+    "total_measured_requests": 96,
+    "nonempty_equality_per_request": true,
+    "all_baseline_controls_valid": true,
+    "control_drift_threshold": 0.25,
+    "same_stock_o1_binary_runner": true,
+    "only_original_tags_samples": true,
+    "no_sidecar_created": true,
+    "no_Cpp_compilation": true,
+    "operators": "system.processors_profile_log workload samples stored in full ZIP; work_us is operator elapsed work and cannot be read as exclusive CPU"
+  },
+  "results": {
+    "node_broad_1d": {
+      "valid_control": true,
+      "control_drift": 0.005637655070400865,
+      "native_over_sql_wall_ratio": 1.018925067538746,
+      "native_p50_client_ms": 71.661,
+      "sql_p50_client_ms": 70.33,
+      "native_p95_client_ms": 73.6465,
+      "sql_p95_client_ms": 74.3685,
+      "native_cpu_ms": 145.76325,
+      "sql_cpu_ms": 90.62275,
+      "native_read_rows": 67136,
+      "sql_read_rows": 71008,
+      "native_read_bytes": 34335928,
+      "sql_read_bytes": 30211070,
+      "native_selected_marks": 154,
+      "sql_selected_marks": 154,
+      "native_compressed_read_bytes": 4600149.75,
+      "sql_compressed_read_bytes": 3851025,
+      "native_max_peak_query_memory_bytes": 37023211,
+      "sql_max_peak_query_memory_bytes": 16510767
+    },
+    "pod_namespace_1d": {
+      "valid_control": true,
+      "control_drift": 0.004035302030004133,
+      "native_over_sql_wall_ratio": 1.082361505207018,
+      "native_p50_client_ms": 36.4285,
+      "sql_p50_client_ms": 33.6565,
+      "native_p95_client_ms": 36.9815,
+      "sql_p95_client_ms": 33.879999999999995,
+      "native_cpu_ms": 62.42425,
+      "sql_cpu_ms": 34.285,
+      "native_read_rows": 103648,
+      "sql_read_rows": 115136,
+      "native_read_bytes": 19398136,
+      "sql_read_bytes": 12854550,
+      "native_selected_marks": 234,
+      "sql_selected_marks": 294,
+      "native_compressed_read_bytes": 5240945.25,
+      "sql_compressed_read_bytes": 3600839,
+      "native_max_peak_query_memory_bytes": 15824983,
+      "sql_max_peak_query_memory_bytes": 9165218
+    },
+    "pod_broad_1d": {
+      "valid_control": true,
+      "control_drift": 0.009193547320312547,
+      "native_over_sql_wall_ratio": 1.9918976602023608,
+      "native_p50_client_ms": 75.59649999999999,
+      "sql_p50_client_ms": 37.952,
+      "native_p95_client_ms": 77.57050000000001,
+      "sql_p95_client_ms": 38.316,
+      "native_cpu_ms": 123.20750000000001,
+      "sql_cpu_ms": 47.57925,
+      "native_read_rows": 121056,
+      "sql_read_rows": 117184,
+      "native_read_bytes": 23228216,
+      "sql_read_bytes": 16626574,
+      "native_selected_marks": 302,
+      "sql_selected_marks": 302,
+      "native_compressed_read_bytes": 5050905.25,
+      "sql_compressed_read_bytes": 3601152,
+      "native_max_peak_query_memory_bytes": 29990701,
+      "sql_max_peak_query_memory_bytes": 12677745
+    },
+    "burst15_1d": {
+      "valid_control": true,
+      "control_drift": 0.007118913501745154,
+      "native_over_sql_wall_ratio": 1.2422245594453625,
+      "native_p50_client_ms": 28.936999999999998,
+      "sql_p50_client_ms": 23.2945,
+      "native_p95_client_ms": 29.721,
+      "sql_p95_client_ms": 24.9085,
+      "native_cpu_ms": 39.587,
+      "sql_cpu_ms": 23.62775,
+      "native_read_rows": 53984,
+      "sql_read_rows": 62400,
+      "native_read_bytes": 8930904,
+      "sql_read_bytes": 3099886,
+      "native_selected_marks": 40,
+      "sql_selected_marks": 88,
+      "native_compressed_read_bytes": 3550895,
+      "sql_compressed_read_bytes": 2460988,
+      "native_max_peak_query_memory_bytes": 15818767,
+      "sql_max_peak_query_memory_bytes": 8499558
+    },
+    "node_broad_3d": {
+      "valid_control": true,
+      "control_drift": 0.01652002154785415,
+      "native_over_sql_wall_ratio": 1.4740255136524982,
+      "native_p50_client_ms": 155.93200000000002,
+      "sql_p50_client_ms": 105.7865,
+      "native_p95_client_ms": 168.19650000000001,
+      "sql_p95_client_ms": 107.20349999999999,
+      "native_cpu_ms": 329.987,
+      "sql_cpu_ms": 145.37775,
+      "native_read_rows": 67136,
+      "sql_read_rows": 71008,
+      "native_read_bytes": 34335928,
+      "sql_read_bytes": 30211070,
+      "native_selected_marks": 154,
+      "sql_selected_marks": 154,
+      "native_compressed_read_bytes": 4624040.5,
+      "sql_compressed_read_bytes": 3851028,
+      "native_max_peak_query_memory_bytes": 80921716.5,
+      "sql_max_peak_query_memory_bytes": 22288067
+    },
+    "pod_broad_3d": {
+      "valid_control": true,
+      "control_drift": 0.045754119138149446,
+      "native_over_sql_wall_ratio": 1.9315240959641884,
+      "native_p50_client_ms": 110.46000000000001,
+      "sql_p50_client_ms": 57.188,
+      "native_p95_client_ms": 113.35650000000001,
+      "sql_p95_client_ms": 60.724500000000006,
+      "native_cpu_ms": 213.09775000000002,
+      "sql_cpu_ms": 76.255,
+      "native_read_rows": 121056,
+      "sql_read_rows": 117184,
+      "native_read_bytes": 23228216,
+      "sql_read_bytes": 16626574,
+      "native_selected_marks": 302,
+      "sql_selected_marks": 302,
+      "native_compressed_read_bytes": 4905122,
+      "sql_compressed_read_bytes": 3601149,
+      "native_max_peak_query_memory_bytes": 59001977,
+      "sql_max_peak_query_memory_bytes": 17190619
+    }
+  },
+  "physical_before": {
+    "tags": {
+      "name": ".inner_id.tags.4cd8f691-2449-49d6-a2f1-364887ea130d",
+      "id_column": "Tuple(UInt64, UUID)",
+      "parts": {
+        "part_count": 1,
+        "rows": 28896,
+        "marks": 5,
+        "bytes": 1486557
+      }
+    },
+    "timeranges": {
+      "name": ".inner_id.timeranges.4cd8f691-2449-49d6-a2f1-364887ea130d",
+      "id_column": "Tuple(UInt64, UUID)",
+      "parts": {
+        "part_count": 1,
+        "rows": 28896,
+        "marks": 5,
+        "bytes": 789150
+      }
+    },
+    "samples": {
+      "name": ".inner_id.samples.4cd8f691-2449-49d6-a2f1-364887ea130d",
+      "id_column": "Tuple(UInt64, UUID)",
+      "parts": {
+        "part_count": 1,
+        "rows": 113760,
+        "marks": 446,
+        "bytes": 5952971
+      }
+    }
+  },
+  "physical_after": {
+    "tags": {
+      "name": ".inner_id.tags.4cd8f691-2449-49d6-a2f1-364887ea130d",
+      "id_column": "Tuple(UInt64, UUID)",
+      "parts": {
+        "part_count": 1,
+        "rows": 28896,
+        "marks": 5,
+        "bytes": 1486557
+      }
+    },
+    "timeranges": {
+      "name": ".inner_id.timeranges.4cd8f691-2449-49d6-a2f1-364887ea130d",
+      "id_column": "Tuple(UInt64, UUID)",
+      "parts": {
+        "part_count": 1,
+        "rows": 28896,
+        "marks": 5,
+        "bytes": 789150
+      }
+    },
+    "samples": {
+      "name": ".inner_id.samples.4cd8f691-2449-49d6-a2f1-364887ea130d",
+      "id_column": "Tuple(UInt64, UUID)",
+      "parts": {
+        "part_count": 1,
+        "rows": 113760,
+        "marks": 446,
+        "bytes": 5952971
+      }
+    }
+  },
+  "scientific_decision": "PROMOTE ONLY CONDITIONAL RESEARCH HYPOTHESIS. Full 1d and3d mixed node/pod multi-sample PromQL avg_over_time+avg by(group) parity proven for finite float, fixed single evaluation; no universal PromQL rewrite. The candidate SQL does NOT perform fewer physical marks than native in representative broad cases. Focus source-based operator CPU and memory profile, not blanket new indexes.",
+  "observations": [
+    "1d pod_broad query p50 75.5965ms native vs37.952ms SQL (1.9919x); QueryFinish CPU 123.21 vs47.58ms (61.4% less); selected marks equal at302, so effect not merely physical-mark pruning.",
+    "3d pod_broad p50 110.46 vs57.188ms (1.9315x), CPU213.10 vs76.26ms (64.2% less), selected marks equal302, memory tracker peak59.00 vs17.19MB.",
+    "3d node_broad p50 155.932 vs105.7865ms (1.474x), QueryFinish CPU329.987 vs145.378ms, selected marks equal154.",
+    "1d node_broad 71.661 vs70.33ms (1.019x near neutral), so no globally guaranteed benefit even inside matched R01 data.",
+    "Processor work_us for pod_broad_3d one measured native sample includes ExpressionTransform 63.83ms, ReadFromMergeTree 52.50ms and AdaptiveBucketMergingSource 44.07ms. Direct SQL top operators include ReadFromMergeTree27.22ms, AggregatingTransform26.47ms and ArrayJoinTransform4.21ms. Summed operator work overlaps; wait_us is not exclusive CPU. Do not treat these as exhaustive CPU attribution."
+  ],
+  "limitations": [
+    "Only finite synthetic gauges, one aligned evaluation per timed query, historical R01 3d sample cadence; no NaN/staleness/duplicate timestamps, counter rates, regex or many-step range evaluation in ABBA (three separate grid evaluations are parity-only).",
+    "Full SQL rewrite uses original TAGS id-set and per-ID avg, GROUP AVG; does not preserve general native PromQL semantics without additional admission conditions.",
+    "One runner, no independent repeat, no 1/4/8 concurrent clients, O1 unmodified source rather than O2, production allocator, or VM baseline. No production/scheduled workflows changed.",
+    "Derived processor work_us may include parallel tasks and is not exclusive wall/CPU; memory tracker peak is per-query not process RSS. Raw process RSS sampled but not cross-runner evidence."
+  ],
+  "next_gate": "Use compact same-runner A/B/B/A on a distinct held-out aligned R01 or NaN/duplicate adversarial fixture, plus source-based operator path proof for conditional SQL plan; if semantics diverge reject generalized rewrite and retain narrower finite-gauge selector admission. Do not start heavy C++ builds."
+}
