@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "session_id": "r28-query-slot-admission-20261103",
-  "status": "smoke_queued",
+  "status": "handoff",
   "branch": "lab/ts-cbo-adaptive-20261103",
   "branch_head": "5b1a7c94e6376ea92820bbc2e0871701519cc185",
   "last_verified_utc": "2026-11-03T16:36:00Z",
