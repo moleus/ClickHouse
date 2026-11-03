@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "question_id": "R04",
+  "primary_claim_id": "R04-recent-ttl-parity-v1",
+  "owner": "chatgpt-r04-native-ttl-20261103",
+  "scope": "Native recent-samples TimeSeries TTL routing and late/out-of-order correctness with same binary and data; one canonical test owner",
+  "allowed_support_claims": [],
+  "reason": "Root reservation reconciles a pre-existing R04 claim created while root-lock guard was being introduced. No experiment cancelled."
+}
