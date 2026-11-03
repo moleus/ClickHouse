@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "question_id": "R06",
+  "epic": "E03",
+  "decision": "INVALID_METHOD",
+  "result": "INCONCLUSIVE",
+  "run_id": 41670929674,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41670929674",
+  "artifact_id": 13248211424,
+  "artifact_name": "tslab-r06-native-nested-plan-evidence",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "workflow_commit_sha": "63614957b7425abc878d6a51cb2319d2c462f0a5",
+  "binary_sha256": "3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221",
+  "binary_role": "JOIN-override-O1 lab only, not optimized release",
+  "fixture": {
+    "sha256": "df9cdfdf76e32ab95a1fbcfeb2f5f189e60fbce0c5ed3f57573829c8bd2a80cb",
+    "series": 8192,
+    "samples": 32768
+  },
+  "preflight_tests_passed": 11,
+  "baseline_query_executed": true,
+  "failure": "Parser incorrectly required 'series_id' in generated outer SAMPLES SELECT. Actual logged SQL is an outer SELECT ... FROM SAMPLES WHERE id IN (SELECT timeSeriesStoreTags(...) FROM TAGS LEFT JOIN TimeRanges...).",
+  "evidence": "DEBUG log in artifact contains StorageTimeSeriesSelector: Will execute query; no new plan captured, no native gain claim.",
+  "corrective_commits": [
+    "a43b52734f8823ea49a8914eecfeb204e790ac0a",
+    "8d3bad1aca118769b15790b7a4a62bef18a38fa9"
+  ],
+  "rerun_url": "https://github.com/moleus/ClickHouse/actions/runs/41671546950",
+  "safety": "No production/master mutations; isolated test server; no compile and no CI cancellation."
+}
