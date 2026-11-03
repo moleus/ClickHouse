@@ -190,9 +190,9 @@ def run_phase(phase,step,args,reference,manifest):
         cpu_after_insert=cpu_seconds(pid)
         samples["before_merge"]=snapshot_parts(name)
         # Explicitly permit merges only after all batches finish.
-        sql("SYSTEM START MERGES")
         merge_start=time.perf_counter()
         cpu_before_merge=cpu_seconds(pid)
+        sql("SYSTEM START MERGES")
         optimized=optimize_table(name)
         if any(isinstance(x,dict) for x in optimized.values()):
             raise AssertionError(("OPTIMIZE FINAL returned a recorded error",optimized))
