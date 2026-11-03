@@ -85,3 +85,24 @@ Mean of two phase medians: default wall2192.25ms, trim1966.5ms (~10.3% lower lat
 Both default 14d queries passed on this runner, which means a low RSS or OOM *risk* claim is justified by different-runner controls and these retained-RSS results, but an absolute `trim always prevents OOM` claim is not.
 
 Pending corrected default/arena2 ABBA run [41606334340](https://github.com/moleus/ClickHouse/actions/runs/41606334340). Compare performance and RSS before selecting a lab default. The strict reducer is in `.github/ts-lab-cbo/reduce_glibc_abba.py`; its `--phase` uniqueness logic can automatically reject stale query IDs.
+
+## Corrected same-runner default/arena2 ABBA — verified, CPU regression
+
+[Run 41606334340](https://github.com/moleus/ClickHouse/actions/runs/41606334340), artifact 13216283476, SUCCESS. All 52 unique query IDs, four fresh ClickHouse restarts on same runner in default / arena2 / arena2 / default order, twelve 7d native whole queries and one 14d native whole query per phase, exact O1 binary and source fixture; every 7d query returned all 266 points.
+
+| Phase | Mode | 7d wall p50 after 2 warmups, ms | 7d CPU p50, ms | RSS after 12×7d, MiB | Whole 14d |
+|---|---|---:|---:|---:|---|
+| 0 | default | 2431 | 4691.31 | 2639.42 | PASS |
+| 1 | arena2 | 3574 | 7879.14 | 1376.16 | PASS |
+| 2 | arena2 | 3667.5 | 8057.32 | 1502.76 | PASS |
+| 3 | default | 2408 | 4756.95 | 3810.68 | MEMORY_LIMIT_EXCEEDED |
+
+Mean of phase medians: default wall2419.5ms, arena2 wall3620.75ms (+49.65%); default CPU4724.13ms, arena2 CPU7968.23ms (+68.67%); mean RSS after twelve requests default3225.05MiB, arena2 1439.46MiB (-55.37%). Default A/A wall drift 0.95% (valid); CPU drift1.39%. Default A/A retained RSS drift is 36.3% (so do not overinterpret precise cross-phase RSS ratio); however both arena2 phases stay below1503MiB, while both default phases reach at least2639MiB, and second control 14d fails.
+
+This test **rejects choosing `MALLOC_ARENA_MAX=2` as an unconditional lab default**: its memory gain comes with a major CPU/wall regression under this 4-thread native query. Limited allocator arenas likely increase contention. Earlier different-runner arena2 latency was misleading. Trim has a smaller RSS gain but much better single-runner latency, and is now the leading tested mitigation.
+
+## New factorial Pareto frontier
+
+Explore `MALLOC_ARENA_MAX=4` and `=8` against trim and default on one runner using 8 symmetric fresh-server phases: default → arena4 → arena8 → trim → trim → arena8 → arena4 → default. Every phase executes the same twelve 7d native whole queries and 14d probe; unique IDs include phase; same frozen 1.33m fixture and same O1 binary. Run [41607288907](https://github.com/moleus/ClickHouse/actions/runs/41607288907), script mode commit e26cbda072650e1060a32eb1c5fc2bf8f1cb781a and workflow commit 85c97c139aefe61c4a96d3e414545cb9c41b7f27. Results are not yet verified; do not preselect 4 or 8 arenas until artifacts pass drift and OOM checks.
+
+Production-jemaIIoc caveat remains unchanged. No master/production/scheduled changes.
