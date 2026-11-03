@@ -140,3 +140,29 @@ memory survival. No valid RAW/LC A/B/B/A 8-client latency comparison.
 Reducing max_threads to 1 delays the capacity failure in some phases but is **not a
 safe reliable fix**, and its capacity effects cannot be generalized to production jemalloc.
 
+## 2026-11-03: R01 canonical mixed-cadence 400-node native results
+
+[Immutable R01 evidence](evidence/R01-k8s-mixed-v1-41612120162.json) /
+[full bucket-aware cost model](../ts-lab-r01/STORAGE_ID_COST_MODEL_20261103.md) —
+[stock O1 full native A/B/B/A CI #41612120162](https://github.com/moleus/ClickHouse/actions/runs/41612120162)
+PASS, complete PromQL labels/timestamps/numeric parity, same 64-bit ID digest and unchanged physical parts.
+Fixture SHA256 `ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d`:
+400 node slots, 3h life, three days, 28,896 series, 2,488,320 points, 86,688 hourly SAMPLES bucket rows.
+**R01 primary root claim** already coordinated with a separate limited HPA/lifecycle-fixture support agent;
+do not start duplicate large R01 experiments.
+
+- `node_broad` p50 LC242.7→RAW218.3ms, CPU455.5→431.3ms; control drift **8.66%** versus 11.2% speedup (weak).
+- `pod_namespace` p50 75.3→66.3ms (1.135×), CPU126.2→110.2ms; drift **1.50%** (stronger).
+- `pod_broad` p50 212.4→194.4ms (1.092×), CPU396.0→374.1ms; drift **8.58%** (weak).
+- `burst15` p50 54.4→46.9ms (1.158×), CPU89.2→74.2ms; drift **2.60%** (stronger).
+- RAW compressed three-target footprint **7,424,806 B vs LC 7,569,815 B** (1.92% smaller on this fixture).
+- **Source correction:** v11 SAMPLES stores arrays of samples per **hourly bucket**; ID repetition is
+  only **3 SAMPLES bucket rows per series**, not 86 sample points per series. A prior invalid benchmark
+  [#41611838191](https://github.com/moleus/ClickHouse/actions/runs/41611838191)
+  mistakenly equated physical rows and sample count; corrected to `sum(length(samples))` for R01 rerun.
+  Preserve both runs; earlier invalid run supplies only physical evidence, not native latency.
+- Current decision: **ACCEPT_FOR_NEXT_GATE**, not production/HA/VM proof.
+  Next distinct hypothesis is ID type × SAMPLES bucket-step factor (changes ID repetition and time pruning);
+  it needs a separate root claim and no concurrent duplicate. The other R01 fixture's stagger/HPA/counter
+  semantics and 14-day/concurrent/write production parity remain untested here.
+
