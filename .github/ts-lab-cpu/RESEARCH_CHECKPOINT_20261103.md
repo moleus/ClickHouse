@@ -304,3 +304,60 @@ production-allocator/optimized binary. Original O1 jemalloc build
 still *Compile one executable* at this checkpoint; do not cancel or
 start another full compilation. No master/production or old branches changed.
 
+## 2026-11-03: R18 start-offset concurrency and isolated ALP×ZSTD factor
+
+- [R18 aligned/staggered times codec at 1/4/8 clients #41633815009](https://github.com/moleus/ClickHouse/actions/runs/41633815009)
+  **PASS**: 4992 exact-native requests, 36 ABBA panels, nine repeated
+  alignment interactions, full labels/grid/values, no OOM. Original
+  aligned→node-offset-staggered produces 86,688→113,760 physical SAMPLES
+  rows and ZSTD1 storage advantage35.62%→30.68%. Under8 clients,
+  with stock ALP and **same sampled values**, native broad-node
+  p50 492.074→781.375ms (+58.8%), CPU235.002→381.293ms (+62.25%),
+  while read rows+16.3%, compressed bytes+9.08%, control outer drift~1.5%.
+  Codec ratios at8 clients usually ~0.982–1.003 CPU across
+  alignment/cases (no compelling global CPU win).
+  [Physical/interaction JSON](../ts-lab/evidence/R18-codec-start-stagger-concurrency-41633815009.json),
+  [standalone aligned/stagger CPU summary](../ts-lab/evidence/R18-timestamp-alignment-cost-41633815009.json),
+  [report](../ts-lab-r18/START_STAGGER_CODEC_CONCURRENCY_20261103.md).
+  It is workload/timestamp sensitivity, NOT a pure array-codec or
+  operator-causal proof. Shifted fixture is not constant 400-active-node
+  population at its boundaries.
+
+- [R18 orthogonal ALP on/off × ZSTD3/1 #41635457586](https://github.com/moleus/ClickHouse/actions/runs/41635457586)
+  **both jobs PASS**: 1728 full-native HTTP queries, 24/24 ABBA,
+  immutable source/physical DDL/point/label hashes, five pure
+  pre-download unit tests. The earlier ALP+ZSTD3 versus ZSTD1 test
+  changed *two factors at once*; now explicitly separated:
+  original patterned SAMPLES bytes5,303,391 (ALP+ZSTD3),
+  5,550,516 (ALP+ZSTD1), 3,355,724 (ZSTD3), 3,414,486 (ZSTD1).
+  ALP removal at fixed level3 **−36.72% SAMPLES bytes** on patterned
+  corpus but **+2.69% bytes** on entropy corpus.
+  For high entropy, ALP removal at ZSTD3 reduces `pod_namespace`
+  native QueryFinish CPU111.914→102.548ms (−8.37%, control0.74%)
+  and `burst15` CPU74.499→66.506ms (−10.73%, control4.90%).
+  Patterned namespace CPU54.633→54.681ms (~neutral, drift7.08%);
+  prior two-variable ZSTD1 one-run +10% is not isolated/reproduced
+  for ALP alone. Representative sampled ALP decode stacks
+  entropy namespace 18/110 vs0/102, burst10/84 vs0/66,
+  NOT exact CPU attribution. ZSTD level3→1 has small/variable CPU
+  and often increases bytes on patterned gauges.
+  [Full 2×2 evidence](../ts-lab/evidence/R18-alp-zstd-level-factorial-41635457586.json),
+  [full report](../ts-lab-r18/ALP_ZSTD_2X2_CPU_AND_STORAGE_20261103.md).
+
+- [M43](../ts-lab/METHODOLOGY_AND_FAILURES.md): two invalid 2×2
+  preflight jobs [#41634612567](https://github.com/moleus/ClickHouse/actions/runs/41634612567)
+  escaped SHOW CREATE backtick before ingest,
+  [#41634883798](https://github.com/moleus/ClickHouse/actions/runs/41634883798)
+  shadowed R01 CASES after valid DDL/physical results but before
+  native CPU requests. Offline pure DDL/selector tests added to
+  first workflow step and confirmed passing in successful run.
+
+**Decision:** do not change global `samples.value` codec; single
+O1/glibc synthetic read evidence does not establish production
+read/write/merge/multiclient parity. In future test mixed value
+distribution, counter/stale/NaN and late writes on production-like
+shuffled 3h start offsets, *matched optimized jemalloc build* when
+available. Avoid duplicate R02 natural-write work. Do not
+cancel/restart [jemalloc build41607779848](https://github.com/moleus/ClickHouse/actions/runs/41607779848).
+No master/production or old-branch changes.
+
