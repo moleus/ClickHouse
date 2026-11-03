@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "question_id": "R02-small-batch-raw-lc-write-v1",
+  "subexperiment": "fixed-open-loop-arrivals-natural-merges-native-ABBA-v1",
+  "scientific_decision": "INVALID_METHOD",
+  "ci_conclusion": "failure",
+  "reason": "The four source-matched phase runs each passed all native oracle and 40-read fixed arrival gates, but A0 versus A3 native p95 drift 26.30%, exceeding the preregistered 25% control drift. Preserve CPU and latency observations as invalid for an effect claim.",
+  "binary": {
+    "build_run_id": 41596421285,
+    "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+    "sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "optimization": "O1/glibc stock, LLVM22.1.8"
+  },
+  "fixture": {
+    "sha256": "dd2dd55ee8fcf3c11c1fef94ebdd54ac8b3a6a53cea6deaae991b3b94c88b931",
+    "batches": 96,
+    "prefill_batches": 12,
+    "insert_batches": 84,
+    "series_samples_per_phase": 384000,
+    "reader_requests_per_phase": 40,
+    "insert_cadence_s": 0.2,
+    "read_cadence_s": 0.4,
+    "reader_offset_s": 0.1
+  },
+  "validity": {
+    "all_four_phases_individual_correct": true,
+    "exact_labels_timestamps_float_native_oracle": true,
+    "all_queries_nonempty": true,
+    "read_count_per_phase": 40,
+    "insert_count_per_phase": 84,
+    "max_arrival_read_lateness_ms": 2.8255,
+    "read_p95_AA_control_drift": 0.26298,
+    "max_allowed_AA_drift": 0.25,
+    "cpu_AA_drift": 0.00842,
+    "wall_AA_drift": 0.00045
+  },
+  "measurements_not_accepted_as_effect": {
+    "phases": {
+      "A0": {
+        "mode": "LC",
+        "p50_ms": 242.7471,
+        "p95_ms": 344.9199,
+        "cpu_s": 23.85
+      },
+      "B1": {
+        "mode": "RAW",
+        "p50_ms": 194.1046,
+        "p95_ms": 219.2802,
+        "cpu_s": 19.35
+      },
+      "B2": {
+        "mode": "RAW",
+        "p50_ms": 187.6128,
+        "p95_ms": 222.1929,
+        "cpu_s": 18.53
+      },
+      "A3": {
+        "mode": "LC",
+        "p50_ms": 222.1405,
+        "p95_ms": 264.7552,
+        "cpu_s": 23.65
+      }
+    },
+    "p95_lc_mean_ms": 304.83755,
+    "p95_raw_mean_ms": 220.73655,
+    "p95_raw_over_lc": 0.72411,
+    "mixed_cpu_lc_mean_s": 23.75,
+    "mixed_cpu_raw_mean_s": 18.94,
+    "mixed_cpu_raw_over_lc": 0.79747
+  },
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41633619697",
+    "job_id": 125909133006,
+    "artifact_id": 13229616800,
+    "artifact_sha256": "951a8f23dfe3a70cce62617cb0afa6fd622791f43685616fe4bb74b6aad1d5e5",
+    "workflow_commit": "a96487582d986006be2e7cb0ce517e11807006f3",
+    "script_commit": "547c18e66ad3ef4e3ca0f7bc41dd40456bf79b67",
+    "script_path": ".github/ts-lab/experiments/r02_fixed_schedule_read_write.py"
+  },
+  "math_bound": "At fixed 5 INSERT/s and 2.5 query/s open-loop, each fresh process should receive exactly 84 new batches and 40 requests regardless of per-engine response speed. Treat p95 A/A drift as a validity precondition. The valid independent comparator from previous closed-loop run does not resolve this fixed-arrival result due different offered QPS.",
+  "next_action": {
+    "question_id": "R02",
+    "step": "Repeat identical fixed-schedule workload on two independent GitHub runners, without changing 25% p95 drift threshold, fixture, source or cadence. Preserve per-runner invalid outcomes. Reduce only fully valid replicates, or abandon fixed-QPS p95 conclusion if drift often exceeds 25%.",
+    "stop_condition": "Never accept >25% within-runner LC p95 drift, missed schedule deadlines, incomplete native parity, OOM or unequal source/fixture SHA."
+  }
+}
