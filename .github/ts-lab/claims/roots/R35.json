@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "question_id": "R35",
+  "primary_claim_id": "R35-injective-metric-name-drop-v1",
+  "owner": "chatgpt-e05-r35-injective-metric-drop-20261104",
+  "scope": "Native PromQL compiler: defer dropMetricName only for a direct range function over a direct RangeSelector constrained to one nonempty exact __name__, immediately consumed by a one-argument series aggregation that discards __name__. Remove the redundant per-series anyForEach/countForEach duplicate-check GROUP BY and intermediate tag copies. Leave range rollup semantics, IDs, TAGS/TimeRanges/SAMPLES, R30/R31 JOINs, R34 map capacity and R33 fixtures unchanged. This is not the R20 SQL sum/count rewrite.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-04",
+  "reason": "On sets with a constant metric name, removing that name is injective. The per-series range aggregate already has unique full-tag groups. A safe immediate parent that discards __name__ can perform the only needed label projection. Mixed metrics, subqueries, offsets, explicit by(__name__), binary operators, and nonstandard parent aggregations retain the stock path."
+}
