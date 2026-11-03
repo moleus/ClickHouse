@@ -45,7 +45,7 @@ jobs:
           assert root["question_id"] == "R25"
           assert root["primary_claim_id"] == claim["id"]
           assert claim["source_sha"] == "eaf7a68c92c8069a67ae02e601e81453a5e002de"
-          assert claim["fixture"]["sha256"] == "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d"
+          assert claim["fixture_details"]["sha256"] == "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d"
           print("R25_CLAIM_VERIFIED", claim["id"])
           PY
           git rev-parse HEAD > evidence/r25/workflow-commit.txt
