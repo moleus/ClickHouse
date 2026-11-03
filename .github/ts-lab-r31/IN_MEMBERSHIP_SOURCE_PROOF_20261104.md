@@ -77,3 +77,18 @@ This is a measured win for one **2,048-series synthetic ID SQL stage**, not full
 3. If it wins direct SQL with bounded tracker memory, use EXPLAIN/processor logs to confirm physical plan, and test on 1.33m/14d/400-node high-churn before attempting C++.
 4. The original merge path is a streaming plan. The upper bound for IN-set peak must include the distinct right-ID count plus hash/set overhead, scheduler concurrency and process RSS. CBO cardinality estimation was previously wrong by 9.18× on a small fixture; no plan based solely on `EXPLAIN rows estimated` is safe.
 5. No source-default promotion or attribution to production without E06/R08 full native oracle and 1/4/8 concurrent-client RSS/OOM tests. E01's existing R29 optimized stock build is protected.
+
+## Independent optimized stock O2/jemalloc small-fixture replication (2026-11-04)
+
+[CI 41722348272](https://github.com/moleus/ClickHouse/actions/runs/41722348272) **PASS for diagnostic SQL**, [immutable evidence](../ts-lab/evidence/R31-stock-o2-small-41722348272.json); verified R29 source-unmodified ClickHouse executable SHA256 `5d629ddfda91919402fdf8475ec3da9fe718d48ef386bc51be677264df6dc9ef`, `-O2`, jemalloc, LLVM22.1.8. Exact same synthetic 2048 hot IDs, k1/k16 unfused TimeRanges, same stage/project/whole exact ID and full SAMPLES parity.
+
+| Project selector | O2 mode | Wall ms | CPU ms | Tracked query peak MB |
+|---|---|---:|---:|---:|
+| k1 | ALL | 7.75 | 8.918 | 8.992 |
+| k1 | ANY | 7.50 | 9.423 | 9.104 |
+| k1 | IN | 8.50 | 9.146 | 8.663 |
+| k16 | ALL | 39.25 | 44.237 | 13.463 |
+| k16 | ANY | 24.75 | 30.375 | 11.826 |
+| k16 | IN | **14.25** | **20.597** | **8.663** |
+
+IN vs ALL at k16 saves **63.7% wall**, **53.4% CPU**, **35.7% tracked query peak**. IN vs ANY saves **42.4% wall** at k16. A/B/C/C/B/A wall control drift <25%; k1 differences are too small for stable causal promotion (ALL drift19.4%). The direct SQL algorithm family is unchanged from O1; compiler and allocator changes make absolute times incomparable with earlier O1 runs except as an independent same-binary replication. Critically, on canonical **1.33m/14d O1** [CI 41721273167](https://github.com/moleus/ClickHouse/actions/runs/41721273167), IN instead loses 1.85–2.87x to ANY. Small data do not prove production viability. No modified native full PromQL performance is measured.
