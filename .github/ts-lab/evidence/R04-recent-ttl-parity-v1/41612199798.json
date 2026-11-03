@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "question_id": "R04-recent-ttl-parity-v1",
+  "decision": "ACCEPT_FOR_NEXT_GATE",
+  "ci_status": "success",
+  "recorded_utc": "2026-11-03T09:40:00Z",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "lab_binary": {
+    "kind": "O1 JOIN-override unchanged defaults, glibc laboratory build",
+    "build_workflow": "https://github.com/moleus/ClickHouse/actions/runs/41531656434",
+    "binary_sha256": "3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221",
+    "archive_and_executable_sha256_verified": true,
+    "version": "26.11.1.1",
+    "llvm": "22.1.8"
+  },
+  "fixture": {
+    "name": "Small, synthetic, time-relative RecentSamples TTL fixture",
+    "ttl_seconds": 3600,
+    "base_epoch": 1793698500,
+    "input_blocks": [
+      {
+        "bytes": 510,
+        "sha256": "e065e3615363c4dd7003030000d6a5781168ff4dc76a5aa6bc8a83560355fd47"
+      },
+      {
+        "bytes": 239,
+        "sha256": "3cb8915acdf4564ecc09ed4e9ae5def4fb1c55f6d5134311b2525189ff057f17"
+      }
+    ],
+    "series": 4
+  },
+  "math_bound": "Recent samples selection requires oldest requested sample time >= now-TTL+60s. Main samples is required for cold/straddling queries. With duplicated hot rows, bytes_on_disk(main)+bytes_on_disk(recent) >= bytes_on_disk(main), but fixed small-part headers dominate; do not extrapolate bytes/sample.",
+  "method": "One clean isolated ubuntu-24.04 native TimeSeries server. Same data, source, binary, native avg by(case_id)(avg_over_time(metric[window])) with RecentSamples preference 0 and 1. Six windows per each of initial, late/out-of-order insert and after OPTIMIZE FINAL. Exact label/time and mean-value equivalence against independent Python oracle, and physical EXPLAIN PLAN sample-table choice.",
+  "matrix": {
+    "phases": [
+      "initial",
+      "late_insert",
+      "after_merge"
+    ],
+    "window_cases": [
+      "hot5m",
+      "hot30m",
+      "straddle2h",
+      "older5m",
+      "cold10m",
+      "boundary5m"
+    ],
+    "exact_checks": 18,
+    "passed_checks": 18,
+    "errors": [],
+    "target_selected_in_pref_on": {
+      "recent": 6,
+      "main": 12
+    },
+    "prefer_off_always_main": true,
+    "independent_mean_oracle_pass": true
+  },
+  "physical": {
+    "initial": {
+      "recentsamples": {
+        "bytes": 2634,
+        "parts": 1,
+        "rows": 5
+      },
+      "samples": {
+        "bytes": 2554,
+        "parts": 1,
+        "rows": 5
+      }
+    },
+    "late_insert": {
+      "recentsamples": {
+        "bytes": 5126,
+        "parts": 2,
+        "rows": 8
+      },
+      "samples": {
+        "bytes": 4966,
+        "parts": 2,
+        "rows": 8
+      }
+    },
+    "after_merge": {
+      "recentsamples": {
+        "bytes": 2506,
+        "parts": 1,
+        "rows": 3
+      },
+      "samples": {
+        "bytes": 2571,
+        "parts": 1,
+        "rows": 5
+      },
+      "tags": {
+        "bytes": 1582,
+        "parts": 1,
+        "rows": 4
+      },
+      "timeranges": {
+        "bytes": 1465,
+        "parts": 1,
+        "rows": 4
+      }
+    }
+  },
+  "measurements": {
+    "latency_ms": null,
+    "cpu_ms": null,
+    "request_rss": null,
+    "write_amplification_ratio": null,
+    "note": "Correctness-only test; observed small-part bytes are not a steady-state write cost or per-sample storage ratio"
+  },
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41612199798",
+    "job_id": 125836615272,
+    "artifact_id": 13219228219,
+    "artifact_zip_sha256": "a5576dc383cf854bf32c9e6a7d14056d702c9879be661525e97658270ae923eb",
+    "workflow_path": ".github/workflows/ts-lab-r04-recent-ttl-semantics-20261103.yml",
+    "script_path": ".github/ts-lab/experiments/r04_recent_ttl_parity.py",
+    "workflow_commit": "a1ec69a5190f9d1f3fe0669ef97005d954bc19f1"
+  },
+  "limitations": [
+    "Time-relative fixture executed only once on an isolated runner; no TTL actually elapsed during test, so this is route-safety not physical TTL-delete validation.",
+    "No native query latency, CPU, RSS, ingestion throughput, p95 or merge CPU comparison.",
+    "No crash-recovery, simultaneous read+write, multi-node or readonly/ACL cases.",
+    "Only O1 laboratory ClickHouse without jemalloc; no production performance claim."
+  ],
+  "stop_condition": "Do not promote RecentSamples as a performance improvement until production allocator, duplicate writes/merges, TTL expiration and native p95 CPU/RSS are measured.",
+  "next_action": {
+    "question_id": "R04",
+    "step": "Use the existing root R04 claim and its evidence. Design separate measured steady-state hot TTL read-write factorial with exact same query input/binary, including physical expiration and restart; do not create a duplicate root claim or CI job while other agents own R01/R03.",
+    "stop_condition": "Reject if native parity fails, post-expiry data mismatch, write amplification exceeds budget, or full broad query reaches memory cap."
+  }
+}
