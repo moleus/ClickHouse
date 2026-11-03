@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "session_id": "r15-native-calendar-verified-20261103-08",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "ef01bc5d28ac96795b5dce789ff10e927ff02b67",
+  "last_verified_utc": "2026-11-03T11:16:36.543Z",
+  "question_id": "R15",
+  "summary": "R15 real native TimeSeries UTC day vs default month partition difference fully measured on pinned unmodified O1 70k 14d synthetic data. 13.65x fewer direct SAMPLES marks but only 1.226x broad1d full-native wall. Six ABBA parity+drift PASS; day not universal and exposes metadata lower bound.",
+  "completed": [
+    "Run 41625086352 completed success; verified decoded job logs, source SHA, stock O1 binary SHA, artifact ZIP SHA and full report.json with 144 native A/B/B/A timed queries.",
+    "Source-normalized DDL confirms both samples layers use identical ORDER BY(id,bucket) granularity256 bytes524288, recent samples disabled; only partition expression differs.",
+    "For 1d direct SAMPLES, EXPLAIN shows daily MinMax drops 13/14 parts, marks273→20, rows70000→5000; broad native p50 67.9815→55.4465ms, CPU118.020→83.444ms, marks291→38, read_rows210000→145000.",
+    "3d broad wall 1.175x; 7d/14d ~neutral, 14d stage3.4% slower. All six controls under 25% drift and exact nonempty native output matched.",
+    "Full evidence created .github/ts-lab/evidence/R15-native-calendar-41625086352.json; detailed analysis appended to R15_CALENDAR_PARTITION_FEASIBILITY_20261103.md and INDEX.md."
+  ],
+  "negative_results": [
+    "13.65x reduction in direct SAMPLES mark reads gives only 1.226x native p50 because unchanged other layers dominate; no claim 14x wall.",
+    "Month full range has fewer marks (273 vs280); 14d exact stage p50 regresses (57.4865 vs59.423ms).",
+    "Synthetic only 70k one-sample-per-ID, not real 1.33m Jenkins, dense K8s, concurrent clients, O2 or production jemalloc. No paired write/merge or RSS experiments.",
+    "Day partition has 14 rather than1 merged SAMPLES parts; compressed storage looked 37.86% lower in this ONE deterministic fixture only; no general recommendation."
+  ],
+  "active_run_ids": [
+    41607779848
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "fixture_sha256": "351dff6b4f49986bb7f0f586459b86b918d99fd4d4cbb0b3293b4dfa680a8efb",
+  "relevant_paths": [
+    ".github/ts-lab/claims/roots/R15.json",
+    ".github/ts-lab/claims/R15-samples-calendar-partition-pruning-v1.json",
+    ".github/ts-lab/evidence/R15-native-calendar-41625086352.json",
+    ".github/ts-lab/experiments/R15_CALENDAR_PARTITION_FEASIBILITY_20261103.md",
+    ".github/ts-lab/experiments/r15_native_partition_probe.py",
+    ".github/workflows/ts-lab-r15-native-calendar-20261103.yml",
+    ".github/ts-lab/INDEX.md"
+  ],
+  "blocked_by": [
+    "No repeated write/merge source or production-like mixed long-lived lifecycle with day partitions; only one explicit merge pass.",
+    "Per-operator native TAGS vs TimeRanges read and CPU attribution not separately gathered, but read_rows invariant consistent with 140000 unchanged metadata rows.",
+    "No paired large-corpus 1.33m+ concurrency or S3 parts cost test."
+  ],
+  "next_action": {
+    "question_id": "R15",
+    "step": "Independent next-gate: measure time-aware LABEL/METADATA access path rather than rerun SAMPLES-only partition; quantify per-series active-day covering-index duplication (3h high churn vs stable days) and required native duplicate suppression, then use no-build source/SQL proof before C++.",
+    "stop_condition": "If work overlaps existing R07 owner or materialization cannot preserve hash128 identity, per-ID dedup semantics, write/merge budget or native parity, stop and record negative without duplicate runner."
+  }
+}
