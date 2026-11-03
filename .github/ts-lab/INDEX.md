@@ -796,3 +796,43 @@ was still compiling in the last check; do not cancel or replace.
 - Reusing one original expired ID with a fresh Oct20 sample produced **17** SAMPLES rows and native groups `live=100.75` and `old=7.0`, while TAGS and TimeRanges stayed **144 stable IDs after FINAL**. This verifies this specific resurrection/late-write scenario, not NaN, ACL or HA.
 - **Important part lifecycle finding**: old `20260810` partition can remain in `system.parts` with **0 rows** and **1244 B** even after TTL; after one late old insert it had two empty parts totalling **2488 B**. **Zero-row parts are not retained expired samples**. First [CI #41636600724](https://github.com/moleus/ClickHouse/actions/runs/41636600724) incorrectly required complete partition disappearance, failed after `post_ingest`, and is preserved as [INVALID_METHOD evidence](evidence/R19-expired-samples-retained-tags-timeranges-v1/41636600724.json). Fixed no-expired-rows oracle in commit `dc1d7869912b8d3a6b9ee2e48c0944308ceb1086`; source and binary unchanged.
 - Next question **within existing R19 ownership**: do repeated late expired inserts accumulate zero-row parts, and does natural merge/explicit `OPTIMIZE FINAL` remove them? Do not claim a permanent part leak before a part-lifecycle test. No automatic TAGS deletion recommended.
+
+## 2026-11-03: R18 patched jemalloc binary SHA and operational gate
+
+Previously running [jemalloc build #41607779848](https://github.com/moleus/ClickHouse/actions/runs/41607779848)
+**completed successfully** without cancellation/restart, source
+`52529f0c711566d696917678bf15e7068772fdde`,
+LLVM22 O1, ZIP SHA256
+`9e716f524c0802a29d42cc542accc3b388b2766920ae04936687ad101e6e2295`,
+verified executable SHA256
+`26b1577cea637b98a1d0b3c9efc996cd266234bf6ef89bd1912c75c56098eed3`.
+Downloaded ZIP and extracted zstd TAR with both SHA256 manifests
+passing. Runtime `clickhouse local` reports v26.11.1.1,
+`system.jemalloc_bins` **232 rows**, **66039 active bin
+registrations** and `system.jemalloc_stats` reports jemalloc5.3-RC,
+nonzero allocated/resident, profiling and background threads.
+[Immutable binary/provenance/source-diff record](evidence/R18-jemalloc-patched-cxx-artifact-readiness-41607779848.json),
+[preregistered R18 capacity gate](../ts-lab-r18/JEMALLOC_PATCHED_NATIVE_CAPACITY_GATE_20261103.md).
+
+**IMPORTANT ALLOCATOR CAUSALITY LIMIT:** unlike unmodified stock O1,
+this binary also has two non-allocator source patches:
+`StorageTimeSeriesSelector.cpp` defaults-aware JOIN override,
+`Converter.cpp` narrow `sum(rate(exact_metric))` fastpath.
+R18 `avg by(...)(avg_over_time(...[1d]))` should not take
+the fastpath, and does not explicitly override JOIN, but binaries
+are **not patch-identical**. Any source-glibc versus
+patched-jemalloc speed/RSS difference is a **diagnostic whole-binary
+comparison**, never a pure allocator effect or production-normalized
+benchmark. A separate identical-patch glibc build would be
+required for genuine allocator A/B.
+
+[Self-path, no-compile patched jemalloc operational gate #41637869309](https://github.com/moleus/ClickHouse/actions/runs/41637869309)
+launched to repeat the full R18 same-fixture 1/4/8-client
+nested native PromQL parity, read CPU and capacity. Its
+result must be checked independently before claiming PASS.
+It verifies downloaded executable SHA, active running-server
+jemalloc bins and stats, original/staggered source fixture SHA,
+complete native results, memory and immutable physical layout.
+Original R18 source/claims untouched; no master/old branches
+or production changes.
+
