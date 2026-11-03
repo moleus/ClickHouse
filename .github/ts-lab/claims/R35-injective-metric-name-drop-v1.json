@@ -1,0 +1,18 @@
+{
+  "id": "R35-injective-metric-name-drop-v1",
+  "question": "Can single-metric uniqueness eliminate a full native per-series hash aggregation and label-copy pass?",
+  "owner": "chatgpt-e05-r35-injective-metric-drop-20261104",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "R29 LLVM22.1.8 O2 jemalloc stock, executable sha256 5d629ddfda91919402fdf8475ec3da9fe718d48ef386bc51be677264df6dc9ef",
+  "candidate": "Only applyFunctionOverRange.cpp: skip dropMetricName under a conservative AST proof; keep metric_name_dropped false until the parent actually projects labels. No R34 or R32 changes.",
+  "fixture": "Same immutable 133k and1.33m RAW_UUID, build-coherent one-sample fixture, complete independent native oracle; separate dense counters/NaN/empty/duplicate-label controls.",
+  "single_variable": "Eliminate a redundant intermediate metric-name-removal aggregation and tag projection under a static uniqueness proof",
+  "math_bound": "Remove O(S*T) countForEach/anyForEach intermediate aggregate cells and O(S*L) copied labels, where S is matched series, T grid points, L label count. TAGS, TimeRanges, samples and per-series rollup remain identical.",
+  "cheap_gate": "Stock-binary diagnostic SQL on133k matches full native output exactly. Identical399000 read rows and33464356 read bytes. Four stock/SQL/SQL/stock phases show roughly30 percent lower latency and44.4MB lower query memory. This is SQL evidence only, not native compiled proof.",
+  "falsifier": "Any changed labels/timestamps/numeric result or lost duplicate-series exception, optimizer guard firing on mixed metrics/subqueries/by(__name__), no measured gain beyond drift, or broad memory failure",
+  "test_matrix": "Native avg/sum/min/max/count/group/stddev/stdvar parent over direct named range selectors; by(stage), no modifier; negative controls regex metric, mixed metric, without, by(__name__), offset, subquery, topk, binary and label modification; fixed physical parts; fresh-server ABBA; 1.33m and dense cases",
+  "runner_budget": "One incremental O2 build after R34 compile completed; reuse R29 cache; preserve all other runs",
+  "planned_workflow": ".github/workflows/ts-lab-r35-metric-drop-o2-20261104.yml",
+  "dependencies": ["R08", "R29"]
+}
