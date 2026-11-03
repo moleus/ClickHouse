@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "question_id": "R07",
+  "claim_id": "R07-time-day-covering-metadata-v1",
+  "status": "SQL_oracle_smoke_verified_not_native_planner_speedup",
+  "run_id": 41628124443,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41628124443",
+  "workflow_commit": "3fb5d1b28f7735742f0491a1ac8ab2565d8fadfe",
+  "script_path": ".github/ts-lab/experiments/r07_native_cover_sql_smoke.py",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "stock_o1_binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "raw_artifact": "tslab-r07-sidecar-sql-41628124443",
+  "artifact_sha256": "4b42d3db2438187ee7c34e64ac2c2ad687fa9650c3f9ae54eb6c3ebaf7347918",
+  "fixture_sha256": "351dff6b4f49986bb7f0f586459b86b918d99fd4d4cbb0b3293b4dfa680a8efb",
+  "fixture": "14 days x5000 synthetic unique one-sample-per-ID series; identical R15 stock O1 layout/physical schema",
+  "sidecar": {
+    "engine": "ReplacingMergeTree",
+    "schema": "(day Date,id Tuple(UInt64,UUID),metric_name LC(String),stage String,project String) PARTITION BY day ORDER BY(day,metric_name,id)",
+    "rows": 70000,
+    "distinct_ids": 70000,
+    "days": 14,
+    "active_parts": 14,
+    "bytes_on_disk": 1548392,
+    "marks": 28,
+    "one_shot_build_wall_seconds": 0.14808620799999517,
+    "additional_to_existing_tags_and_timeranges": true
+  },
+  "parity": {
+    "cases": [
+      "1d-all",
+      "1d-stage-0001",
+      "3d-all",
+      "14d-all"
+    ],
+    "output_groups": [
+      38,
+      1,
+      38,
+      38
+    ],
+    "max_abs_error_at_most": 1.2e-13,
+    "native_promql_reference": "avg by(stage)(avg_over_time(tslab_r15_stage_seconds{selector}[window])) at one aligned evaluation timestamp",
+    "sql_semantics": "per-ID avg(tupleElement(sample,2)) over exact (end-window,end] then group avg, full-ID dedup from day covering table"
+  },
+  "method_caveats": [
+    "Sidecar built by SQL INSERT SELECT from existing TAGS and SAMPLES; no transactional append/late-write/rebuild/revision gate.",
+    "Only one diagnostic SQL client wall trial per case; incomparable to previous R15 cross-runner native timings, no speed claim.",
+    "No native PromQL planner rewrite; SQL query has extra JOIN, per-ID aggregation and on-access set; algorithmic overhead can make it slower.",
+    "No write amplification/replica/ACL/multi-day repeated-ID native parity on actual ClickHouse measured; 70k one-point-per-ID only."
+  ],
+  "next_run_for_speed_validation": 41628463197
+}
