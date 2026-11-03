@@ -30,9 +30,9 @@ jobs:
           test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
           test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
           python3 -m py_compile .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py
-          python3 .github/ts-lab/experiments/r02_small_batch_write_merge.py --help > evidence/r02cpucpu/help.txt
-          git rev-parse HEAD > evidence/r02cpucpu/workflow-head.txt
-          sha256sum .github/ts-lab/experiments/r02_small_batch_write_merge.py > evidence/r02cpucpu/script-sha256.txt
+          python3 .github/ts-lab/experiments/r02_process_cpu_abba.py --help > evidence/r02cpu/help.txt
+          git rev-parse HEAD > evidence/r02cpu/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py > evidence/r02cpu/script-sha256.txt
       - name: Reuse pinned SHA verified O1 binary (no recompilation)
         run: |
           set -euo pipefail
@@ -42,15 +42,15 @@ jobs:
             -D "$RUNNER_TEMP/r02cpu-art"
           archive="$(find "$RUNNER_TEMP/r02cpu-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
           test -s "$archive"
-          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r02cpucpu/archive-verify.txt
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r02cpu/archive-verify.txt
           zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r02cpu-bin"
-          (cd "$RUNNER_TEMP/r02cpu-bin" && sha256sum -c SHA256SUMS) | tee evidence/r02cpucpu/binary-verify.txt
+          (cd "$RUNNER_TEMP/r02cpu-bin" && sha256sum -c SHA256SUMS) | tee evidence/r02cpu/binary-verify.txt
           test "$(sha256sum "$RUNNER_TEMP/r02cpu-bin/clickhouse" | cut -d' ' -f1)" = "$BINARY_SHA256"
           grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r02cpu-bin/BUILD_INFO.txt"
           grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/r02cpu-bin/BUILD_INFO.txt"
-          cp "$RUNNER_TEMP/r02cpu-bin/BUILD_INFO.txt" evidence/r02cpucpu/build-info.txt
+          cp "$RUNNER_TEMP/r02cpu-bin/BUILD_INFO.txt" evidence/r02cpu/build-info.txt
           chmod +x "$RUNNER_TEMP/r02cpu-bin/clickhouse"
-          "$RUNNER_TEMP/r02cpu-bin/clickhouse" --version | tee evidence/r02cpucpu/version.txt
+          "$RUNNER_TEMP/r02cpu-bin/clickhouse" --version | tee evidence/r02cpu/version.txt
       - name: Repeated fresh-server A B B A with Linux process CPU and merge accounting
         run: |
           set -euo pipefail
@@ -80,7 +80,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tslab-r02-process-cpu-abba-${{ github.run_id }}
-          path: evidence/r02cpucpu/
+          path: evidence/r02cpu/
           if-no-files-found: error
           retention-days: 45
           compression-level: 1
