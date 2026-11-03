@@ -31,6 +31,11 @@ EXPECTED_STORED_TAGS={'few':9,'many':37}
 PHASES=(('A0','few'),('B1','many'),('B2','many'),('A3','few'))
 METRIC='tslab_r24_tags_cardinality'
 TABLE='tslab_r24_tags_count'
+EXPECTED_COMMON_SHA='4d92a699ce39aaaa539985e8c9f03581a4316931fe5e44dfaae3901379e5192f'
+EXPECTED_FEW_WIRE_SHA='3c2818c73c3ddb39e72b36fb4d7ee69202dbba2d70e54cbd589dcb2073345e63'
+EXPECTED_MANY_WIRE_SHA='055f8e78aa8cb79321c93b5dcbd748d9afff05b6018957150d48d779479b0f44'
+EXPECTED_BYTES=57871560
+EXPECTED_FEW_PADDING=372
 
 r21.SERIES=SERIES
 r21.BATCHES=BATCHES
@@ -124,6 +129,12 @@ def fixture():
     if total_bytes['few']!=total_bytes['many']:
         raise AssertionError('Total network bytes changed')
     shas={k:wire[k].hexdigest() for k in modes}
+    if common_hash.hexdigest()!=EXPECTED_COMMON_SHA or \
+       shas['few']!=EXPECTED_FEW_WIRE_SHA or \
+       shas['many']!=EXPECTED_MANY_WIRE_SHA or \
+       total_bytes['few']!=EXPECTED_BYTES or \
+       padding_lengths[0]!=EXPECTED_FEW_PADDING:
+        raise AssertionError('R24 source-pinned fixture SHA or equal network bytes changed')
     if shas['few']==shas['many']:
         raise AssertionError('Semantic Map cardinality intervention was not encoded')
     if len(padding_lengths)!=SERIES or min(padding_lengths)!=max(padding_lengths):
