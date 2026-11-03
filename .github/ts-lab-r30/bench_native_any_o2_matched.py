@@ -206,7 +206,7 @@ def stock_sql(case):
             f"{END},{END},86400) SETTINGS {QUERY_SETTINGS} FORMAT JSONEachRow")
 
 
-def run_phase(mode,index,binary,config,root,reference):
+def run_phase(mode,index,binary,config,root,reference,expected_timeranges_rows):
     data=root/"data"
     template=root/"template"
     if data.exists():shutil.rmtree(data)
@@ -225,8 +225,8 @@ def run_phase(mode,index,binary,config,root,reference):
     try:
         ranges=inner_target("timeranges")
         request("SYSTEM STOP MERGES "+ranges)
-        observed=physical_census()
-        if int(observed["timeranges"]["physical_rows"])!=66560 or int(observed["timeranges"]["ids"])!=5120:
+        observed=physical_census(require_duplicates=expected_timeranges_rows>5120)
+        if int(observed["timeranges"]["physical_rows"])!=expected_timeranges_rows or int(observed["timeranges"]["ids"])!=5120:
             raise ValueError("Physical TimeRanges multiplicity changed before measurement")
         parts=inner_parts()
         if parts!=reference["parts"]:
@@ -296,6 +296,7 @@ def main():
     p.add_argument("--out",required=True)
     p.add_argument("--series",type=int,default=4096)
     p.add_argument("--updates",type=int,default=16)
+    p.add_argument("--profile",choices=("unmerged","merged"),default="unmerged")
     args=p.parse_args()
     if args.series!=4096 or args.updates!=16:
         raise ValueError("Only frozen 4096*16 fixture accepted for this controlled test")
@@ -324,10 +325,17 @@ def main():
         request("CREATE TABLE r30_ts ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0")
         request("SYSTEM STOP MERGES "+inner_target("timeranges"))
         write_batches_from_fixture(data,SimpleNamespace(series=args.series,updates=args.updates))
-        report["physical"]=physical_census()
+        target=inner_target("timeranges")
+        if args.profile=="merged":
+            request("SYSTEM START MERGES "+target)
+            request("OPTIMIZE TABLE "+target+" FINAL")
+            request("SYSTEM STOP MERGES "+target)
+        expected_timeranges_rows=5120 if args.profile=="merged" else 66560
+        report["profile"]=args.profile
+        report["physical"]=physical_census(require_duplicates=args.profile=="unmerged")
         report["initial_parts"]=inner_parts()
-        if int(report["physical"]["timeranges"]["physical_rows"])!=66560:
-            raise ValueError("No physical premerge duplicates in source database")
+        if int(report["physical"]["timeranges"]["physical_rows"])!=expected_timeranges_rows:
+            raise ValueError("TimeRanges physical row count differs from "+args.profile+" profile")
         request("SYSTEM FLUSH LOGS")
         save(result/"report.json",report)
     except Exception as e:
@@ -351,7 +359,7 @@ def main():
     try:
         for i,mode in enumerate(PHASES):
             binary=stock if mode=="stock" else candidate
-            phase,refs=run_phase(mode,i,binary,cfg,root,expected)
+            phase,refs=run_phase(mode,i,binary,cfg,root,expected,expected_timeranges_rows)
             if refs and i==0:
                 expected["outputs"].update(refs)
             report["phases"].append(phase)
