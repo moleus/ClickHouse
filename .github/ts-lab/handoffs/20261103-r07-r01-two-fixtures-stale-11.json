@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "session_id": "r07-r01-two-fixtures-stale-native-20261103-11",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "79f5cec271e7f00dcad4f92fe86a3d23cb6ee67a",
+  "last_verified_utc": "2026-11-03T12:24:00Z",
+  "question_id": "R07",
+  "summary": "R07 original-TAGS no-sidecar SQL v11 stock O1 gives ~2x native end-to-end p50 on broad pod 1d/3d with two distinct 2.49m R01 multi-sample alignments, each 18 exact nonempty evaluation-grid parities and six valid A/B/B/A; stale-marker native smoke gives proven raw SQL counterexample requiring exact bit filter before any C++ planner patch.",
+  "completed": [
+    "Check R07 root ownership, shared branch and historical/action queues; active jemalloc build 41607779848 remained untouched, no master/prod/scheduled changes.",
+    "R01 full 400 slots, 3d staggered 28,896 series with 15/60/300s sample periods and 2,488,320 samples imported to stock TimeSeries v11 full Tuple(UInt64,UUID), identical TAGS and SAMPLES for both query modes, no sidecar or C++ build.",
+    "CI 41633587870 SUCCESS, original R01 SHA ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a; 113760 SAMPLES bucket rows, 18 native/SQL exact separate grid parities, 6 matched A/B/B/A cases (96 measured, all drift <4.6%). Broad pod1d native p50 75.5965ms vs SQL37.952ms=1.9919x, CPU123.208 vs47.579ms, selected marks identical302. Pod3d native110.46 vs57.188ms=1.9315x, CPU213.098 vs76.255ms, marks302 both. Node1d virtually neutral1.019x.",
+    "CI 41634426255 SUCCESS on independent pinned original aligned R01 SHA ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d. Same 28,896 series/2.488m sample values, 86688 bucket rows. Again 18/18 exact grid parity and 6 ABBA drift <2.33%; pod1d70.2->35.2005ms 1.994x, pod3d90.582->43.3975ms 2.087x, selected marks both233. Node1d near neutral1.034x. Do not compare absolute p50 between different runners.",
+    "Artifacts independently downloaded and SHA256-verified: 41633587870 zip 4caaa5e36f25f3ddb6169a324d3e3a5be5019b53758e20441cebb017092d116a; 41634426255 zip f4133a369b4144b823faa79dc3520d6e7479a9215c08a77a72e2e63053de5514. Full 200KB reports remain GitHub CI artifact retaining 45d; permanent compact evidence JSON and detailed R07 report committed.",
+    "Representative per-query processors_profile_log and query_log examined: native ExpressionTransform, AdaptiveBucketMergingSource, ReadFromMergeTree show appreciable operator elapsed_us; SQL read/aggregate differs. Processor work time and wait time are NOT exclusive CPU and no exact cause is proven.",
+    "Source-based native stale marker semantics found from pinned src/Storages/TimeSeries/PrometheusQueryToSQL/fromSelector.cpp: stale_NaN bits 0x7ff0000000000002 filtered only, ordinary NaN retained. R07 original SQL avg fails to filter stale.",
+    "CI 41635230738 SUCCESS actual stock O1 semantic counterexample: series [5,stale] produces native5.0, raw SQL avg is NaN, bit-filtered avgIf 5.0. Same-timestamp duplicate [1,7] and later3 stored as max7 then3 with native+SQL avg5.0. Archive SHA d283ff9bf03e4ac0226195dc8ed9a666399e044db70e1ec3fda156f60a189ec8. Proven correctness limitation, not a regression of finite R01 benchmark.",
+    "Updated INDEX.md, .github/ts-lab/experiments/R07_R01_MULTISAMPLE_NO_SIDECAR_20261103.md and immutable evidence files for both R01 runs and semantic smoke."
+  ],
+  "negative_results": [
+    "Original no-stale SQL may return NaN rather than native5 for stale marker 0x7ff0000000000002; do not generalize first R01 no-index SQL speedup to native PromQL. Exact bit filter avgIf works on tiny source-pinned smoke but its full workload CPU overhead and ordinary NaN behavior untested.",
+    "Original TimeSeriesSink deduplicates same timestamp by keeping greatest finite value; SQL over physical post-merge bucket may reproduce this, but cross-batch corrections/late updates/TTL semantics not fully validated.",
+    "R01 aligned and staggered are two SYNTHETIC layouts of same values/series, not independent datasets with production HPA; broad node1d almost neutral, and R07 earlier 70k one-sample/14d broad1d/3d SQL vs native was slower. No unconditional query planner or index promotion.",
+    "Native avg uses compensated/vectorized TimeSeries path; cannot claim missing vectorization, or that processor work_us is exclusive CPU. Although tracked query memory is lower in R01, process RSS under allocator retention stays broadly unchanged.",
+    "Query form only finite gauges avg_over_time -> avg by(project/namespace), with each measured native call one evaluation point. 18 grid parities are three separate native evaluations, not one multi-step native call. No NaN-other, repeated same timestamp across batches, histogram, rate/reset, ACL, complex matcher or 1/4/8 multi-client tests."
+  ],
+  "active_run_ids": [
+    41607779848
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "fixture_sha256": "R01 staggered ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a, aligned ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+  "relevant_paths": [
+    ".github/ts-lab/claims/roots/R07.json",
+    ".github/ts-lab/evidence/R07-r01-multisample-native-tags-41633587870.json",
+    ".github/ts-lab/evidence/R07-r01-aligned-heldout-native-tags-41634426255.json",
+    ".github/ts-lab/evidence/R07-stale-duplicate-native-counterexample-41635230738.json",
+    ".github/ts-lab/experiments/R07_R01_MULTISAMPLE_NO_SIDECAR_20261103.md",
+    ".github/ts-lab/experiments/r07_r01_multisample_native_tags_abba.py",
+    ".github/ts-lab/experiments/r07_r01_aligned_native_tags_abba.py",
+    ".github/ts-lab/experiments/r07_stale_duplicate_semantic_oracle.py",
+    ".github/workflows/ts-lab-r07-r01-multisample-no-sidecar-20261103.yml",
+    ".github/workflows/ts-lab-r07-r01-aligned-heldout-20261103.yml",
+    ".github/workflows/ts-lab-r07-stale-duplicate-semantics-20261103.yml",
+    ".github/ts-lab/INDEX.md"
+  ],
+  "blocked_by": [
+    "No general native PromQL semantics: exact stale bit handling is missing in fast SQL path (native smoke proves mismatch). Must handle ordinary NaN without dropping it; duplicate/late write/backfill, negative offsets and time-grid vector semantics not verified.",
+    "No independent production-like 14d ingestion and concurrent 1/4/8 queries with O2/jemalloc allocation. Broad node1d only neutral in both R01 layouts; earlier one-point/14d showed different outcome, so need conditional admission.",
+    "Operator-profile elapsed_us cannot establish exclusive CPU root cause; representative native AdaptiveBucketMergingSource/ExpressionTransform and SQL ArrayJoin/Aggregating need matched CPU-stack, release O2, and allocator controls.",
+    "Multi-client correctness/throughput p99, full source revision consistency and TAGS project ACL filters not validated. No C++ planner prototype until these gates pass."
+  ],
+  "next_action": {
+    "question_id": "R07",
+    "step": "First implement EXACT stale NaN bit predicate (0x7ff0000000000002) before AVG in a narrow SQL oracle; test ordinary NaN preservation, stale-only series, repeated timestamp across inserts and 3-tick query_range native parity. Then paired stock-O1 ABBA on both 2.49m aligned/staggered R01 to quantify filter overhead. If safe and beneficial, investigate source-based conditional native planner admission and 1/4/8 concurrent O2/jemalloc runner; do not duplicate R02/R05/R18 lanes.",
+    "stop_condition": "Immediately reject generic planner rewrite if stale/NaN or duplicate arbitration, multi-eval time grid, offsets or ACL semantics differ, if broad1d/3d known negative workload shows regression, or if CPU/RSS/merge budgets fail. Never alter master/prod/scheduled workflow or cancel long active C++ build."
+  }
+}
