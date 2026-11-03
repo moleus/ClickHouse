@@ -1,6 +1,6 @@
 When working with a branch, do not use rebase or amend - add new commits instead.
 
-Do not commit to the master branch. Create a new branch for every task.
+Do not commit to the master branch. Create a new branch for every task, **except** for the unified TimeSeries performance research lab: all CPU profiling, lock profiling, benchmarks, experimental C++ changes, research reports and related CI must use `lab/ts-cbo-adaptive-20261103`. Read `TS_LAB_INDEX.md`, `.github/ts-lab/AGENT_GUIDE.md`, and `.github/ts-lab/METHODOLOGY_AND_FAILURES.md` before research work. Previous lab branches are already merged as history; do not push to them. Do not rebase, amend, force-push, or cancel running experiments; use unique `${{ github.run_id }}` workflow concurrency groups, `cancel-in-progress: false`, and optimistic SHA-based file writes. All other tasks retain the original new-branch rule.
 
 When writing text such as documentation, comments, or commit messages, wrap literal names from ClickHouse SQL language, classes and functions, or literal excerpts from log messages inside inline code blocks, such as: `MergeTree`.
 
