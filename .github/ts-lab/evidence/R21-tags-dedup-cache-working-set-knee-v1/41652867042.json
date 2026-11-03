@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "question_id": "R21-tags-dedup-cache-working-set-knee-v1",
+  "subexperiment": "two-independent-runner-fixed-vs-rotated-input-cache-capacity-ABBA",
+  "scientific_decision": "PHYSICAL_CACHE_WORKING_SET_KNEE",
+  "ci_conclusion": "success",
+  "verified_utc": "2026-11-03T14:23:00Z",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary": {
+    "stock_o1_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "compiler": "LLVM 22.1.8",
+    "source_patches": "none",
+    "build_run": 41596421285
+  },
+  "fixture": {
+    "canonical_sha256": "052b2058e7adc280a956b083c9af7d2e636eba6ab2607c204e6f676fcc5d1883",
+    "series": 4096,
+    "batches": 12,
+    "physical_sample_points": 49152,
+    "metric": "tslab_r21_cache_knee",
+    "native_query": "avg by(project)(avg_over_time(tslab_r21_cache_knee[30m])) at last fixture timestamp",
+    "native_oracle": "Four nonempty groups p0..p3, label+time exact and float rel 1e-11 absolute 1e-8",
+    "large_cache_bytes": 1048576,
+    "small_cache_bytes": 32768,
+    "entry_nominal_bytes": 144,
+    "large_nominal_capacity": 7281,
+    "small_nominal_capacity": 227,
+    "cache_expiration_seconds": 3600
+  },
+  "protocol": "Two separate GitHub-hosted Ubuntu runners, one fixed row order, one offset by (batch*997)%4096 each batch. Each runner has 4 fresh server phase A0 large 1MiB/B1 small 32KiB/B2 small/A3 large, same exact 49152 logical rows and original RAW UUID TimeSeries v11 inner layout. STOP MERGES on TAGS,TimeRanges,SAMPLES for physical row accounting; QueryFinish INSERT/profile and process watchdog+worker CPU and write_bytes (separate and not interchangeable); global system.events worker-inclusive TAGS cache hits/misses; native full PromQL 3 warmup+6 measured each phase. Require no errors, actual TAGS physical row counts match global misses, same stable ID cardinality and exact independent oracle; A/A CPU/native wall <=25%.",
+  "independent_jobs": [
+    {
+      "ordering": "fixed",
+      "workflow_run": 41652867042,
+      "job_id": 125975345756,
+      "artifact_id": 13237453796,
+      "official_zip_sha256": "cda9a6fae628d5c552b36628edfb1ad1cf8e73d04e11eca99fd8860ca88d1177",
+      "A_A_cpu_drift": 0.018018,
+      "A_A_native_wall_drift": 0.083575,
+      "large_hits": 45056,
+      "large_misses": 4096,
+      "small_hits": 2497,
+      "small_misses": 46655,
+      "physical_Tags_rows_small_over_large": 11.390381,
+      "physical_tags_bytes_small_over_large": 11.421621,
+      "process_ingest_cpu_s": {
+        "large": 0.555,
+        "small": 0.755,
+        "ratio": 1.36036
+      },
+      "process_write_bytes": {
+        "large": 3305472,
+        "small": 5488640,
+        "ratio": 1.660471
+      },
+      "querylog_insert_cpu_ms": {
+        "large": 95.229,
+        "small": 95.8555,
+        "ratio": 1.006579
+      },
+      "native_read_wall_p50_ms": {
+        "large": 127.76713,
+        "small": 295.807485,
+        "ratio": 2.315208
+      },
+      "native_cpu_p50_ms": {
+        "large": 162.67325,
+        "small": 518.693,
+        "ratio": 3.18845
+      },
+      "native_read_rows": {
+        "large": 102400,
+        "small": 144959,
+        "ratio": 1.415615
+      },
+      "native_read_bytes": {
+        "large": 5972069,
+        "small": 10824906,
+        "ratio": 1.812584
+      }
+    },
+    {
+      "ordering": "rotate",
+      "workflow_run": 41652867042,
+      "job_id": 125975346302,
+      "artifact_id": 13237817750,
+      "official_zip_sha256": "46808518f001bcd4b43441b06ab01546f5630e9a2c1347509f1b79269e47244a",
+      "A_A_cpu_drift": 0.068966,
+      "A_A_native_wall_drift": 0.053008,
+      "large_hits": 45056,
+      "large_misses": 4096,
+      "small_hits": 2497,
+      "small_misses": 46655,
+      "physical_Tags_rows_small_over_large": 11.390381,
+      "physical_tags_bytes_small_over_large": 11.43093,
+      "process_ingest_cpu_s": {
+        "large": 0.58,
+        "small": 0.745,
+        "ratio": 1.284483
+      },
+      "process_write_bytes": {
+        "large": 3305472,
+        "small": 5427200,
+        "ratio": 1.641884
+      },
+      "querylog_insert_cpu_ms": {
+        "large": 95.743,
+        "small": 94.8685,
+        "ratio": 0.990866
+      },
+      "native_read_wall_p50_ms": {
+        "large": 125.67801,
+        "small": 394.74507,
+        "ratio": 3.140924
+      },
+      "native_cpu_p50_ms": {
+        "large": 162.17075,
+        "small": 690.23725,
+        "ratio": 4.25622
+      },
+      "native_read_rows": {
+        "large": 102400,
+        "small": 144959,
+        "ratio": 1.415615
+      },
+      "native_read_bytes": {
+        "large": 5972069,
+        "small": 10824906,
+        "ratio": 1.812584
+      }
+    }
+  ],
+  "math_bound": "Nominal capacity of one cache entry =144 bytes. 1MiB cache admits 4096 unique repeated IDs. 32KiB holds only ~227; despite 4096 stable logical identities and 49152 sample references, small cache caused 46655 actual physical TAGS row writes (misses) instead of 4096, factor11.390381. Native read_rows rose 102400→144959, difference42559 EXACTLY equals extra physical TAGS rows 46655-4096, indicating each duplicate TAGS row was physically scanned in this fixture. Read bytes rose 5972069→10824906 (additional 4852837). CPU/wall speedups are end-to-end lab observations, not predicted directly by nominal entry counts.",
+  "confirmed": [
+    "Both source/order jobs independently reproduce identical global cache hits and misses per capacity and physical TAGS row counts.",
+    "Full native labels/timestamps/numeric values same despite drastically different physical TAGS layout.",
+    "Small cache increases TAGS compressed physical bytes ~11.4x and server process write bytes 1.64-1.66x.",
+    "Within each runner, large-cache A/A native p50 wall drift <9% and process CPU drift <7%; small cache read wall p50 ratio 2.315/3.141 and query-log native CPU p50 ratio ~3.19/4.26.",
+    "Per-query QueryFinish INSERT CPU showed near-equal ~95ms despite increased whole-process CPU ~28-36%; this is instrumentation attribution caveat, not evidence of equal overall CPU."
+  ],
+  "negative_or_inconclusive": [
+    "Fixed versus rotated row-order different native p50 ratios across TWO different machines, not a controlled within-runner order effect. Global cache hit/miss and total physical TAGS rows were exactly equal across both orders, so no observed capacity-cache hit-rate order effect for this fixture.",
+    "Real production default cache is100MiB, not32KiB; its relative working set, churn and hit rate are not known. Do not claim 100MiB inadequate or recommend global increase.",
+    "Merges stopped intentionally to capture raw ReplacingMergeTree duplicates; natural merging and sustained writes may change TAGS physical accumulation and query CPU. This is not a steady-state production performance claim."
+  ],
+  "method_failures": [
+    {
+      "run_id": 41651757821,
+      "decision": "INVALID_METHOD",
+      "reason": "Pipeline cache ProfileEvents absent from INSERT QueryFinish; physical baseline remained valid."
+    },
+    {
+      "run_id": 41652494693,
+      "decision": "INVALID_METHOD",
+      "reason": "Fresh system.events cache keys omitted until first nonzero increments; required zero default instead of presence in start snapshot."
+    }
+  ],
+  "next_action": {
+    "question_id": "R21",
+    "step": "Run controlled same-runner small-cache fixed/rotate/rotate/fixed ABBA with same binary and original sorted fixture; require exact native oracle, worker-global hit/miss, physical TAGS/ID/sample checks and <=25% A/A CPU/wall drift. Separately test a cache-reset and natural-merges workload before any operational recommendation.",
+    "stop_condition": "Never attribute between-runner read latency differences to input order; do not promote 100MiB cache change without actual production working set/PSI/RSS and sustained write/merge/reads."
+  }
+}
