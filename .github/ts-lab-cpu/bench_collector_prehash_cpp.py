@@ -6,7 +6,7 @@ differing ONLY in the tag collector pending TagsKey prehash patch. Restart the C
 process to switch binaries, retain the exact same immutable 1.33m data.
 Validate output labels/timestamps/value tolerance and per-trial CPU/memory.
 """
-import argparse,json,os,pathlib,statistics,subprocess,sys
+import argparse,json,os,pathlib,statistics,subprocess,sys,time
 sys.path[:0]=[".github/ts-lab-perf",".github/ts-lab-bench"]
 from bench_granularity_v11 import querylogs
 from bench_bucket_cxx_abca import post,normalize_any,assert_same
@@ -54,8 +54,15 @@ def main():
                 if ref is None:ref=points
                 else:assert_same(ref,points,a.case,name)
                 samples.append({"qid":qid,"client_ms":round(ms,3),"warmup":i<2})
-            logs={x["query_id"]:x for x in querylogs(prefix) if x.get("type")=="QueryFinish"}
-            if len(logs)!=len(samples):raise AssertionError("Missing per-query log")
+            # QueryFinish is logged asynchronously and can arrive after HTTP
+            # reply and a first SYSTEM FLUSH LOGS, especially just after restart.
+            for attempt in range(10):
+                logs={x["query_id"]:x for x in querylogs(prefix) if x.get("type")=="QueryFinish"}
+                absent=[x["qid"] for x in samples if x["qid"] not in logs]
+                if not absent:break
+                print("TAG_PREHASH_QUERYLOG_RETRY",json.dumps({"attempt":attempt+1,"missing":absent}),flush=True)
+                time.sleep(0.35+0.15*attempt)
+            if absent:raise AssertionError(("Missing per-query log after retries",absent))
             for x in samples:
                 log=logs[x["qid"]];pe=log.get("ProfileEvents",{})
                 x.update({"cpu_ms":pe.get("OSCPUVirtualTimeMicroseconds",0)/1000,
