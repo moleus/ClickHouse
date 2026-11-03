@@ -1,0 +1,89 @@
+name: R02 two-runner fixed-arrivals native PromQL and process CPU proof
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r02-reduce-fixed-two-runners-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-r02-reduce-fixed-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  aggregate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify exact GitHub artifact SHA and reducer source
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r02-fixed-reduced "$RUNNER_TEMP/r02-fixed-reduce"
+          python3 -m py_compile .github/ts-lab/experiments/r02_reduce_fixed_schedule.py
+          python3 .github/ts-lab/experiments/r02_reduce_fixed_schedule.py --help > evidence/r02-fixed-reduced/help.txt
+          git rev-parse HEAD > evidence/r02-fixed-reduced/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r02_reduce_fixed_schedule.py > evidence/r02-fixed-reduced/reducer-sha.txt
+          test "$(gh api repos/$REPO/actions/artifacts/13229182695 --jq '.digest')" = \
+            "sha256:626bf07206fc4cb56eb121d234a1f89b8cd1630cc08e50215d0e52a243ada386"
+          test "$(gh api repos/$REPO/actions/artifacts/13229852006 --jq '.digest')" = \
+            "sha256:21c40affcd6f269342535be13a57ef89e2742ec271fecdc981d65444966edefa"
+      - name: Download two valid independent runner reports
+        run: |
+          set -euo pipefail
+          gh run download 41634084470 -R "$REPO" \
+            -n tslab-r02-fixed-replicate-41634084470-one \
+            -D "$RUNNER_TEMP/r02-fixed-reduce/one"
+          gh run download 41634084470 -R "$REPO" \
+            -n tslab-r02-fixed-replicate-41634084470-two \
+            -D "$RUNNER_TEMP/r02-fixed-reduce/two"
+          python3 - <<'PY'
+          import pathlib,os,zipfile
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'r02-fixed-reduce'
+          for name in ('one','two'):
+              folder=root/name
+              assert (folder/'report.json').is_file(),name
+              path=root/(name+'.zip')
+              with zipfile.ZipFile(path,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=1) as dst:
+                  for src in sorted(folder.rglob('*')):
+                      if src.is_file():dst.write(src,src.relative_to(folder))
+              print('REPACKED',name,path.stat().st_size)
+          PY
+          sha256sum "$RUNNER_TEMP/r02-fixed-reduce"/*.zip > evidence/r02-fixed-reduced/local-zip-sha.txt
+          cat > evidence/r02-fixed-reduced/original-artifacts.txt <<'EOF'
+          One: 41634084470 artifact 13229182695 sha256:626bf07206fc4cb56eb121d234a1f89b8cd1630cc08e50215d0e52a243ada386
+          Two: 41634084470 artifact 13229852006 sha256:21c40affcd6f269342535be13a57ef89e2742ec271fecdc981d65444966edefa
+          Excluded: 41633619697 INVALID_METHOD p95 control drift 26.30% >25%.
+          Note: report ZIPs are locally repacked; official GitHub artifact digests checked above.
+          EOF
+      - name: Reduce only valid fixed-arrival replications with exact oracle gates
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r02_reduce_fixed_schedule.py \
+            --artifact "$RUNNER_TEMP/r02-fixed-reduce/one.zip" \
+            --artifact "$RUNNER_TEMP/r02-fixed-reduce/two.zip" \
+            --output evidence/r02-fixed-reduced/report.json | tee evidence/r02-fixed-reduced/console.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/r02-fixed-reduced/report.json'))
+          assert d['valid'] and d['decision']=='REPLICATED_LAB_EFFECT'
+          assert d['p95_replicated'] and d['cpu_replicated']
+          assert d['fixture_sha256']=='dd2dd55ee8fcf3c11c1fef94ebdd54ac8b3a6a53cea6deaae991b3b94c88b931'
+          print('R02_FIXED_VALIDATED',json.dumps({'decision':d['decision'],
+            'ratios':d['ratios'],'exclude':d['historical_excluded_invalid_run']}))
+          PY
+      - name: Preserve only reduced evidence, not 3 raw artifact copies
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r02-fixed-two-runner-proof-${{ github.run_id }}
+          path: evidence/r02-fixed-reduced/
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
