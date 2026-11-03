@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "R24-equal-wire-bytes-tag-map-cardinality-cost-v1",
+  "question_id": "R24",
+  "owner": "chatgpt-r24-label-count-20261103",
+  "state": "claimed",
+  "created_utc": "2026-11-03T15:33:00Z",
+  "question": "Does a larger number of distinct labels within each TimeSeries v11 tags Map increase normalized ID/tag processing CPU and full native PromQL cost, even when each input JSON row and total network bytes are exactly the same length and all cache hits/series/sample counts match?",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "source": "src/Storages/TimeSeries/TimeSeriesSink.cpp fillTagsColumns sorts and hashes every canonical key/value pair before TAGS dedup cache; pinned stock O1 binary SHA f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "baseline": "8 incoming tags (project,rack,series + 4 eNN + payload) per stable series; 9 normalized tags after __name__; same 4096 IDs x24 inserts, 1MiB/3600s TAGS cache, RAW UUID inner schema, stock O1; payload tag value padded to 372 ASCII chars per row to match 36-tag wire length exactly.",
+  "candidate": "36 incoming tags (project,rack,series + 32 eNN + payload) per series, 37 normalized; the payload tag has only 8 chars. Same series/timestamps/values/metric, row order, wire row byte length, 1MiB/3600s cache, binary, query and ID generator.",
+  "fixture": "Exact equal byte count 57,871,560 per phase for 4096 active stable series x24 one-point inserts (98,304 samples). Common project/rack/series/values/timestamp SHA256 4d92a699ce39aaaa539985e8c9f03581a4316931fe5e44dfaae3901379e5192f; few-label wire SHA256 3c2818c73c3ddb39e72b36fb4d7ee69202dbba2d70e54cbd589dcb2073345e63; many-label wire SHA256 055f8e78aa8cb79321c93b5dcbd748d9afff05b6018957150d48d779479b0f44.",
+  "single_variable": "Number/distribution of labels in tags Map (8 vs36 incoming) while exact total JSON byte length per corresponding row and across phase is fixed by a varying-length deterministic payload tag. This intervention changes map content and TAGS storage size by design; do not attribute CPU exclusively to std::sort.",
+  "math_bound": "98432? Correct: 4096*24=98304 rows; normalized 9 vs37 labels per row => 884736 vs3637248 canonical label pairs processed over ingest, 4.11x; nominal introsort comparison upper work O(k log k) but exact std::sort implementation is not specified. Nominal TAGS cache 1048576/144=7281>4096 active IDs so expected 4096 misses,94208 hits and 4096 physical TAGS rows in every fresh phase; if cache totals differ, control invalid. This isolates net effect of label-pair count at equal raw wire bytes, not exact cpu cycles of sorting and hashing.",
+  "falsifier": "If common projected-input SHA, per-row equal wire bytes, 98,304 sample points, 4096 stable distinct IDs, TAGS cache counts 94208 hits/4096 misses, full native avg by(project) nonempty correct labels/timestamps/numeric oracle, compiled SHA or 25% A/A control drift gates fail, classify INVALID_METHOD. A high/low ingest process CPU ratio <=max(5%,within-runner A/A drift) is NO_ROBUST_TAG_COUNT_CPU_EFFECT. In contrast, a >5% effect exceeding drift is replication needed, not an optimization approval.",
+  "test_matrix": "New path-only CI 1 Ubuntu runner 4 fresh servers A0 8/B1 36/B2 36/A3 8 input tags, 24x4096-row JSONEachRow INSERT each, STOP MERGES in 3 inner targets to isolate physical TAGS and TimeRanges writes, source-pinned R21 CPU/cache/global events harness, 3 native warmups+6 measured queries per phase, exact core labels and native output, whole process CPU/wall/write_bytes, QueryFinish and physical TAGS byte/Map count, read rows/bytes, process RSS; threshold 5% and controls 25%.",
+  "runner_budget": "One GitHub ubuntu-24.04 runner x32min max with stock SHA-verified O1 binary, 4 sequential servers; no rebuild and no scheduled/production/master changes.",
+  "planned_workflow": ".github/workflows/ts-lab-r24-label-cardinality-20261103.yml",
+  "dependencies": [
+    "R23-tag-map-key-order-normalization-cost-v1",
+    "R21-tags-dedup-cache-working-set-knee-v1",
+    "R02-small-batch-raw-lc-write-v1"
+  ],
+  "limitations": "Low-tag payload padding uses a different value-length distribution and may change TAGS compression. The test controls raw input bytes but cannot decompose C++ sort cost from parser, tag hashing, serialization and physical writes. Unlike R23, physical TAGS content and ID hashes legitimately differ across low/high modes."
+}
