@@ -1,0 +1,21 @@
+{
+  "id": "R28-native-query-slot-admission-v1",
+  "question_id": "R28",
+  "owner": "chatgpt-r28-native-admission-20261103",
+  "state": "claimed",
+  "question": "Can native ClickHouse TimeSeries workload query-slot admission reduce concurrent-query OOM and improve completed QPS/latency under a fixed 8-client heavy PromQL workload?",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Verified stock O1 from CI 41596421285, binary SHA256 f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e; R28 functional smoke only first",
+  "candidate": "Same binary and data, CREATE RESOURCE query (query); CREATE WORKLOAD all SETTINGS max_concurrent_queries=2/4, bounded queue",
+  "fixture": "Cheap smoke: fixed synthetic sleep query 8 simultaneous clients, no TimeSeries points; separate main phase will require 1.33m/14d Jenkins input SHA256 8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+  "single_variable": "Maximum simultaneously admitted query slots; timeout behavior is separate correctness check",
+  "math_bound": "Peak RSS is not sum(query memory trackers); with process baseline B, additional per-query RSS m and uncontrolled overhead O, k admitted queries require B+k*m+O<M. Queue length adds latency and bounded timeout may produce explicit errors rather than OOM.",
+  "falsifier": "Functional smoke fails to queue/limit or timeout; full native eight-client 14d fails exact output, OOM persists at cap, or completed QPS and p95/p99 regress beyond drift under a fixed offered load.",
+  "test_matrix": "Smoke: max=2 vs 8, eight synchronized requests, test max_waiting_queries and workload_admission_timeout_ms with asserted error; later full matched ABBA 8 clients x caps unlimited/2/4, same stock binary, fresh-process controls and full native parity.",
+  "runner_budget": "One short ubuntu-24.04 CI with cached existing binary, no compiler build, max 15min; full PromQL benchmark deferred until functional pass",
+  "planned_workflow": ".github/workflows/ts-lab-r28-admission-smoke-20261103.yml",
+  "dependencies": [
+    "R03",
+    "R08"
+  ]
+}
