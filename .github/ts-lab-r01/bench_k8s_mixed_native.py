@@ -198,8 +198,19 @@ def main():
                     raise AssertionError((table, layer, "Unexpected ID type", phys[layer]["id_column"]))
             if int(phys["tags"]["parts"]["rows"]) != manifest["series"]:
                 raise AssertionError((table, "Tag series count mismatch", phys["tags"]))
-            if int(phys["samples"]["parts"]["rows"]) != manifest["samples"]:
-                raise AssertionError((table, "Sample count mismatch", phys["samples"]))
+            # v11 SAMPLES uses an hourly Array(Tuple(timestamp,value)) bucket.
+            # A physical row is a bucket, NOT an individual sample. Compare
+            # total sample elements and physical bucket rows separately.
+            sample_table = inner(table, "samples")
+            counted = jsonrows(
+                "SELECT count() AS bucket_rows,sum(length(samples)) AS total_samples "
+                "FROM " + sample_table
+            )[0]
+            out.setdefault("sample_point_audit", {})[table] = counted
+            if int(counted["total_samples"]) != manifest["samples"]:
+                raise AssertionError((table, "Wrong sample array element count", counted))
+            if int(counted["bucket_rows"]) != int(phys["samples"]["parts"]["rows"]):
+                raise AssertionError((table, "Physical bucket row count does not match", counted))
             tag = inner(table, "tags")
             out["logical_identity"][table] = jsonrows(
                 "SELECT count() AS n,sum(sipHash64(toString(id))) AS digest,"
