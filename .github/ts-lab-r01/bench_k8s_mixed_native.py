@@ -85,9 +85,9 @@ def profile_rows(ids):
         return {"profile_error": str(e)[:1500]}
 
 
-def run_phase(case, days, end, table, order, pid, reference):
+def run_phase(case, days, end, table, order, pid, reference, variant_label=None):
     begin = end - (days - 1) * DAY
-    tag = "lc" if table == LC else "raw"
+    tag = variant_label if variant_label is not None else ("lc" if table == LC else "raw")
     prefix = f"r01k8s_{case}_{tag}_{order}_{os.getenv('GITHUB_RUN_ID','local')}_"
     statement = query(table, case, begin, end)
     phase = {"case": case, "variant": tag, "phase": order, "trials": [],
