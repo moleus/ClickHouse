@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "question_id": "R02-small-batch-raw-lc-write-v1",
+  "subexperiment": "fresh-process-whole-CPU-ABBA-12batches-v2",
+  "decision": "INCONCLUSIVE_REPLICATION_NEEDED",
+  "ci_status": "success",
+  "verified_utc": "2026-11-03T11:00:00Z",
+  "repo": "moleus/ClickHouse",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary": {
+    "build_run_id": 41596421285,
+    "sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "optimization": "O1 stock",
+    "source_patch": "none",
+    "llvm": "22.1.8",
+    "sha_verified": true
+  },
+  "fixture": {
+    "combined_sha256": "916d72ce914d100efaee28e7ff1317632b3cbcef2feef325dbceee4323e581c2",
+    "per_phase_sample_points": 48000,
+    "series_unique": 10000,
+    "slots_per_scope": 2000,
+    "per_phase_insert_batches": 12,
+    "phases": 4,
+    "fixture_identical_across_phases": true
+  },
+  "math_bound": "Both modes ingest exactly the same 12 immutable 4000-row JSONEachRow batches and hold 48000 sample points and 10000 distinct series per fresh process. Measure /proc process-tree utime+stime before and after write (MERGES STOPPED), then before START MERGES through final OPTIMIZE. A/A drift must be <=25% separately for CPU and wall for each measured interval. CPU ticks are 10ms; 15ms difference in 225-240ms writes is too small for a general performance claim.",
+  "method": "One ubuntu24 GitHub runner, fresh process and separate data dir per A0 LC/B1 RAW/B2 RAW/A3 LC phase. Include both clickhouse watchdog parent and child worker PIDs via /proc/PID/task/PID/children; CPU of parent alone was 0 in invalid run 41623203578. Fixed fixture SHA and native PromQL avg-by(scope) independent oracle, 48k sample points per phase, 12 QueryFinish and 5 MergeParts each. Explicit merges controlled after STOP MERGES, no concurrent native reads. No perf instrumentation sampling overhead.",
+  "phases": {
+    "A0": {
+      "mode": "lc",
+      "pid_tree": [
+        2212,
+        2214
+      ],
+      "insert_cpu_s": 0.24,
+      "insert_wall_s": 0.85987,
+      "merge_cpu_s": 0.11,
+      "merge_wall_s": 0.07554,
+      "physical_bytes": {
+        "tags": 323188,
+        "samples": 388957,
+        "timeranges": 226943
+      },
+      "native": {
+        "stable": 147.995,
+        "rotating": 247.4
+      }
+    },
+    "B1": {
+      "mode": "raw",
+      "pid_tree": [
+        2398,
+        2400
+      ],
+      "insert_cpu_s": 0.22,
+      "insert_wall_s": 0.85864,
+      "merge_cpu_s": 0.1,
+      "merge_wall_s": 0.07397,
+      "physical_bytes": {
+        "tags": 303027,
+        "samples": 367769,
+        "timeranges": 206780
+      }
+    },
+    "B2": {
+      "mode": "raw",
+      "pid_tree": [
+        2586,
+        2588
+      ],
+      "insert_cpu_s": 0.23,
+      "insert_wall_s": 0.85589,
+      "merge_cpu_s": 0.1,
+      "merge_wall_s": 0.06803
+    },
+    "A3": {
+      "mode": "lc",
+      "pid_tree": [
+        2773,
+        2775
+      ],
+      "insert_cpu_s": 0.24,
+      "insert_wall_s": 0.87898,
+      "merge_cpu_s": 0.11,
+      "merge_wall_s": 0.07856
+    }
+  },
+  "aggregates": {
+    "write_cpu_s": {
+      "lc": 0.24,
+      "raw": 0.225,
+      "raw_over_lc": 0.9375,
+      "lc_baseline_drift": 0
+    },
+    "write_wall_s": {
+      "lc": 0.86943,
+      "raw": 0.85726,
+      "raw_over_lc": 0.98601,
+      "lc_baseline_drift": 0.02198
+    },
+    "merge_cpu_s": {
+      "lc": 0.11,
+      "raw": 0.1,
+      "raw_over_lc": 0.90909,
+      "lc_baseline_drift": 0
+    },
+    "merge_wall_s": {
+      "lc": 0.07705,
+      "raw": 0.071,
+      "raw_over_lc": 0.92148,
+      "lc_baseline_drift": 0.0392
+    },
+    "write_bytes": {
+      "lc": 3688448,
+      "raw": 3559424,
+      "raw_over_lc": 0.96502
+    },
+    "merge_write_bytes": {
+      "lc": 1884160,
+      "raw": 1781760,
+      "raw_over_lc": 0.94565
+    }
+  },
+  "correctness": {
+    "all_phases_passed": true,
+    "native_label_parity": true,
+    "native_float_parity_at_1e_8": true,
+    "physical_sample_points_per_phase": 48000,
+    "parts_after_merge_per_inner": 1
+  },
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41623694970",
+    "artifact_id": 13225316665,
+    "artifact_zip_sha256": "b2c53688b81b06fe290a8756d3470ea661f92b9751c97a017ede85508a7d8647",
+    "workflow_commit": "85812931c1cd10bd91b6e39a208fb40e047bbaa6",
+    "script_commit": "e67c65f9f7ccbb26437885a58343c40598b140a7",
+    "source_script": ".github/ts-lab/experiments/r02_process_cpu_abba.py",
+    "workflow": ".github/workflows/ts-lab-r02-process-cpu-abba-20261103.yml"
+  },
+  "limitations": [
+    "CPU deltas only 0.10-0.24s with 10ms clock resolution; 6.3% CPU and 9.1% merge deltas require longer workload replication before a performance recommendation.",
+    "Single GitHub runner ABBA, no concurrent native reads or natural background merge arrival; synthetic 10000 IDs not production node turnover.",
+    "/proc process tree CPU covers clickhouse parent+child, not remote EBS/network cost; per-process write_bytes includes log/writeback and is not exact storage allocation.",
+    "Both modes use stock O1 glibc laboratory binary; pending jemalloc optimized build is not represented."
+  ],
+  "negative_experiment": "CI 41623203578 had 4/4 phase correctness, but was INVALID for CPU because it measured only clickhouse watchdog parent PID and rejected valid float differences of about 1e-13 via bitwise equality. CI 41623149595 failed workflow preflight due artifact path typo. Neither run can support CPU rankings.",
+  "next_action": {
+    "question_id": "R02",
+    "step": "Amplify same-runner CPU from 12 to 96 chronological small batches per phase under identical stock O1, reusing stable/rotating fixture generator and exact native mean oracle over full 4h window; require >=1s CPU per measured interval or classify as insufficient resolution. Preserve CPU/wall and physical byte ratios; source/fixture immutable SHA; no production change or cancel.",
+    "stop_condition": "Reject if native output/physical samples mismatch, process tree CPU zero/unstable, A/A drift >25%, unexpected OOM or unbounded parts. Do not call candidate faster from one run."
+  }
+}
