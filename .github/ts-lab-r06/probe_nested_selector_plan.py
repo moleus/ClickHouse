@@ -140,7 +140,13 @@ def timeranges():
 
 def settings_for(mode):
     setting = 'max_threads=4,optimize_use_projections=' + ('1' if mode.startswith('auto') else '0')
-    if mode.endswith('hash'): setting += ",join_algorithm='hash',optimize_read_in_order=0"
+    # Native StorageTimeSeriesSelector always uses full_sorting_merge plus
+    # optimize_read_in_order unless the O1 lab override is set explicitly.
+    # Repeat the effective settings when EXPLAINing the extracted ID subquery.
+    if mode.endswith('hash'):
+        setting += ",join_algorithm='hash',optimize_read_in_order=0"
+    else:
+        setting += ",join_algorithm='full_sorting_merge',optimize_read_in_order=1"
     return setting
 
 
