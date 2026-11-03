@@ -591,3 +591,38 @@ New canonical root R17, no duplicate R03/R05/R07. Same SHA-verified stock O1/RAW
 3. **Native vs SQL using ONLY original TAGS/SAMPLES (no sidecar at all)**: [#41629492828](https://github.com/moleus/ClickHouse/actions/runs/41629492828) PASS, [immutable evidence](evidence/R07-native-vs-tags-no-cover-41629492828.json): broad14d p50 **395.89→254.87ms = 1.55x faster**, CPU **786.50→405.29ms (−48.5%)**, query peak tracker **101.27→38.38MB (−62.1%)**, read_bytes **19.6→8.33MB**, **same 210k read rows and 298 marks**. Broad1d original-TAGS SQL is **2.53x slower**, broad3d **1.81x slower**; stage1d SQL only **1.09x faster**. **REJECT global rewrite**, retain promising conditional broad14d gauge path without index write amplification.
 
 **Key insight:** whole-query plan, label registration, projected columns and per-ID/grid aggregation can matter more than physical marks; ClickHouse already implements native \`avgForEach\`. SQL proves only this restricted finite-float one-sample/ID expression subset, not full PromQL staleness/NaN, multi-point, repeated same-timestamp samples, native histograms, ACL or concurrent-client behavior. **Next gate:** source-pinned R01 3d mixed 15/60/300s **multi-sample**, independent native parity/CPU operator attribution and range-dependent plan admission before any C++ planner prototype. Keep other owners' R02/R03/R05/R10/R12/R16/R17 lanes intact and don't restart long jemalloc build.
+
+## 2026-11-03: R18 value subcolumn codec beats ALP on space but crosses over on CPU
+
+[R18 actual full native A/B/B/A #41630585794](https://github.com/moleus/ClickHouse/actions/runs/41630585794),
+[immutable 320-query CPU/physical/write evidence](evidence/R18-samples-value-codec-41630585794.json),
+[source/cost audit](../ts-lab-r18/VALUE_CODEC_NATIVE_READ_WRITE_20261103.md).
+Same stock O1/LLVM22 executable, same 400-slot 3d R01 source SHA, RAW_UUID in all
+three inner targets, 3600s SAMPLES buckets, no recent samples. Change only
+`samples.value` codec among `ALP,ZSTD(3)` (stock), `ZSTD(1)`, `LZ4`.
+Actual `SHOW CREATE` codec, physical part identity, exact **28,896
+series/2,488,320 points** and nonempty full native PromQL values verified.
+All 8 independent codec ABBA controls valid, no OOM.
+
+| On synthetic repetitive gauges | ALP+ZSTD3 | ZSTD1 | LZ4 |
+|---|---:|---:|---:|
+| Compressed SAMPLES bytes | 5,303,391 | **3,414,486 (−35.6%)** | 3,773,263 (−28.9%) |
+| Total all three inner bytes | 7,424,806 | **5,535,901 (−25.4%)** | 5,894,678 (−20.6%) |
+| pod_namespace native CPU/query | 36.886ms | **40.558ms (+10.0%)** | 38.910ms (independent baseline39.000ms) |
+| node_broad native CPU/query | 115.136ms | 108.109ms (−6.1%) | 107.138ms (independent baseline108.827ms) |
+
+The namespace ZSTD1 CPU regression is well outside A/A CPU drift **0.80%**
+despite much fewer compressed bytes. Broad-node gain is modest relative to
+CPU drift3.85%, pod-broad CPU difference within8.42% drift; LZ4 gains
+not globally robust. A single unpaired ingest/merge shows slightly smaller
+CPU and wall for ZSTD1/LZ4, **not** a valid steady-state writer A/B/B/A.
+R17 uses a different AMD EPYC runner (9V74 vs R18 9V45); never compare
+absolute R17/R18 latency/CPU across runners. **ACCEPT_NEXT_GATE_ONLY**:
+repeat with a held-out realistic Float64 value distribution (high-entropy,
+monotonic, counters/NaNs as relevant), natural write/merge and concurrent
+readers before recommending any default codec change.
+
+First [R18 #41630357537](https://github.com/moleus/ClickHouse/actions/runs/41630357537)
+was an invalid pre-ingest benchmark gate (backtick/Delta(8) DDL formatting);
+correction confirmed in successful rerun, retained as [M42](METHODOLOGY_AND_FAILURES.md).
+One representative CPU trace per variant is diagnostic, not causal proof.
