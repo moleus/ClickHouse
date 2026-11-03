@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "question_id": "R31",
+  "primary_claim_id": "R31-timeranges-membership-in-semijoin-v1",
+  "decision": "PASS_DIAGNOSTIC_SQL_ONLY",
+  "promotion": "NO_NATIVE_CPP_BUILD_OR_PRODUCTION_GAIN",
+  "run_id": 41719952453,
+  "workflow_url": "https://github.com/moleus/ClickHouse/actions/runs/41719952453",
+  "workflow_commit_sha": "aca98e5ab5b5b880a82f48e4a13cefc496197d66",
+  "artifact_id": 13272220952,
+  "archive_name": "tslab-r31-inset-evidence",
+  "artifact_zip_sha256": "6d283c065ab65dacf3679fc128d2472d4d133a1fa6a795a67aad0b72d660d4db",
+  "archive_size_bytes": 353613,
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221",
+  "binary_role": "O1 lab join override; native production C++ still ALL",
+  "fixture_sha256": "6a81d5b9b218a9e86b3dd4aed4ff68a028458d51f944af0296cf4ebaccb98367",
+  "fixture": {
+    "hot_stable_series": 2048,
+    "nonmatching_before_ids": 256,
+    "nonmatching_after_ids": 256,
+    "metric": "r30_cpu_seconds_total",
+    "series_ids_total": 2560,
+    "duplication_levels": [
+      1,
+      16
+    ],
+    "samples_before_after_window": true
+  },
+  "tests": {
+    "cases": 6,
+    "selectors": [
+      "stage",
+      "project",
+      "whole"
+    ],
+    "exact_distinct_id_set": true,
+    "exact_id_samples_rows_times_values": true,
+    "original_native_all_output_nonempty": true,
+    "parser_tests": true
+  },
+  "physical": {
+    "k1": {
+      "timeranges_rows": 2560,
+      "unique_ids": 2560,
+      "hot_repeats": 1
+    },
+    "k16": {
+      "timeranges_rows": 33280,
+      "unique_ids": 2560,
+      "hot_repeats": 16
+    }
+  },
+  "operator_facts": {
+    "left_all": "FullSortingMergeJoin",
+    "left_any": "FullSortingMergeJoin",
+    "in": "CreatingSets followed by ReadFromMergeTree(TAGS) with id IN subquery1 in PREWHERE",
+    "note": "IN-set subquery is built before main scan; cannot assume streaming behavior, and top-level EXPLAIN hides right TimeRanges scan and set build memory."
+  },
+  "k1": {
+    "all": {
+      "wall": 14,
+      "cpu": 16.33075,
+      "mem": 8926251,
+      "read_rows": 4608,
+      "read_bytes": 420460,
+      "drift": 0
+    },
+    "any": {
+      "wall": 14,
+      "cpu": 15.565,
+      "mem": 9038638,
+      "read_rows": 4608,
+      "read_bytes": 420460,
+      "drift": 0
+    },
+    "in": {
+      "wall": 13,
+      "cpu": 14.353,
+      "mem": 8609639,
+      "read_rows": 4608,
+      "read_bytes": 370340,
+      "drift": 0
+    }
+  },
+  "k16": {
+    "all": {
+      "wall": 44,
+      "cpu": 54.891,
+      "mem": 13351590.25,
+      "read_rows": 35328,
+      "read_bytes": 1710940,
+      "drift": 0.02272727
+    },
+    "any": {
+      "wall": 30.75,
+      "cpu": 40.94725,
+      "mem": 11738048,
+      "read_rows": 35328,
+      "read_bytes": 1710940,
+      "drift": 0.01626016
+    },
+    "in": {
+      "wall": 20,
+      "cpu": 29.538,
+      "mem": 8609155,
+      "read_rows": 35328,
+      "read_bytes": 1660820,
+      "drift": 0
+    }
+  },
+  "relative_k16": {
+    "in_vs_all_wall_reduction_pct": 54.54545454545455,
+    "in_vs_all_cpu_reduction_pct": 46.18789965568126,
+    "in_vs_all_memory_reduction_pct": 35.519628457741206,
+    "in_vs_any_wall_reduction_pct": 34.959349593495936,
+    "in_vs_any_cpu_reduction_pct": 27.86328752236108,
+    "in_vs_any_memory_reduction_pct": 26.65599084277045
+  },
+  "protocol": {
+    "phases": [
+      "all",
+      "any",
+      "in",
+      "in",
+      "any",
+      "all"
+    ],
+    "warmups_per_phase": 3,
+    "measured_per_phase": 4,
+    "per_mode_a_a_drift_max": 0.25,
+    "max_query_memory_usage": 2000000000,
+    "single_runner": true,
+    "same_frozen_physical_table_within_level": true
+  },
+  "risks": [
+    "Small 2048-ID synthetic set, not 1.33m/14d or live K8s.",
+    "IN plans materialize a set before TAGS read; memory can scale with all right unique IDs and concurrency.",
+    "Only direct generated SQL; C++ native end-to-end PromQL semantics and stateful label grouping not yet independently proven.",
+    "Query tracker bytes are not ClickHouse process RSS.",
+    "No native O2/production equivalent binary, no 8-client OOM study.",
+    "No direct write/merge performance comparison for altered C++."
+  ]
+}
