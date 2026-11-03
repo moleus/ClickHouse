@@ -279,10 +279,21 @@ def main():
             'compact_over_literal_cpu_ratio': cpu_b/cpu_a,
             'baseline_wall_drift_fraction': drift}
         report['semantic_correctness'] = True
-        report['scientific_decision'] = 'INVALID_METHOD' if drift > .25 else 'ACCEPT_FOR_NEXT_GATE'
         report['passed'] = drift <= .25
         if not report['passed']:
+            report['scientific_decision'] = 'INVALID_METHOD'
             report['errors'].append(f'Control drift {drift:.3f} > .25')
+        else:
+            # A passing methodology does not prove a speedup. Require a new,
+            # independent replication if the effect exceeds drift; never
+            # promote an unreplicated one-trial CPU or wall speedup.
+            effect_floor = max(.02, drift)
+            wall_change = abs(candidate / baseline - 1)
+            cpu_change = abs(cpu_b / cpu_a - 1)
+            report['effect_resolution_fraction'] = effect_floor
+            report['scientific_decision'] = ('NO_EFFECT'
+                if wall_change <= effect_floor and cpu_change <= effect_floor
+                else 'INCONCLUSIVE')
     except Exception as exc:
         report['errors'].append(str(exc)[:2600])
     finally:
