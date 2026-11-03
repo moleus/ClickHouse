@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "question_id": "R30",
+  "primary_claim_id": "R30-time-ranges-any-semi-join-v1",
+  "decision": "PASS_SQL_EQUIVALENCE_AND_PAIRED_DIRECT_COST",
+  "promotion": "NOT_PROMOTED_NATIVE_CPP_UNTESTED",
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41714502297",
+  "run_id": 41714502297,
+  "artifact_id": 13269201647,
+  "artifact_name": "tslab-r30-any-membership-sql-evidence",
+  "zip_sha256": "651a87f1c724e8b7c035f72ffe45c5818ea8304e262d12de30b63950dd0ccc74",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221",
+  "binary_type": "lab O1 JOIN override with original native ALL default",
+  "workflow_commit_sha": "d7bb265a63b8c5471ffe70e1a27821fd5debe889",
+  "fixture": {
+    "sha256": "613b3b1f1835d46e2845ebc60ae073f3bc41818236a23a6ae885e0ff83bf34a5",
+    "hot_ids": 4096,
+    "updates_per_hot_id": 16,
+    "cold_ids": 1024,
+    "point_rows": 66560,
+    "fixture_bytes": 10390461
+  },
+  "frozen_tables": {
+    "TAGS": {
+      "physical_rows": 5120,
+      "unique_ids": 5120,
+      "parts": 3
+    },
+    "TimeRanges": {
+      "physical_rows": 66560,
+      "unique_ids": 5120,
+      "parts": 18
+    }
+  },
+  "time_window": "avg_over_time(...[1d]) at 2026-10-20 00:00:00Z; hot insert samples Oct19; cold before Oct17/after Oct23",
+  "true_sql_plan": {
+    "source_all": "Type: right | Strictness: all | Algorithm: FullSortingMergeJoin",
+    "candidate_any": "Type: right | Strictness: any | Algorithm: FullSortingMergeJoin",
+    "note": "The optimizer flips physical JOIN type to RIGHT but preserves strictness. Do not infer no join-side reversal."
+  },
+  "parity": {
+    "stage": {
+      "all_rows": 16384,
+      "any_rows": 1024,
+      "distinct_ids": 1024,
+      "exact_distinct_id_set": true,
+      "exact_samples_sql_rows": 16384,
+      "exact_samples_value_time_id_hash": true
+    },
+    "project": {
+      "all_rows": 32768,
+      "any_rows": 2048,
+      "distinct_ids": 2048,
+      "exact_distinct_id_set": true,
+      "exact_samples_sql_rows": 32768,
+      "exact_samples_value_time_id_hash": true
+    },
+    "whole": {
+      "all_rows": 65536,
+      "any_rows": 4096,
+      "distinct_ids": 4096,
+      "exact_distinct_id_set": true,
+      "exact_samples_sql_rows": 65536,
+      "exact_samples_value_time_id_hash": true
+    }
+  },
+  "abba": {
+    "order": [
+      "ALL",
+      "ANY",
+      "ANY",
+      "ALL"
+    ],
+    "warmups_per_phase": 3,
+    "measured_queries_per_phase": 4,
+    "query": "SELECT count(),uniqExact(r30_id) FROM (named generated ID selector) SETTINGS full_sorting_merge,in-order,projections=0,max_threads=4",
+    "all": {
+      "wall_ms": 73.75,
+      "cpu_ms": 94.259,
+      "query_peak_bytes": 26716442,
+      "read_rows": 70656,
+      "read_bytes": 3421276,
+      "control_wall_drift": 0.006779661016949152
+    },
+    "any": {
+      "wall_ms": 50.5,
+      "cpu_ms": 70.044,
+      "query_peak_bytes": 14268661,
+      "read_rows": 70656,
+      "read_bytes": 3421276,
+      "control_wall_drift": 0.019801980198019802
+    },
+    "reductions": {
+      "wall_fraction": 0.3152542372881356,
+      "cpu_fraction": 0.25689854549698177,
+      "memory_fraction": 0.46592210893950625
+    }
+  },
+  "caveats": [
+    "Only original native PromQL executes with ALL; candidate ANY applied to standalone generated SQL, not patched C++ full native PromQL.",
+    "The output of the metadata JOIN and SAMPLES subquery was checked for exact membership/time/value equality; stateful collector order and full native labels still need a patched-binary oracle.",
+    "This intentionally unmerged repeated-write fixture maximizes multiplicity; after TimeRanges merges or on 95k/day new unique series the benefit may vanish.",
+    "No new C++ build, no claim about O2/jemalloc, production throughput or OOM safety.",
+    "query_log read_rows and read_bytes identical in paired direct SQL; operator/profiler attribution not yet isolated.",
+    "query tracker peak memory is not process RSS; no eight-client result.",
+    "Source-generated inner SELECT required a safe nonshadowing r30_id alias for standalone diagnostic; original native path untouched."
+  ]
+}
