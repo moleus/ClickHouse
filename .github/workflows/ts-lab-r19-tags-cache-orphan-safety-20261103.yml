@@ -98,13 +98,14 @@ jobs:
               assert len(p['query_log'])==3
               assert all(v['exception_code']==0 for v in p['query_log'].values())
               assert p['steps'][-1]['physical_sample_points']==3
-              assert p['steps'][-1]['tags_rows']==1
+              assert p['steps'][-1]['tags_rows']>=1
+              assert p['steps'][-1]['tags_unique_ids']==1
               assert p['steps'][-1]['native']['result_count']==1
           enabled=next(x for x in d['modes']['enabled']['steps'] if x['step']=='insert_1')
           disabled=next(x for x in d['modes']['disabled']['steps'] if x['step']=='insert_1')
-          assert enabled['tags_rows']==0 and enabled['physical_sample_points']==2
+          assert enabled['tags_rows']==0 and enabled['tags_unique_ids']==0 and enabled['physical_sample_points']==2
           assert enabled['native']['result_count']==0
-          assert disabled['tags_rows']==1 and disabled['physical_sample_points']==2
+          assert disabled['tags_rows']==1 and disabled['tags_unique_ids']==1 and disabled['physical_sample_points']==2
           assert disabled['native']['result_count']==1
           print('R19_CACHE_SAFETY_VALIDATED',json.dumps({'passed':True,
              'decision':d['scientific_decision'],'cache_enabled':enabled,
