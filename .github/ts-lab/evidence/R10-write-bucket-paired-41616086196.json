@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "question_id": "R10-bucket-id-factorial-v1",
+  "subquestion": "R10 fresh-server small-batch RAW UUID TimeSeries SAMPLES 3600 vs 10800s write and merge",
+  "decision": "ACCEPT_FOR_NEXT_GATE",
+  "scientific_scope": "Same binary and 400-slot 3d fixture, fresh-process 4-phase ABBA. The 10800s physical layout lowers explicit merge CPU/time; write CPU effect small relative to control variation. Not sustained production ingest+read workload.",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "compiler": "LLVM 22.1.8 unmodified ClickHouse stock O1 with glibc lab allocator",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "stock_build_run": 41596421285,
+  "fixture": {
+    "sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+    "days": 3,
+    "node_slots": 400,
+    "node_life_seconds": 10800,
+    "series": 28896,
+    "samples": 2488320,
+    "bytes": 97177010
+  },
+  "run": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41616086196",
+    "conclusion": "success",
+    "workflow_commit": "810179c8ba41232be3002a238d27adea6e3fb6b8",
+    "workflow_path": ".github/workflows/ts-lab-r10-write-bucket-paired-20261103.yml",
+    "script_path": ".github/ts-lab-r10/bench_write_bucket_paired.py",
+    "artifact_id": 13221676506,
+    "artifact_zip_digest": "sha256:e921a15cf5635959c957d1d1b02cd7db9dd99b231c9bb3f354c2aad14049c283"
+  },
+  "method": {
+    "phase_order_seconds": [
+      3600,
+      10800,
+      10800,
+      3600
+    ],
+    "isolation": "Fresh ClickHouse watchdog/server process before each phase, one new RAW UUID v11 TimeSeries table, same runner and binary; background merges suspended while inserting; explicit START MERGES then OPTIMIZE FINAL on SAMPLES,TAGS,TimeRanges; STOP MERGES barrier before physical readback.",
+    "workload": "73 single-client sequential HTTP INSERTs per phase: 72 batches x400 series and final batch96 series; 28,896 series, 2,488,320 sample array elements; each 400-series batch contains 15s/60s/300s cadences.",
+    "process_cpu": "Linux /proc/<server_pid>/stat user+system jiffies for all worker threads; measured ingest and explicit merge windows separately. QueryFinish ProfileEvents covers only part of async ingestion work.",
+    "partlog": "system.part_log MergeParts six per phase after explicit optimize; ProfileEvents.OSCPUVirtualTimeMicroseconds aggregated across physical target merges.",
+    "correctness": "Full nonempty native PromQL label/time/value parity across all 4 tables, 24 node-broad points and 3 namespace points per table; exact 2,488,320 point sum(length(samples)), expected 28,896 TAGS and TimeRanges rows, SAMPLES bucket rows 86,688 or 28,896 by step, all three inner targets one active part after optimize.",
+    "controls": "A/B/B/A on same runner; baseline and candidate A/A drift under 25% for CPU, wall, disk; no rejected controls or OOM.",
+    "rss": "Single low-cost process RSS monitor every 250ms; process restarted between phases; RSS observations are diagnostic, not proof of lower memory.",
+    "read_latency": "Only one oracle query after each load; not a valid read-latency benchmark and not included in write/merge timing."
+  },
+  "phases": [
+    {
+      "phase": 0,
+      "step": 3600,
+      "server_pid": 2479,
+      "insert_cpu_s": 1.57,
+      "insert_wall_s": 5.3179,
+      "merge_cpu_s": 0.82,
+      "merge_wall_s": 0.5905,
+      "partlog_merge_cpu_ms": 692.944,
+      "merges": 6,
+      "final_bytes": 7424806,
+      "peak_rss_bytes": 404938752,
+      "insert_query_log_cpu_ms": 72.26,
+      "insert_query_finish": 73
+    },
+    {
+      "phase": 1,
+      "step": 10800,
+      "server_pid": 2697,
+      "insert_cpu_s": 1.5,
+      "insert_wall_s": 5.2036,
+      "merge_cpu_s": 0.72,
+      "merge_wall_s": 0.4842,
+      "partlog_merge_cpu_ms": 584.565,
+      "merges": 6,
+      "final_bytes": 6833238,
+      "peak_rss_bytes": 428773376,
+      "insert_query_log_cpu_ms": 67.402,
+      "insert_query_finish": 73
+    },
+    {
+      "phase": 2,
+      "step": 10800,
+      "server_pid": 2920,
+      "insert_cpu_s": 1.54,
+      "insert_wall_s": 5.2319,
+      "merge_cpu_s": 0.72,
+      "merge_wall_s": 0.4817,
+      "partlog_merge_cpu_ms": 589.119,
+      "merges": 6,
+      "final_bytes": 6833238,
+      "peak_rss_bytes": 444239872,
+      "insert_query_log_cpu_ms": 70.379,
+      "insert_query_finish": 73
+    },
+    {
+      "phase": 3,
+      "step": 3600,
+      "server_pid": 3152,
+      "insert_cpu_s": 1.61,
+      "insert_wall_s": 5.3051,
+      "merge_cpu_s": 0.83,
+      "merge_wall_s": 0.5714,
+      "partlog_merge_cpu_ms": 670.509,
+      "merges": 6,
+      "final_bytes": 7424806,
+      "peak_rss_bytes": 442511360,
+      "insert_query_log_cpu_ms": 72.154,
+      "insert_query_finish": 73
+    }
+  ],
+  "summary": {
+    "ingest_server_process_cpu_s": {
+      "baseline_3600": 1.59,
+      "candidate_10800": 1.52,
+      "ratio": 0.956,
+      "baseline_drift": 0.0252,
+      "candidate_drift": 0.0263
+    },
+    "ingest_total_wall_s": {
+      "baseline_3600": 5.3115,
+      "candidate_10800": 5.2178,
+      "ratio": 0.9823,
+      "baseline_drift": 0.0024,
+      "candidate_drift": 0.0054
+    },
+    "merge_server_process_cpu_s": {
+      "baseline_3600": 0.825,
+      "candidate_10800": 0.72,
+      "ratio": 0.8727,
+      "baseline_drift": 0.0121,
+      "candidate_drift": 0
+    },
+    "merge_wall_s": {
+      "baseline_3600": 0.581,
+      "candidate_10800": 0.4829,
+      "ratio": 0.8313,
+      "baseline_drift": 0.0329,
+      "candidate_drift": 0.0052
+    },
+    "physical_final_disk_bytes": {
+      "baseline_3600": 7424806,
+      "candidate_10800": 6833238,
+      "ratio": 0.9203,
+      "baseline_drift": 0,
+      "candidate_drift": 0
+    }
+  },
+  "additional_audit": {
+    "insert_count_total": 292,
+    "query_finish_total": 292,
+    "merge_events_total": 24,
+    "sample_points_per_phase": 2488320,
+    "one_active_part_each_target": true,
+    "all_native_outputs_equal": true,
+    "all_write_logs_complete": true,
+    "all_phases_passed": true,
+    "no_oom": true
+  },
+  "limits": [
+    "Glbic O1 lab binary and a small synthetic 3d workload; not production jemalloc or real HPA/tenant traffic.",
+    "Background merges were stopped during INSERT and explicitly triggered after ingestion: steady-state merge scheduling and foreground read impact were not tested.",
+    "INSTRUMENTATION: /proc process CPU includes CPU work outside ingestion and merge (e.g. logs), but each phase is isolated in a fresh process. It is not isolated per query.",
+    "Difference in total ingest CPU is 4.4% with 2.52% baseline and 2.63% candidate drift; do not claim universal ingest speedup.",
+    "Merge process CPU 0.825->0.720s (-12.7%) and partlog MergeParts CPU mean ~681.7->586.8ms (-13.9%) corroborate direction on this specific load. More repetitions/real-data distributions are needed.",
+    "RSS observations 405MB,429MB,444MB,443MB are monotonic across phase order; not causal by variant.",
+    "Read timing and p95/p99 under concurrent remote-write and query workloads remain untested."
+  ],
+  "next_action": "Extend R10 with steady-state writer and concurrent native PromQL reader at 1 and 4 clients, same 3600 vs 10800s variants and independent baseline/no-write control. Require full physical/native parity and p95/p99, total process CPU, RSS, generated/merged bytes, no broad OOM. Avoid overlapping R02 owner's existing write-path campaign."
+}
