@@ -22,7 +22,7 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Preflight: lab symlink, native ABBA and source parity assertions
+      - name: Preflight lab symlink, native ABBA and source parity assertions
         run: |
           set -euo pipefail
           test "$(readlink AGENTS.md)" = ".claude/CLAUDE.md"
