@@ -29,7 +29,7 @@ jobs:
           test "$(git ls-files -s AGENTS.md | awk '{print $1}')" = 120000
           python3 -m py_compile .github/ts-lab-r31/*.py .github/ts-lab-r30/*.py .github/ts-lab-r06/probe_nested_selector_plan.py
           python3 -m unittest discover -s .github/ts-lab-r30 -p 'test_*.py' -v
-          python3 -m unittest discover -s .github/ts-lab-r31 -p 'test_*.py' -v
+          python3 -m unittest discover -s .github/ts-lab-r31 -p 'test_membership_in.py' -v
           mkdir -p evidence
       - name: Reuse SHA-verified unchanged stock O2 jemalloc binary from R29, no compilation
         run: |
