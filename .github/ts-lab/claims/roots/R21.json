@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "question_id": "R21",
+  "primary_claim_id": "R21-tags-dedup-cache-working-set-knee-v1",
+  "owner": "chatgpt-r21-cache-working-set-20261103",
+  "scope": "Stock TimeSeries v11 TAGS deduplication cache working-set capacity relative to active metric-series IDs and repeated inserts. Quantify physical ReplacingMergeTree TAGS write amplification, cache hits/misses, write+merge CPU/IO, and full native query parity as cache capacity crosses active series working-set size. Measure both temporal order effects (same set with fixed/rotated input ordering) with source-pinned no-rebuild stock O1. No global cache change or production writes. Distinct from R02 LC/RAW UUID encoding, R19 unsafe inner TAGS GC, R07 active-ID query paths, R18 codecs, R20 native aggregation planner.",
+  "source_proof": "Pinned TimeSeriesDeduplicationCache.h APPROXIMATE_ENTRY_SIZE=(16+6*8)+(16+2*8)+(24+3*8)=144B on 64-bit, default tags_deduplication_cache_size_bytes=104857600, expiration_seconds=3600; TimeSeriesDeduplicationCache.cpp trimPendingRows caps pending at size/144 and iterates from end, TimeSeriesSink.cpp caches written TAGS only. Infer capacity knee N*144B and test it with fixed 1024 or 4096 stable IDs and different cache byte limits, QueryFinish CacheHits/CacheMisses and raw TAGS rows; do not assume exact one-to-one due SLRU, pending trim and write scheduling.",
+  "math_bound": "With 4096 active IDs and 144B nominal entry each, required 589824B cache, default ~728177 entries. 32768B nominal caches <=227 entries, 1048576B nominal fits 7281 entries. For 12 batches, no-cache potential physical TAGS rows N*12, large cache ideally N, with CPU/IO cost of cache lookups a separate variable. Same tag IDs and samples across variants. Cache expiration 3600s larger than test duration.",
+  "created_utc": "2026-11-03T13:31:00Z",
+  "allowed_support_claims": []
+}
