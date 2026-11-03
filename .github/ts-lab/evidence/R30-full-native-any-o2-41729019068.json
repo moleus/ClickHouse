@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "question_id": "R30",
+  "claim": "R30-TimeRanges-ALL-to-ANY-native-O2-cold-merged",
+  "decision": "PASS_BOUND_FULL_NATIVE_SINGLE_GRID_AND_SMALL_FIXTURE_ONLY",
+  "run_id": 41729019068,
+  "workflow_url": "https://github.com/moleus/ClickHouse/actions/runs/41729019068",
+  "workflow_commit": "5efe20f3bd2540804435f2d1553786e5dcb5d478",
+  "artifact_id": 13275579394,
+  "artifact_name": "tslab-r30-full-native-any-o2-evidence",
+  "artifact_zip_sha256": "40f90982ef9f1537494b177a2ef3f8cd5f5883a76a242e714147bcdd0f6b9c46",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "stock_binary_sha256": "5d629ddfda91919402fdf8475ec3da9fe718d48ef386bc51be677264df6dc9ef",
+  "any_binary_sha256": "aa857ccff473837a37772c04825d8adcd0fbf1dc48d16d1841e2baafab14a59c",
+  "compiler": "LLVM 22.1.8 -O2 jemalloc, only selector TimeRanges ALL->ANY C++ source site changed",
+  "fixture_sha256": "613b3b1f1835d46e2845ebc60ae073f3bc41818236a23a6ae885e0ff83bf34a5",
+  "fixture": {
+    "hot_series": 4096,
+    "updates_per_hot_id": 16,
+    "before_cold_ids": 512,
+    "after_cold_ids": 512,
+    "unique_series_ids": 5120
+  },
+  "physical": {
+    "TAGS": {
+      "parts": 1,
+      "rows": 5120
+    },
+    "TimeRanges": {
+      "parts": 1,
+      "rows": 5120,
+      "rows_per_id": 1
+    },
+    "SAMPLES": {
+      "note": "One active part per data partition after OPTIMIZE FINAL"
+    }
+  },
+  "method": {
+    "full_prometheusQueryRange": true,
+    "paired_phases": [
+      "stock",
+      "any",
+      "any",
+      "stock"
+    ],
+    "fresh_clickhouse_process_each_phase": true,
+    "same_filesystem_snapshot_each_phase": true,
+    "snapshots_preserved_atomic_symlinks": true,
+    "samples_exact_label_and_timestamps": true,
+    "sample_value_parity_tolerance": {
+      "rel": 1e-10,
+      "abs": 1e-8
+    },
+    "steps_per_query": 1,
+    "warmups_per_case": 3,
+    "measured_per_case_per_phase": 4,
+    "max_control_drift": 0.25,
+    "max_threads": 4
+  },
+  "cases": {
+    "stage": {
+      "returned_points": 1,
+      "stock": {
+        "wall_ms": 35,
+        "cpu_ms": 57.66225,
+        "query_peak_bytes": 10410953,
+        "control_wall_drift": 0.057142857
+      },
+      "any": {
+        "wall_ms": 34,
+        "cpu_ms": 55.8255,
+        "query_peak_bytes": 10361497,
+        "control_wall_drift": 0
+      },
+      "delta_pct": {
+        "wall_reduction": 2.857142857142857,
+        "cpu_reduction": 3.1853595723371915,
+        "query_peak_reduction": 0.4750381641334852
+      }
+    },
+    "project": {
+      "returned_points": 2,
+      "stock": {
+        "wall_ms": 40,
+        "cpu_ms": 64.3705,
+        "query_peak_bytes": 11599057,
+        "control_wall_drift": 0.025
+      },
+      "any": {
+        "wall_ms": 38.5,
+        "cpu_ms": 62.672,
+        "query_peak_bytes": 11500481,
+        "control_wall_drift": 0.025974026
+      },
+      "delta_pct": {
+        "wall_reduction": 3.75,
+        "cpu_reduction": 2.6386310499374863,
+        "query_peak_reduction": 0.8498621913833168
+      }
+    },
+    "regex": {
+      "returned_points": 3,
+      "stock": {
+        "wall_ms": 45.25,
+        "cpu_ms": 72.4155,
+        "query_peak_bytes": 13376771,
+        "control_wall_drift": 0.011049724
+      },
+      "any": {
+        "wall_ms": 43.25,
+        "cpu_ms": 70.65275,
+        "query_peak_bytes": 13275713,
+        "control_wall_drift": 0.011560694
+      },
+      "delta_pct": {
+        "wall_reduction": 4.419889502762431,
+        "cpu_reduction": 2.4342164315650616,
+        "query_peak_reduction": 0.7554737985721667
+      }
+    },
+    "whole": {
+      "returned_points": 4,
+      "stock": {
+        "wall_ms": 48.75,
+        "cpu_ms": 78.08325,
+        "query_peak_bytes": 14797004,
+        "control_wall_drift": 0.01025641
+      },
+      "any": {
+        "wall_ms": 45.75,
+        "cpu_ms": 73.6615,
+        "query_peak_bytes": 14685553.5,
+        "control_wall_drift": 0.010928962
+      },
+      "delta_pct": {
+        "wall_reduction": 6.153846153846154,
+        "cpu_reduction": 5.66286623571637,
+        "query_peak_reduction": 0.7531963902963059
+      }
+    }
+  },
+  "rss_observed_phases": [
+    {
+      "mode": "stock",
+      "peak_bytes": 313663488,
+      "samples": 13
+    },
+    {
+      "mode": "any",
+      "peak_bytes": 313540608,
+      "samples": 12
+    },
+    {
+      "mode": "any",
+      "peak_bytes": 307437568,
+      "samples": 12
+    },
+    {
+      "mode": "stock",
+      "peak_bytes": 316973056,
+      "samples": 13
+    }
+  ],
+  "warnings": [
+    "Cold merged profile after FINAL is deliberately different from the transient premerge k16 metadata case. It cannot prove k16 full native gains.",
+    "Only one evaluation timestamp and four stage labels, returning 1/2/3/4 sample points for stage/project/regex/whole.",
+    "Query peak memory is ClickHouse tracker bytes; process RSS sample count only 12-13 per phase and may not capture transient peak.",
+    "Small 5,120 IDs, one GitHub hosted runner, single client; no 1.33m/14d Grafana protocol or concurrency proof.",
+    "Output equality is exact labels/timestamps and numeric close (rel 1e-10, abs 1e-8), not bitwise identical floating points."
+  ]
+}
