@@ -75,7 +75,7 @@ def main():
         setup(target_a,types)
         setup(target_b,raw_types)
         sql(f"INSERT INTO {target_a} (id,metric_name,tags) SELECT id,metric_name,tags FROM {source}")
-        sql(f"INSERT INTO {target_b} (id,metric_name,tags) SELECT CAST(id AS {sql_string(raw_types['id'])}),metric_name,tags FROM {source}")
+        sql(f"INSERT INTO {target_b} (id,metric_name,tags) SELECT CAST(id, {sql_string(raw_types['id'])}),metric_name,tags FROM {source}")
         for table in (target_a,target_b):
             sql(f"OPTIMIZE TABLE {table} FINAL SETTINGS optimize_throw_if_noop=0")
             actual=int(sql(f"SELECT count() FROM {table} FORMAT TSV").strip())
