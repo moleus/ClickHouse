@@ -1,0 +1,130 @@
+name: R33 Grafana Prometheus API native SQL parity with build-grouped Jenkins stages
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r33-grafana-api-smoke-20261104.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-r33-grafana-smoke-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  grafana:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 48
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Verify repository symlink and R33 offline fixture and request unit tests
+        run: |
+          set -euo pipefail
+          test "$(readlink AGENTS.md)" = ".claude/CLAUDE.md"
+          test "$(git ls-files -s AGENTS.md | awk '{print $1}')" = 120000
+          python3 -m py_compile .github/ts-lab-r33/*.py
+          python3 -m unittest discover -s .github/ts-lab-r33 -p 'test_*.py' -v
+          mkdir -p evidence/r33
+          git rev-parse HEAD > evidence/r33/workflow-commit.txt
+          free -b > evidence/r33/runner-memory.txt
+          nproc > evidence/r33/runner-cores.txt
+      - name: Reuse SHA-verified R29 stock O2 jemalloc ClickHouse unchanged
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r33-art" "$RUNNER_TEMP/r33-bin"
+          gh run download 41685467438 -R "$REPO" --pattern 'tslab-r29-stock-o2-jemalloc-binary-*' -D "$RUNNER_TEMP/r33-art"
+          archive="$(find "$RUNNER_TEMP/r33-art" -name 'clickhouse-stock-clickhouse-o2-jemalloc-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) > evidence/r33/archive-sha.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r33-bin"
+          (cd "$RUNNER_TEMP/r33-bin" && sha256sum -c SHA256SUMS) > evidence/r33/binary-sha.txt
+          echo "5d629ddfda91919402fdf8475ec3da9fe718d48ef386bc51be677264df6dc9ef  $RUNNER_TEMP/r33-bin/clickhouse" | sha256sum -c
+          grep -q '^source=52529f0c711566d696917678bf15e7068772fdde$' "$RUNNER_TEMP/r33-bin/BUILD_INFO.txt"
+          grep -q '^optimization=O2 USE_JEMALLOC=1 unmodified stock source no lab patches$' "$RUNNER_TEMP/r33-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/r33-bin/BUILD_INFO.txt" evidence/r33/build-info.txt
+          chmod +x "$RUNNER_TEMP/r33-bin/clickhouse"
+          "$RUNNER_TEMP/r33-bin/clickhouse" --version | tee evidence/r33/version.txt
+      - name: Launch isolated TimeSeries server with Prometheus HTTP API on loopback
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r33/data" "$RUNNER_TEMP/r33/tmp" "$RUNNER_TEMP/r33/userfiles"
+          cat > "$RUNNER_TEMP/r33-config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host>
+            <http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/r33/data/</path>
+            <tmp_path>$RUNNER_TEMP/r33/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/r33/userfiles/</user_files_path>
+            <max_server_memory_usage>4800000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks>
+              <profile>default</profile><quota>default</quota></default></users>
+            <profiles><default>
+              <allow_experimental_time_series_table>1</allow_experimental_time_series_table>
+              <enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions>
+              <log_queries>1</log_queries>
+              <max_threads>4</max_threads>
+              <max_memory_usage>1800000000</max_memory_usage>
+            </default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table>
+              <flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <default_profile>default</default_profile>
+            <default_database>default</default_database>
+          </clickhouse>
+          EOF
+          cp "$RUNNER_TEMP/r33-config.xml" evidence/r33/server-config.xml
+          "$RUNNER_TEMP/r33-bin/clickhouse" server --config-file="$RUNNER_TEMP/r33-config.xml" > evidence/r33/server.log 2>&1 &
+          echo "$!" > evidence/r33/server.pid
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo 'R33_SERVER_READY';exit 0
+            fi
+            sleep 1
+          done
+          tail -120 evidence/r33/server.log
+          exit 1
+      - name: Produce verified 14-day smoke with grouped builds and 38 stages per build
+        run: |
+          set -euo pipefail
+          python3 -u .github/ts-lab-r33/generate_grafana_ci_v2.py \
+            --output "$RUNNER_TEMP/grafana-ci-smoke.jsonl" \
+            --manifest evidence/r33/fixture-manifest.json \
+            --days 14 --builds-per-day 64 | tee evidence/r33/fixture-generation.log
+          sha256sum "$RUNNER_TEMP/grafana-ci-smoke.jsonl" > evidence/r33/fixture.sha256
+      - name: Verify exact Grafana Range Instant label values and series via HTTP against native SQL
+        run: |
+          set -euo pipefail
+          python3 -u .github/ts-lab-r33/bench_grafana_http_parity.py \
+            --fixture "$RUNNER_TEMP/grafana-ci-smoke.jsonl" \
+            --manifest evidence/r33/fixture-manifest.json \
+            --out evidence/r33/benchmark \
+            --table grafana_r33 --selection all | tee evidence/r33/benchmark.log
+      - name: Report R33 scientific state independently of GitHub job conclusion
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json,pathlib
+          p=pathlib.Path('evidence/r33/benchmark/report.json')
+          if p.exists():
+              r=json.loads(p.read_text())
+              print('R33_STATUS',r.get('status'),'errors',r.get('errors'))
+              print('R33_CASES',[(name,v.get('parity',{}).get('points'))
+                     for name,v in r.get('workload',{}).items()])
+              print('R33_ENDPOINTS',list(r.get('api_endpoints',{})))
+          else:
+              print('R33_REPORT_MISSING')
+          PY
+      - name: Preserve raw queries responses fixture metadata and any invalid outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r33-grafana-api-parity-smoke
+          path: evidence/r33/
+          retention-days: 45
+          compression-level: 1
