@@ -149,6 +149,7 @@ jobs:
           trap - EXIT
           du -sb "$RUNNER_TEMP/r27/vm-base" > evidence/r27/storage-base-bytes.txt
 
+      # Independent oracle has 19 groups for project=i%8==0 (gcd(8,38)=2); no timing intervention.
       - name: Controlled four-process 1.33m Jenkins VM global/per-day ABBA
         run: |
           set -euo pipefail
