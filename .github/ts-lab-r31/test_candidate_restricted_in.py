@@ -36,7 +36,6 @@ class RestrictionTests(unittest.TestCase):
         second=SOURCE.replace("'stage'","'project'").replace("'s1'","'project-00'")
         out=restrict_time_ranges_in_to_candidates(second)
         self.assertIn("equals(arrayElement(tags, 'project'), 'project-00')",out)
-        self.assertNotIn("'stage'","'project'") if False else None
 
     def test_rejects_missing_legacy_escape(self):
         with self.assertRaisesRegex(ValueError,"outer filter"):
