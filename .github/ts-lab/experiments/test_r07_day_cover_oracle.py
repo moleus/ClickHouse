@@ -4,13 +4,28 @@ import math
 import unittest
 from r07_day_cover_oracle import (
     DAY, Series, Unsupported, sampled_days, build_index, base_query,
-    query_cover, approximate_row_ceiling
+    query_cover, approximate_row_ceiling, audit_r01_400_slot_fixture
 )
 
 def series(series_id,metric,labels,samples):
     return Series(series_id,metric,tuple(sorted(labels.items())),tuple(samples))
 
 class R07DayCoverTests(unittest.TestCase):
+    def test_r01_aligned_day_cover_exact_count(self):
+        a=audit_r01_400_slot_fixture(False)
+        self.assertEqual(a["series"],28896)
+        self.assertEqual(a["copies"],28896)
+        self.assertEqual(a["copies_per_series"],1.)
+        self.assertEqual(a["metadata_entries_by_day"],{0:9632,1:9632,2:9632})
+
+    def test_r01_staggered_day_cover_exact_count(self):
+        a=audit_r01_400_slot_fixture(True)
+        self.assertEqual(a["series"],28896)
+        self.assertEqual(a["copies"],32424)
+        self.assertEqual(a["copy_count_histogram"],{1:25368,2:3528})
+        self.assertEqual(a["metadata_entries_by_day"],{0:9608,1:10808,2:10808,3:1200})
+        self.assertAlmostEqual(a["copies_per_series"],1.122093023255814)
+
     def test_uniform_3h_day_copy_ratio(self):
         result=sum(sampled_days(minute*60,3*3600,60)
                    for minute in range(1440))/1440
