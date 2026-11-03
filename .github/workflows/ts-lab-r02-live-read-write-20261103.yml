@@ -1,0 +1,93 @@
+name: R02 native fixed-window PromQL concurrent insert natural-merge LC RAW ABBA
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r02-live-read-write-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ts-lab-r02-live-read-write-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  r02:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      BINARY_SHA256: f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Source and preflight
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r02live
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          python3 -m py_compile .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py .github/ts-lab/experiments/r02_live_read_write_abba.py
+          python3 .github/ts-lab/experiments/r02_live_read_write_abba.py --help > evidence/r02live/help.txt
+          git rev-parse HEAD > evidence/r02live/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py .github/ts-lab/experiments/r02_live_read_write_abba.py > evidence/r02live/script-sha256.txt
+      - name: Reuse pinned SHA verified O1 binary (no recompilation)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r02live-art" "$RUNNER_TEMP/r02live-bin"
+          gh run download 41596421285 -R "$REPO" \
+            --pattern 'tslab-stock-clickhouse-o1-binary-*' \
+            -D "$RUNNER_TEMP/r02live-art"
+          archive="$(find "$RUNNER_TEMP/r02live-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r02live/archive-verify.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r02live-bin"
+          (cd "$RUNNER_TEMP/r02live-bin" && sha256sum -c SHA256SUMS) | tee evidence/r02live/binary-verify.txt
+          test "$(sha256sum "$RUNNER_TEMP/r02live-bin/clickhouse" | cut -d' ' -f1)" = "$BINARY_SHA256"
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r02live-bin/BUILD_INFO.txt"
+          grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/r02live-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/r02live-bin/BUILD_INFO.txt" evidence/r02live/build-info.txt
+          chmod +x "$RUNNER_TEMP/r02live-bin/clickhouse"
+          "$RUNNER_TEMP/r02live-bin/clickhouse" --version | tee evidence/r02live/version.txt
+      - name: Concurrent native fixed-window reader and 84 inserts under natural merges ABBA
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r02_live_read_write_abba.py \
+            --binary "$RUNNER_TEMP/r02live-bin/clickhouse" \
+            --outdir evidence/r02live --port 18191 | tee evidence/r02live/console.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/r02live/report.json'))
+          assert d['passed'] and not d['errors'],d['errors']
+          assert d['fixture_sha256']=='dd2dd55ee8fcf3c11c1fef94ebdd54ac8b3a6a53cea6deaae991b3b94c88b931'
+          assert len(d['phases'])==4 and d['comparison']['method_valid']
+          assert d['comparison']['decision'] in ('NO_EFFECT','INCONCLUSIVE_REPLICATION_NEEDED')
+          for phase,mode in (('A0','lc'),('B1','raw'),('B2','raw'),('A3','lc')):
+              x=d['phases'][phase]
+              assert x['mode']==mode and x['passed']
+              assert len(x['insert_records'])==84 and len(x['valid_reader_samples'])>=12
+              assert x['physical']['physical_sample_points']==384000
+              assert x['metrics']['native_read']['count']>=12
+              assert x['metrics']['mixed_read_write_server_process']['cpu_s']>0
+              assert len(x['read_progress_quartiles'])==4
+          print('R02_LIVE_FINAL',json.dumps({'passed':True,
+            'decision':d['comparison']['decision'],'metrics':d['comparison']['metrics'],
+            'fixture':d['fixture_sha256']},separators=(',',':')))
+          PY
+      - name: Preserve raw correct and failed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r02-live-read-write-${{ github.run_id }}
+          path: |
+            evidence/r02live/*.txt
+            evidence/r02live/*.log
+            evidence/r02live/*.json
+            evidence/r02live/phase-*/report.json
+            evidence/r02live/phase-*/config.xml
+            evidence/r02live/phase-*/server.log
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
