@@ -1,0 +1,105 @@
+name: R13 Native PromQL 200-branch literal IN versus compact regex ABBA
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ts-lab-r13-cache-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  r13:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      STOCK_O1_BINARY_SHA256: f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Preflight source and script
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r13
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          python3 -m py_compile .github/ts-lab/experiments/r13_native_regex_in_vs_match.py
+          python3 .github/ts-lab/experiments/r13_native_regex_in_vs_match.py --help > evidence/r13/help.txt
+          git rev-parse HEAD > evidence/r13/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r13_native_regex_in_vs_match.py > evidence/r13/script-sha256.txt
+      - name: Reuse stock pinned O1 ClickHouse (no recompilation)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r13-art" "$RUNNER_TEMP/r13-bin"
+          gh run download 41596421285 -R "$REPO" \
+            --pattern 'tslab-stock-clickhouse-o1-binary-*' \
+            -D "$RUNNER_TEMP/r13-art"
+          archive="$(find "$RUNNER_TEMP/r13-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r13/archive-verify.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r13-bin"
+          (cd "$RUNNER_TEMP/r13-bin" && sha256sum -c SHA256SUMS) | tee evidence/r13/binary-verify.txt
+          test "$(sha256sum "$RUNNER_TEMP/r13-bin/clickhouse" | cut -d' ' -f1)" = "$STOCK_O1_BINARY_SHA256"
+          test "$(grep '^source=' "$RUNNER_TEMP/r13-bin/BUILD_INFO.txt")" = \
+               "source=52529f0c711566d696917678bf15e7068772fdde"
+          grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/r13-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/r13-bin/BUILD_INFO.txt" evidence/r13/build-info.txt
+          chmod +x "$RUNNER_TEMP/r13-bin/clickhouse"
+          "$RUNNER_TEMP/r13-bin/clickhouse" --version | tee evidence/r13/version.txt
+      - name: Start isolated TimeSeries with QueryFinish and stock O1
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r13"/{data,tmp,userfiles}
+          cat > "$RUNNER_TEMP/r13/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/r13/data/</path><tmp_path>$RUNNER_TEMP/r13/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/r13/userfiles/</user_files_path>
+            <max_server_memory_usage>1500000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions><max_threads>2</max_threads><max_memory_usage>750000000</max_memory_usage><log_queries>1</log_queries></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/r13-bin/clickhouse" server --config-file="$RUNNER_TEMP/r13/config.xml" > evidence/r13/server.log 2>&1 &
+          echo "$!" > evidence/r13/server.pid
+          ready=0
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping > evidence/r13/ping.txt 2>/dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then tail -100 evidence/r13/server.log; exit 1; fi
+      - name: Same-series native 200-branch matcher exact oracle and ABBA CPU
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r13_native_regex_in_vs_match.py \
+            --endpoint http://127.0.0.1:18191/ --table tslab_r13_regex \
+            --pid-file evidence/r13/server.pid \
+            --out evidence/r13/report.json | tee evidence/r13/console.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/r13/report.json'))
+          assert d['passed'] and d['semantic_correctness'] and not d['errors'],d['errors']
+          assert d['series']==32768 and d['expected_selected_series']==6400
+          assert len(d['phases'])==4 and len(d['trials'])==24
+          assert d['comparison']['baseline_wall_drift_fraction']<=.25
+          assert all(t['points']==16 for t in d['trials'])
+          assert len(d['fixture_sha256'])==64
+          print('R13_FINAL',json.dumps({'result':d['scientific_decision'],
+            'fixture_sha':d['fixture_sha256'],'comparison':d['comparison']}))
+          PY
+      - name: Persist all results including failed safety gate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r13-regex-${{ github.run_id }}
+          path: evidence/r13/
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
