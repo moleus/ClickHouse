@@ -1,6 +1,6 @@
 # R31 — replace native TimeRanges metadata JOIN with an ID membership set?
 
-Date: 2026-11-04. **Status: candidate under SQL test; no native C++ implementation or performance decision.** Owner: `chatgpt-r31-native-metadata-in-semijoin-20261104`, [canonical root](../ts-lab/claims/roots/R31.json), [claim](../ts-lab/claims/R31-timeranges-membership-in-semijoin-v1.json).
+Date: 2026-11-04. **Status: small-fixture SQL-stage PASS; no native C++ implementation or release decision.** Owner: `chatgpt-r31-native-metadata-in-semijoin-20261104`, [canonical root](../ts-lab/claims/roots/R31.json), [claim](../ts-lab/claims/R31-timeranges-membership-in-semijoin-v1.json).
 
 ## Pinned architecture and the opposing costs
 
@@ -43,11 +43,32 @@ This proves membership equivalence **at the logical ID-set level** under the sou
 ## Differential experiment
 
 - [Executable R31 SQL probe](bench_membership_in.py), [parser unit tests](test_membership_in.py), [isolated workflow](../workflows/ts-lab-r31-membership-in-20261104.yml).
-- [CI #41719952453](https://github.com/moleus/ClickHouse/actions/runs/41719952453) launched on identical SHA-verified old O1 JOIN-override source and binary (source `52529f0c...`, executable SHA256 `3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221`).
+- [CI #41719952453](https://github.com/moleus/ClickHouse/actions/runs/41719952453) **PASS** on identical SHA-verified old O1 JOIN-override source and binary (source `52529f0c...`, executable SHA256 `3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221`).
 - Two deterministic disjoint TimeSeries tables: `k=1` and `k=16` unmerged writes for 2048 stable IDs, plus before/after-window controls. Scoped `SYSTEM STOP MERGES <new TimeRanges>` before INSERT; exact physical rows/IDs gate; keep both sides' natural TAGS/SAMPLES.
 - For `stage`, `project`, `whole`: exact sorted distinct ID-set equality; entire `(id,samples)` output equality, SQL EXPLAIN per mode, and positive nonempty baseline. Any mismatch => **CORRECTNESS_FAIL**.
 - For project: `ALL/ANY/IN/IN/ANY/ALL`, 3 warmups+4 measured per phase, 25% drift gate for each mode. QueryFinish wall, `OSCPUVirtualTimeMicroseconds`, `read_rows`, `read_bytes`, query-level memory. A new process is **not** created between modes; matched in-process phase comparisons control obvious warmup/order bias but not RSS retention.
 - One job only; no large compile, no workload-scheduler change, no other job cancellation.
+
+## Measured SQL-stage result and physical-plan finding
+
+[CI #41719952453](https://github.com/moleus/ClickHouse/actions/runs/41719952453) **PASS**, [immutable evidence](../ts-lab/evidence/R31-inset-three-way-41719952453.json), ZIP SHA256 `6d283c065ab65dacf3679fc128d2472d4d133a1fa6a795a67aad0b72d660d4db` (artifact `13272220952`). The source and lab-only O1 binary are pinned, no compilation or C++ changes. Both tables have 2048 stable series, plus 256 before-window and 256 after-window IDs, with right TimeRanges `2560` rows at k1 or `33280` rows at k16. Three selectors (stage, project, whole) passed equal **exact sorted distinct ID hash** and full `(id,samples)` hash across ALL, ANY and IN for both k levels, six comparisons in total. Source stock-native result is nonempty, but modified native PromQL was NOT run.
+
+*Project selector*, A/B/C/C/B/A, 3 warmups + 4 measured queries per phase, mean of two phase medians:
+
+| TimeRanges hot rows/ID | Method | Wall ms | CPU ms | Tracked query peak MB | Read rows | Read bytes |
+|---|---|---:|---:|---:|---:|---:|
+| 1 | ALL | 14 | 16.331 | 8.926 | 4608 | 420460 |
+| 1 | ANY | 14 | 15.565 | 9.039 | 4608 | 420460 |
+| 1 | IN | 13 | 14.353 | 8.610 | 4608 | 370340 |
+| 16 | ALL | 44 | 54.891 | 13.352 | 35328 | 1710940 |
+| 16 | ANY | 30.75 | 40.947 | 11.738 | 35328 | 1710940 |
+| 16 | IN | **20** | **29.538** | **8.609** | 35328 | 1660820 |
+
+At k16, IN vs ALL: wall **−54.5%**, CPU **−46.2%**, tracked peak memory **−35.5%**. IN vs ANY: wall **−35.0%**, CPU **−27.9%**, tracked peak **−26.7%**. All per-mode A/A control drifts below 2.3%. With k1, 1ms wall difference is too small to conclude stable general gain. `read_rows` are the same in all three modes at fixed k; `read_bytes` are ~50k lower for IN, consistent with more effective late column reads, **not** fewer scanned physical rows.
+
+**New physical-plan discovery:** the exact saved standalone `EXPLAIN PLAN` for IN shows `CreatingSets (Create sets before main query execution)` followed by `ReadFromMergeTree(TAGS)` with `id IN subquery1` **in PREWHERE**, alongside the metric and text-label filter. ALL and ANY both show a `FullSortingMergeJoin`. Therefore IN is not just a different JOIN strictness: it builds an ID set before reading TAGS and may push membership down to PREWHERE; the read-path tradeoff is real. The top-level IN EXPLAIN does not expose the TimeRanges set build's actual memory, so do not assume that `CreatingSets` is free.
+
+This is a measured win for one **2,048-series synthetic ID SQL stage**, not full native PromQL, O2/jemalloc production, 1.33m/14d, or concurrent RSS safety. A larger workload can reverse the result because IN may build a large set while source's sorted merge streams.
 
 ## Decision gates
 
