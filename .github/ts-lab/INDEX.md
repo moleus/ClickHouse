@@ -166,3 +166,20 @@ do not start duplicate large R01 experiments.
   it needs a separate root claim and no concurrent duplicate. The other R01 fixture's stagger/HPA/counter
   semantics and 14-day/concurrent/write production parity remain untested here.
 
+## 2026-11-03: R10 2×3 TimeSeries SAMPLES bucket x ID factorial
+
+[Immutable 20-pair native A/B/B/A evidence](evidence/R10-bucket-id-factorial-v1-41613268106.json) /
+[GitHub Actions #41613268106](https://github.com/moleus/ClickHouse/actions/runs/41613268106) **SUCCESS**.
+Same pinned stock O1 source/binary, same R01 fixture SHA256 `ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d`, same full native PromQL outputs, same TAGS ID digest and 2,488,320 points/table. 12 LC↔RAW ID comparisons at 900/3600/10800s plus 8 within-ID bucket-step comparisons, all 20 A/B/B/A controls valid (max drift 12.944%, no OOM). Root claim R10 is independent of R01.
+
+| Step | SAMPLES bucket rows | LC three-table disk | RAW three-table disk |
+|---:|---:|---:|---:|
+| 900s | 346,752 | 7,955,846 B | 7,798,682 B |
+| 3600s | 86,688 | 7,569,815 B | 7,424,806 B |
+| 10800s | 28,896 | 6,966,960 B | 6,833,238 B |
+
+- Strong negative control: **RAW pod_namespace 1d** at 900s vs3600s: p50 **37.270→48.052ms (+28.9%)**, CPU **61.184→88.962ms (+45.4%)**, read_rows **102,368→218,592 (+113.5%)**; baseline control drift only **0.142%**. LC also slows 28.7% on the same selector.
+- 10800s RAW versus3600s reduces physical disk **~8%** and node-broad read_rows **57,728→38,592**, but node-broad p50 **91.906→95.784ms (+4.2%)**, while namespace p50 **37.526→36.709ms (-2.2%, close to 1.7% drift)**. **No universal best bucket**.
+- RAW UUID remains mildly faster than LC at every step on this fixture (~1.03–1.07× by selector); benefit is smaller than original one-point-per-series Jenkins fixture.
+- Decision **ACCEPT_FOR_NEXT_GATE** only. Need **15m/1h/3h lookback** and bucket-boundary parity; 1d avg windows alone cannot justify changing the global 3600s SAMPLES bucket setting. Profiled CPU/read data in artifact; no production allocator or concurrent-client proof.
+
