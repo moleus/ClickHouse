@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "question_id": "R09-upstream-timeseries-delta-v1",
+  "decision": "ACCEPT_SOURCE_AUDIT_ONLY",
+  "ci_status": "not_run",
+  "timestamp_utc": "2026-11-03T10:37:00Z",
+  "pinned_source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "upstream_repository": "ClickHouse/ClickHouse",
+  "upstream_branch": "master",
+  "upstream_commit_sha": "a79b6cefb2fafc49d04f357a7edc512e25b93753",
+  "comparison": [
+    {
+      "file": "src/Storages/StorageTimeSeriesSelector.cpp",
+      "pinned_blob": "85ccfd77d8a294e4cb27804f1ffb5fa1a78fb515",
+      "upstream_blob": "85ccfd77d8a294e4cb27804f1ffb5fa1a78fb515",
+      "identical": true,
+      "classification": "no direct source change to native selector readImpl at this snapshot"
+    },
+    {
+      "file": "src/Storages/TimeSeries/TimeSeriesSink.cpp",
+      "pinned_blob": "192f09a3d21a27a4c25029e2730499a2f7588fa6",
+      "upstream_blob": "192f09a3d21a27a4c25029e2730499a2f7588fa6",
+      "identical": true,
+      "classification": "no direct bucket writer/source change at this snapshot"
+    },
+    {
+      "file": "src/Storages/StorageTimeSeries.cpp",
+      "pinned_blob": "68dc4a126ff8a53bc737fcf4ee30235b209ca34d",
+      "upstream_blob": "00c7a5d95e3cbd1fadabf4acd4dbe0c01a64ac2f",
+      "identical": false,
+      "classification": "observed diff only in comments/docs for randomized dedup-cache expiry; no exact runtime behavior claim"
+    },
+    {
+      "file": "src/Storages/TimeSeries/TimeSeriesSettings.cpp",
+      "pinned_blob": "2e55717d241728cff214355278aa4cb18959f015",
+      "upstream_blob": "685c4f5f394b725c4b05fb065c2fb182ecbdda19",
+      "identical": false,
+      "classification": "observed diff in declaration descriptions of tags and metric-family dedup expiration; numeric defaults unchanged in compared macro declarations"
+    },
+    {
+      "file": "src/DataTypes/Serializations/SerializationLowCardinality.cpp",
+      "pinned_blob": "f0ed2f4716dee45c30e570064df8a4b480703ff3",
+      "upstream_blob": "4e0d99cd7290d039e953b3087ce8d365e94e41e7",
+      "identical": false,
+      "classification": "adds explicit checkIndexesAreLimited on index stream when need_global_dictionary is TRUE using global size + optional additional keys; no-global branch unchanged, so experimental R12 no-global dictionary adoption remains unguarded"
+    },
+    {
+      "file": "src/Columns/ColumnLowCardinality.cpp",
+      "pinned_blob": "0b01aecad99d558ebd72e2961f952f752f40ebba",
+      "upstream_blob": "4c8f5d74158fcdd274ee2a7e49f778b5a40e7ca3",
+      "identical": false,
+      "classification": "file-static checkIndexesAreLimited changed to ColumnLowCardinality static method, typed max index comparison; adds comparable serialization and batch serialization path, modifies one memory serialization detail"
+    },
+    {
+      "file": "src/Columns/ColumnLowCardinality.h",
+      "pinned_blob": "19aa8274f256b9da152a0f5f0e8017ffecad2664",
+      "upstream_blob": "43baa2bc13dcb4d8424faf06625e9f04673e5ae5",
+      "identical": false,
+      "classification": "public static ColumnLowCardinality::checkIndexesAreLimited now declared and usable by proposed safe fastpath"
+    }
+  ],
+  "source_pointers": [
+    "https://github.com/ClickHouse/ClickHouse/blob/a79b6cefb2fafc49d04f357a7edc512e25b93753/src/DataTypes/Serializations/SerializationLowCardinality.cpp#L710-L723",
+    "https://github.com/ClickHouse/ClickHouse/blob/a79b6cefb2fafc49d04f357a7edc512e25b93753/src/Columns/ColumnLowCardinality.h#L102-L109",
+    "https://github.com/ClickHouse/ClickHouse/blob/a79b6cefb2fafc49d04f357a7edc512e25b93753/src/Columns/ColumnLowCardinality.cpp#L301-L335",
+    "https://github.com/ClickHouse/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/StorageTimeSeriesSelector.cpp#L1219-L1366"
+  ],
+  "conclusions": [
+    "No direct latest-master change in the two audited TimeSeries reader and sink source files; pinned R01/R10 causal experiments remain relevant to those local functions, while library/compiler changes still could affect runtime.",
+    "New upstream LC bounds checking in GLOBAL dictionary stream is not equivalent to the no-global fastpath validation omitted by unguarded R12 patch.",
+    "The now-exposed checkIndexesAreLimited helper could support a safe linear-time bounds check when reworking LC adoption, but duplicate dictionary key semantic equivalence and continuous reading remain open.",
+    "No runtime benchmarking latest upstream was performed, so do not claim master is faster/slower than pinned baseline or that upstream solves measured bottlenecks."
+  ],
+  "limitations": [
+    "This checks exactly seven source files; CMake options, transitive libraries, other TimeSeries files, optimizer and read IO implementations can change between revisions.",
+    "Upstream master is moving; source snapshot must always be cited with exact commit.",
+    "No produced binaries or native PromQL fixtures for upstream master.",
+    "LowCardinality fastpath in R12 is experimental and unsafe for malformed index streams regardless of normal-data performance."
+  ],
+  "next_action": "If R12 matched build performance justifies work, design a guarded C++ path using the latest publicly exposed ColumnLowCardinality::checkIndexesAreLimited, plus a verified exact-unique dictionary contract and malformed-input tests; only then consider expensive latest-master optimized build with matching controls."
+}
