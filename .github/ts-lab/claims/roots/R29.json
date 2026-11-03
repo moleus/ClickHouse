@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "question_id": "R29",
+  "primary_claim_id": "R29-stock-o2-jemalloc-source-parity-v1",
+  "owner": "chatgpt-e01-stock-o2-jemalloc-20261103",
+  "scope": "E01 build-only release-optimized benchmark baseline: compile pinned unchanged ClickHouse TimeSeries source 52529f0c711566d696917678bf15e7068772fdde using verified LLVM22.1.8, -O2, ENABLE_JEMALLOC=ON, preserve exact source and submodules, SHA-verified artifact/BUILD_INFO/cmake cache/runtime allocator smoke; do not include any historical v4 or other C++ lab patches. One isolated ccache-enabled CI build. No E02 VM benchmark or R03 rerun until build exists; no production deployment, no master/upstream changes, no cancellation or corruption of caches. Distinct from R18 patched jemalloc and prior O1, from R28 native workload admission, and from R05-R07 data path owners.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-03",
+  "source_proof": "Existing stock O1 successful build workflow ts-lab-stock-clickhouse-o1-20261103.yml produces unmodified pinned source; prior ts-lab-v4-o2-jemalloc-20261102.yml uses three C++ patches and is unsuitable as stock baseline. E01 requires a matched optimized unmodified benchmark artifact before interpreting stock-vs-VM gaps.",
+  "math_bound": "Binary artifact generation cannot itself establish latency gain. If stock O1 time T has fraction f compiler-sensitive, upper bound with infinitely optimized sensitive fraction is 1/(1-f); without independent CPU/profile evidence no f is known. Changing optimization and allocator together constitutes one intentionally combined build configuration, not a causal proof of either factor; runtime experiment must compare complete combined configuration to O1 and isolate components if causal attribution desired.",
+  "warning": "Performance outcome remains UNMEASURED. No source-default patch is authorized by this root."
+}
