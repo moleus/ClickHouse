@@ -1,0 +1,21 @@
+{
+  "id": "R14-exact-step-grid-avg-rollup-v1",
+  "question": "Can precomputed, source-versioned PromQL per-grid (sum,count) sufficient statistics avoid repeatedly scanning and joining high-churn TimeSeries for a restricted avg by(stage) dashboard, while retaining exact per-series semantics?",
+  "owner": "chatgpt-r14-exact-rollup-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Unmodified native ClickHouse TimeSeries v11 full query_range evaluating avg by(stage) after native matcher/lookup/range functions; no rewrite and no query cache.",
+  "candidate": "Only an explicit, versioned or sealed step-grid rollup (time,stage,job,branch) with per-series-derived sum and count, plus optional (time,stage,job) all-branch cube; strict exact-grid/source-version/label-set matcher gate otherwise fallback.",
+  "fixture": "Pure synthetic deterministic oracle, test fixture with finite floats, stale markers, multi-sample series, duplicate/dirty rejection; plus conditional arithmetic 95000 series per day, 38 stages and hypothetical 10 jobs for 14 days (not measured actual labels).",
+  "single_variable": "Query read from precomputed sealed/versioned step-grid sufficient statistics versus same logical native PromQL values, with source content version, evaluation grid, mode, lookback and allowed labels fixed.",
+  "math_bound": "For AVG of N per-series finite results, (sum,count) is sufficient and hierarchical mean is sum(group sums)/sum(group counts); O(N) once per grid, O(G) per eligible repeat, G distinct retained label groups. Hypothetical branch-All stage*job groups: N=95000*14=1330000, G=38*10*14=5320 => 250x fewer logical per-query items only; Amdahl speed ceiling 1/(1-f+f/250) at affected CPU fraction f. Exact effect requires real group NDV and native data/CPU profile.",
+  "falsifier": "No benefit if eligible query shape is rare, job/branch grouping NDV close to series count, rebuilding is too expensive, source revision cannot guarantee freshness, late updates invalidate snapshots, precision/semantics mismatch or native p50/p99/CPU/RSS/read bytes fail paired correctness and budget.",
+  "test_matrix": "Pure Python oracle for instant 5m lookback staleness and avg_over_time per-series aggregation; stage/job/branch literal matchers, time boundaries, freshness invalidation, duplicate IDs/timestamps, nonfinite inputs and randomized parity. Later only same-runner stock native oracle vs derived nonempty output with original exact panel, selected labels, 1/3/7/14/40d, branch All/filter, updates, rollback, storage/write cost and A/B/B/A.",
+  "runner_budget": "Zero C++ builds and no high-cost Actions until math/correctness and corpus NDV gates pass. Local Python unittest only; may add cheap workflow only after no branch conflict.",
+  "planned_workflow": "None for proof phase; reuse existing source, frozen datasets and exact stock O1 binary later.",
+  "dependencies": [
+    "Prometheus basic query semantics: instant lookback/stale, range (T-horizon,T], per-series avg_over_time before cross-series avg",
+    "R11 query-cache stale-after-INSERT negative evidence; snapshot revision/immutability is mandatory and not automatically provided",
+    "R10 real-shaped bucket distribution shows that fewer physical rows alone need not improve native CPU; Amdahl and query shape must be checked"
+  ]
+}
