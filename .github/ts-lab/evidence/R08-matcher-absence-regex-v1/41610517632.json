@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "question_id": "R08-matcher-absence-regex-v1",
+  "decision": "ACCEPT_FOR_NEXT_GATE",
+  "ci_status": "success",
+  "recorded_utc": "2026-11-03T09:24:00Z",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "lab_binary": {
+    "kind": "O1 JOIN-override, defaults unchanged",
+    "build_workflow": "https://github.com/moleus/ClickHouse/actions/runs/41531656434",
+    "binary_sha256": "3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221",
+    "llvm": "22.1.8",
+    "version": "26.11.1.1",
+    "archive_sha256_verified": true,
+    "inner_binary_sha256_verified": true
+  },
+  "fixture": {
+    "name": "Synthetic 12 unique case_id series with two points each",
+    "input_sha256": "6ece3bbbaf5b861ba9df907b378891af31eff66f8964e8161eda8680e4fe496e",
+    "synthetic": true,
+    "metric_name": "tslab_r08_matcher_labels",
+    "query_epoch_utc": "2026-08-10T12:03:00Z",
+    "query_step_seconds": 60,
+    "physical_parts_before": {
+      "tags": 2,
+      "samples": 2,
+      "timeranges": 2
+    },
+    "physical_parts_after": {
+      "tags": 1,
+      "samples": 1,
+      "timeranges": 1
+    },
+    "rows_per_inner_target": 12
+  },
+  "math_bound": "For each case ID i, each PromQL matcher m tests label value li(k) or '' when key k is absent. = and != use string comparisons; =~ and !~ use regex fullmatch. Native sum by(case_id)(last_over_time(metric{m}[5m])) must emit exactly (case_id_i,T,i+101) for every matching series. Because case_id is unique, grouping has no numeric rounding ambiguity. Any different key or value falsifies the oracle.",
+  "method": "One isolated ubuntu-24.04 Actions job, actual native prometheusQueryRange, source and executable SHA checks. 21 distinct matcher cases applied before and after verified physical part merge. No C++ modifications; no direct SQL substitute; independent Python matcher oracle. Exactly one timestamp per resulting case_id.",
+  "matrix": {
+    "matcher_tests": 21,
+    "physical_phases": 2,
+    "expected_checks": 42,
+    "passed_checks": 42,
+    "nonempty_cases": 38,
+    "empty_cases": 4,
+    "errors": [],
+    "float_equality": "exact integer-valued float",
+    "label_timestamp_equality": "exact",
+    "physical_part_merges_verified": true
+  },
+  "measurements": {
+    "read_wall_p50_ms": null,
+    "cpu_p50_ms": null,
+    "server_rss": null,
+    "profiler_overhead": null,
+    "reason": "Correctness-only experiment; no performance claim"
+  },
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41610517632",
+    "job_id": 125830944374,
+    "artifact_id": 13218358175,
+    "artifact_sha256": "012ad0123f6fc958bdcc0fba8d495811b23a13df0881a13bd1a1b7b7ed14bbdb",
+    "workflow_path": ".github/workflows/ts-lab-r08-native-matcher-semantics-20261103.yml",
+    "source_script": ".github/ts-lab/experiments/r08_matcher_semantics.py",
+    "workflow_commit": "a944fe7db931ff8572da36368917f3b27e2b0178"
+  },
+  "limitations": [
+    "No NaN/Inf, staleness, reset, duplicate timestamp, late write, ACL or cross-tenant authorization test.",
+    "Only one fixed small fixture and the lab O1 binary. No independent VictoriaMetrics/Prometheus server oracle.",
+    "The Python regex oracle uses fullmatch on simple regex patterns also supported by PromQL. Complex RE2 features are not covered.",
+    "No load, wall/CPU or production performance claims."
+  ],
+  "stop_condition": "Do not promote source fast paths on this gate alone. Stop if any oracle case differs or the physical part-count guard fails.",
+  "next_action": {
+    "question_id": "R08-counter-stale-ttl-merge-v2",
+    "step": "Run separate small native PromQL differential test for counter reset, out-of-order/duplicate samples, stale-NaN and TTL boundaries using independent reference/VM; compare across part merges and restarts.",
+    "stop_condition": "Any parity mismatch, ingestion rejection or unsupported semantics must be classified separately and not hidden as successful benchmark."
+  }
+}
