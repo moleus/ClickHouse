@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "question_id": "R18-timeseries-samples-value-codec-v1",
+  "dependent_gate": "Source and runtime provenance of independently built patched jemalloc allocator binary before any R18 read/write comparison",
+  "state": "ARTIFACT_VERIFIED_NOT_COMPARATIVE_BENCHMARK",
+  "github_build": {
+    "run_id": 41607779848,
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41607779848",
+    "conclusion": "success",
+    "head_sha": "bbb9c9b5319ca768bc9a9cb61a90e3140969d8ff",
+    "workflow_path": ".github/workflows/ts-lab-cbo-jemalloc-o1-cxx-20261103.yml",
+    "job_id": 125821818298,
+    "artifact_id": 13230128180,
+    "artifact_name": "tslab-cbo-jemalloc-o1-binary-bbb9c9b5319ca768bc9a9cb61a90e3140969d8ff",
+    "artifact_zip_sha256": "9e716f524c0802a29d42cc542accc3b388b2766920ae04936687ad101e6e2295",
+    "artifact_zip_bytes": 85058459
+  },
+  "artifacts": {
+    "archive_path": "output/clickhouse-cbo-jemalloc-o1-linux-amd64.tar.zst",
+    "archive_sha256": "9c20ccdad5a689765e1945c1af2a9985507c536f7c121229831d987f2a2bd21f",
+    "executable_sha256": "26b1577cea637b98a1d0b3c9efc996cd266234bf6ef89bd1912c75c56098eed3",
+    "executable_bytes": 485966768,
+    "build_info": "source=52529f0c711566d696917678bf15e7068772fdde; fork=bbb9c9b5319ca768bc9a9cb61a90e3140969d8ff; llvm=22.1.8; optimization=O1 + JOIN override and jemalloc, other external libraries disabled",
+    "combined_patch_sha256": "9b276978f7824e1b0e368c873e06ee0f3a4ccccbd8f6bdd90b28b497bf1a848c",
+    "changed_cpp_files": [
+      "src/Storages/StorageTimeSeriesSelector.cpp",
+      "src/Storages/TimeSeries/PrometheusQueryToSQL/Converter.cpp"
+    ]
+  },
+  "compiler_and_jemalloc": {
+    "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+    "toolchain": "LLVM 22.1.8 O1 -DNDEBUG -g0 -march=x86-64-v3 Release",
+    "cmake_cache": "ENABLE_JEMALLOC:BOOL=ON",
+    "cmake_output": "Adding contrib module jemalloc; jemalloc malloc_conf: percpu_arena:percpu,oversize_threshold:67108864,muzzy_decay_ms:0,dirty_decay_ms:5000,prof:true,prof_active:true,prof_thread_active_init:false,background_thread:true,lg_extent_max_active_fit:6",
+    "jemalloc_submodule_sha": "c7427d5cd2599bffa33967875f5f251caeefb291"
+  },
+  "runtime_proof": {
+    "container": "Unpacked ZIP->zstd tar->verified binary SHA256; ELF x86-64 dynamic linked, no source modification in this check",
+    "binary_version": "ClickHouse local version 26.11.1.1",
+    "command": "clickhouse local -q SELECT count() FROM system.jemalloc_bins",
+    "bins_count": 232,
+    "active_bin_regs": 66039,
+    "stats_table": "system.jemalloc_stats",
+    "jemalloc_stats_runtime_prefix": "Version: \"5.3-RC\"; config.prof:true; background_thread:true; opt.narenas:5; allocated/resident counters nonzero",
+    "interpretation": "jemalloc is actually linked and operational in ClickHouse local, beyond merely being enabled in CMake"
+  },
+  "patch_relevance": {
+    "join_override": "StorageTimeSeriesSelector::applySettingsForSelectIDsQuery conditionally sets join_algorithm=full_sorting_merge and optimize_read_in_order only if user did not explicitly set them; stock did so unconditionally. For default settings, expected same behavior but code differs.",
+    "sum_rate_fastpath": "Converter.cpp adds narrow code path sum(rate(exact_metric[range])) with no grouping; R18 query avg by(namespace|project)(avg_over_time(...[1d])) does NOT match this pattern, so this fastpath should not trigger for R18 workloads.",
+    "not_clean_allocator_comparison": "Original stock O1 binary  f0a2fa1f... has neither the two C++ patches nor same jemalloc linkage. A stock-vs-jemalloc patched comparison cannot attribute differences solely to allocator, even when source audit predicts branches not taken.",
+    "not_a_production_binary": "O1 with disabled external libraries and experimental C++ patches; does not equal ClickHouse standard Release optimized build or production deployment."
+  },
+  "next_action": "Use this artifact for independent R18 1/4/8 full-native correctness, memory/RSS, and jemalloc allocator statistics under canonical fixture. Never claim speedup relative to glibc stock is an isolated allocator change. True allocator A/B requires two binary builds at exactly identical source patches, compiler flags and libraries, differing only ENABLE_JEMALLOC, or a way to select allocator without recompilation. Reuse binary and cache; never cancel active C++ builds."
+}
