@@ -1,6 +1,6 @@
 import pathlib, sys, tempfile, unittest
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
-from probe_nested_selector_plan import parse_selector_sql, extract_ids_subquery, fixture, settings_for, ANCHOR
+from probe_nested_selector_plan import parse_selector_sql, extract_ids_subquery, estimated_join_rows, fixture, settings_for, ANCHOR
 
 class TestNestedPlan(unittest.TestCase):
     def test_extract(self):
@@ -42,6 +42,17 @@ class TestNestedPlan(unittest.TestCase):
     def test_missing_in_source(self):
         with self.assertRaisesRegex(ValueError, 'No native SAMPLES'):
             extract_ids_subquery('SELECT id FROM samples')
+
+    def test_estimated_input_units(self):
+        plan = ('Type: left | Algorithm: FullSortingMergeJoin\n'
+                'Left: rows estimated 1.35 thousand\n'
+                'Right: rows estimated 892.00\n')
+        self.assertEqual(estimated_join_rows(plan), {'left': 1350.0,'right':892.0})
+        self.assertEqual(estimated_join_rows('Left: rows estimated 0.5 million\n'
+                                             'Right: rows estimated 10 billion'),
+                         {'left':500000.0,'right':10000000000.0})
+        with self.assertRaisesRegex(ValueError,'Right'):
+            estimated_join_rows('Left: rows estimated 12')
 
     def test_no_debug(self):
         with self.assertRaisesRegex(ValueError, 'Missing'): parse_selector_sql('irrelevant')
