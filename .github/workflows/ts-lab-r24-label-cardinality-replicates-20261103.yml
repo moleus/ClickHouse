@@ -1,0 +1,128 @@
+name: R24 independently replicate equal-byte 8-vs36-label native CPU ABBA
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r24-label-cardinality-replicates-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ts-lab-r24-label-count-replicate-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  r24:
+    name: replicated-label-count-${{ matrix.replicate }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        replicate: [one, two]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      BINARY_SHA256: f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Source and preflight
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r24
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          python3 -m py_compile .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py .github/ts-lab/experiments/r24_equal_wire_label_count_abba.py
+          python3 .github/ts-lab/experiments/r24_equal_wire_label_count_abba.py --help > evidence/r24/help.txt
+          test "$(git hash-object .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py)" = fd3673d47fcdf575033bfebfaaf56ef2e2affc60
+          grep -q 'EXPECTED_COMMON_SHA=' .github/ts-lab/experiments/r24_equal_wire_label_count_abba.py
+          grep -q "system.events global worker-inclusive delta" .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py
+          grep -q "start_cache_events.get(hit_event,0)" .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py
+          git rev-parse HEAD > evidence/r24/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py .github/ts-lab/experiments/r24_equal_wire_label_count_abba.py > evidence/r24/script-sha256.txt
+      - name: Reuse pinned SHA verified O1 binary (no recompilation)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r24-art" "$RUNNER_TEMP/r24-bin"
+          gh run download 41596421285 -R "$REPO" \
+            --pattern 'tslab-stock-clickhouse-o1-binary-*' \
+            -D "$RUNNER_TEMP/r24-art"
+          archive="$(find "$RUNNER_TEMP/r24-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r24/archive-verify.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r24-bin"
+          (cd "$RUNNER_TEMP/r24-bin" && sha256sum -c SHA256SUMS) | tee evidence/r24/binary-verify.txt
+          test "$(sha256sum "$RUNNER_TEMP/r24-bin/clickhouse" | cut -d' ' -f1)" = "$BINARY_SHA256"
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r24-bin/BUILD_INFO.txt"
+          grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/r24-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/r24-bin/BUILD_INFO.txt" evidence/r24/build-info.txt
+          chmod +x "$RUNNER_TEMP/r24-bin/clickhouse"
+          "$RUNNER_TEMP/r24-bin/clickhouse" --version | tee evidence/r24/version.txt
+      - name: Four fresh stock servers 8-36-36-8 labels exact same 57.87MB JSON bytes
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r24_equal_wire_label_count_abba.py \
+            --binary "$RUNNER_TEMP/r24-bin/clickhouse" \
+            --outdir evidence/r24 --port 18191 | tee evidence/r24/console.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/r24/report.json'))
+          assert d['passed'] and not d['errors'],d['errors']
+          assert d['decision'] in ('NO_ROBUST_TAG_COUNT_CPU_EFFECT',
+              'HIGH_TAG_COUNT_CPU_COST_REPLICATION_NEEDED',
+              'HIGH_TAG_COUNT_CPU_BENEFIT_REPLICATION_NEEDED')
+          assert d['source_sha']=='52529f0c711566d696917678bf15e7068772fdde'
+          assert d['binary_sha256']=='f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e'
+          fixture=d['fixture']
+          assert fixture['common_labels_samples_sha256']=='4d92a699ce39aaaa539985e8c9f03581a4316931fe5e44dfaae3901379e5192f'
+          assert fixture['wire_sha256']['few']=='3c2818c73c3ddb39e72b36fb4d7ee69202dbba2d70e54cbd589dcb2073345e63'
+          assert fixture['wire_sha256']['many']=='055f8e78aa8cb79321c93b5dcbd748d9afff05b6018957150d48d779479b0f44'
+          assert fixture['equal_wire_bytes']==57871560
+          assert fixture['samples_per_phase']==98304 and fixture['series']==4096 and fixture['batches']==24
+          assert fixture['input_tags']=={'few':8,'many':36}
+          assert fixture['stored_tags']=={'few':9,'many':37}
+          assert fixture['low_payload_length']==372 and fixture['high_payload_length']==8
+          assert len(d['phases'])==4 and len(d['comparison'])==11
+          for phase,mode in (('A0','few'),('B1','many'),('B2','many'),('A3','few')):
+              x=d['phases'][phase]
+              assert x['passed'] and not x['errors']
+              assert x['tag_count_mode']==mode and x['variant']=='large'
+              assert x['input_sha256']==fixture['wire_sha256'][mode]
+              assert len(x['insert_rows'])==24 and len(x['native_samples'])==9
+              assert x['physical']['physical_samples_points']==98304
+              assert x['physical']['tags']['count']==4096 and x['physical']['tags']['distinct_id']==4096
+              assert x['physical']['tags']['stored_labels_per_series']==fixture['stored_tags'][mode]
+              assert x['stats']['total_cache_hits']==94208 and x['stats']['total_cache_misses']==4096
+              assert x['cache_bytes']==1048576 and x['cache_expiration_seconds']==3600
+              assert x['stats']['ingest']['cpu_s']>0
+              assert x['stats']['native']['measured_queries']==6
+          for key in ('ingest_process_cpu_s','native_wall_p50_ms','native_cpu_p50_ms'):
+              assert d['comparison'][key]['few_AA_drift']<=.25
+          assert abs(d['comparison']['native_read_rows_p50']['many_over_few']-1)<=.01
+          print('R24_TAGS_COUNT_VALIDATED',json.dumps({
+              'passed':True,'decision':d['decision'],
+              'fixture':fixture['common_labels_samples_sha256'],
+              'comparison':d['comparison']},separators=(',',':')))
+
+          PY
+      - name: Preserve raw correct and failed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r24-label-cardinality-rep-${{ github.run_id }}-${{ matrix.replicate }}
+          path: |
+            evidence/r24/*.txt
+            evidence/r24/*.log
+            evidence/r24/*.json
+            evidence/r24/A*/report.json
+            evidence/r24/B*/report.json
+            evidence/r24/A*/config.xml
+            evidence/r24/B*/config.xml
+            evidence/r24/A*/server.log
+            evidence/r24/B*/server.log
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
