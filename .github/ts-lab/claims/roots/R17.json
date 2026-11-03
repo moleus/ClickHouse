@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "question_id": "R17",
+  "primary_claim_id": "R17-native-output-cost-cpu-floor-v1",
+  "owner": "chatgpt-r17-native-output-cost-20261103",
+  "scope": "Isolate ClickHouse native TimeSeries PromQL JSON serialization / HTTP output cost from fixed native selector+aggregation execution on same 400-slot 3d R01 fixture and unchanged stock O1 RAW_UUID binary. Paired full JSONEachRow vs FORMAT Null with QueryFinish CPU/wall, output parity oracle on JSON, per-processor work, query trace availability, physical data hash. Do not modify C++/VM, query planner, SAMPLES marks, query-result cache or other claimed R03/R05/R07/R11 questions.",
+  "allowed_support_claims": [],
+  "based_on": "R03 41624246411 CH pod_namespace1 p50 52.3585ms vs VM2.5785ms, burst15 CH36.5935ms vs VM0.89ms; O1 optimization confound explicit. R17 only measures CH output formatting overhead, not any cross-engine ratio.",
+  "created_utc": "2026-11-03T11:35:00Z"
+}
