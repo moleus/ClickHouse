@@ -142,8 +142,8 @@ def main():
                     # Explicitly invalidate the outer time-series caches
                     # before the third reinsert; the cache-enabled table must
                     # then regain its metadata.
-                    base.sql(a.endpoint,'SYSTEM DROP TIME SERIES CACHES')
-                    out['modes'][mode]['cache_invalidation_statement']='SYSTEM DROP TIME SERIES CACHES'
+                    base.sql(a.endpoint,'SYSTEM DROP TIME SERIES CACHES '+table)
+                    out['modes'][mode]['cache_invalidation_statement']='SYSTEM DROP TIME SERIES CACHES '+table
                 payload=input_line(EPOCH+OFFSET_SEQUENCE[i],VALUE_SEQUENCE[i])
                 out['inputs_sha256'][f'read_input_{i}']=hashlib.sha256(payload.encode()).hexdigest()
                 qid=f'r19cache_{mode}_insert_{i}'
