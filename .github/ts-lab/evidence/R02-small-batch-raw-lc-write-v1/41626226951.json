@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "question_id": "R02-small-batch-raw-lc-write-v1",
+  "subexperiment": "native fixed-window reader with natural merges and 84 simultaneous inserts ABBA",
+  "decision": "INCONCLUSIVE_REPLICATION_NEEDED",
+  "ci_status": "success",
+  "verified_utc": "2026-11-03T11:19:00Z",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "fixture_sha256": "dd2dd55ee8fcf3c11c1fef94ebdd54ac8b3a6a53cea6deaae991b3b94c88b931",
+  "protocol": {
+    "platform": "one ubuntu hosted runner",
+    "phases": [
+      "A0 LC",
+      "B1 RAW",
+      "B2 RAW",
+      "A3 LC"
+    ],
+    "servers": "four fresh stock O1 instances",
+    "prefill_batches": 12,
+    "concurrent_additional_batches": 84,
+    "rows_per_batch": 4000,
+    "physical_sample_points_after": 384000,
+    "source": "Full native prometheusQueryRange(avg by(scope)(avg_over_time(tslab_r02_periodic[30m]))) fixed at end of first 12 batches; newer inserts have greater timestamps, so independent Python oracle must stay constant.",
+    "query_cache": "use_query_cache=0, independent from R11 cache hit",
+    "natural_merges": "ON, no STOP MERGES or forced OPTIMIZE",
+    "read_stats": "Only completed query requests whose start and end both fall inside the writer's active window; query-log CPU and physical part stats preserved",
+    "validation": "all four phases correctness success; 74/82/81/75 full overlapped native queries across phases; exact labels, time and values within 1e-8; no OOM; A/A drift under 25%"
+  },
+  "phases": {
+    "A0": {
+      "mode": "lc",
+      "complete_reads": 74,
+      "p50_ms": 86.2996,
+      "p95_ms": 123.6757,
+      "p99_ms": 140.6475,
+      "server_cpu_s": 11.03,
+      "writer_wall_s": 6.8078,
+      "active_sample_parts": 4,
+      "read_progress_p95_ms": [
+        77.7205,
+        111.051,
+        131.722,
+        129.9684
+      ]
+    },
+    "B1": {
+      "mode": "raw",
+      "complete_reads": 82,
+      "p50_ms": 78.7118,
+      "p95_ms": 92.3422,
+      "p99_ms": 100.492,
+      "server_cpu_s": 10.24,
+      "writer_wall_s": 6.6741,
+      "active_sample_parts": 5,
+      "read_progress_p95_ms": [
+        84.374,
+        92.2531,
+        88.7773,
+        93.362
+      ]
+    },
+    "B2": {
+      "mode": "raw",
+      "complete_reads": 81,
+      "p50_ms": 75.0755,
+      "p95_ms": 96.8083,
+      "p99_ms": 99.3381,
+      "server_cpu_s": 10.25,
+      "writer_wall_s": 6.3148,
+      "active_sample_parts": 5,
+      "read_progress_p95_ms": [
+        79.5909,
+        80.7976,
+        85.8519,
+        97.4084
+      ]
+    },
+    "A3": {
+      "mode": "lc",
+      "complete_reads": 75,
+      "p50_ms": 78.5613,
+      "p95_ms": 107.3214,
+      "p99_ms": 114.2285,
+      "server_cpu_s": 10.74,
+      "writer_wall_s": 6.4658,
+      "active_sample_parts": 4,
+      "read_progress_p95_ms": [
+        78.3324,
+        88.2783,
+        101.8178,
+        114.315
+      ]
+    }
+  },
+  "mixed_ratios": {
+    "native_read_p95_ms": {
+      "lc": 115.49855,
+      "raw": 94.57525,
+      "raw_over_lc": 0.81884,
+      "lc_control_drift": 0.1416
+    },
+    "whole_process_mixed_cpu_s": {
+      "lc": 10.885,
+      "raw": 10.245,
+      "raw_over_lc": 0.9412,
+      "lc_control_drift": 0.02664
+    },
+    "mixed_wall_s": {
+      "lc": 6.63817,
+      "raw": 6.49526,
+      "raw_over_lc": 0.97847,
+      "lc_control_drift": 0.05172
+    }
+  },
+  "part_logs": {
+    "natural_merge_events_each_phase": 41,
+    "active_parts_samples": {
+      "lc": 4,
+      "raw": 5
+    }
+  },
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41626226951",
+    "job_id": 125884145678,
+    "artifact_id": 13225183978,
+    "artifact_zip_sha256": "89f6d214904f1d82a9146ec75555c7a4a2d432c0280031ce79660198977178f4",
+    "script": ".github/ts-lab/experiments/r02_live_read_write_abba.py",
+    "script_commit": "55496b0bdf98851f1e8c078c612001c4322664fc",
+    "workflow": ".github/workflows/ts-lab-r02-live-read-write-20261103.yml",
+    "workflow_commit": "43ef6e5763cea2793959f860aa3e2356a6bba474"
+  },
+  "math_bound": "Same underlying 96-batch payload and read oracle in all modes. This is a mixed workload, so raw/LC process CPU includes ingest + native query + naturally scheduled merges. A fixed query evaluation time over only the first 12 batches prevents output changes from causing latency differences. Read p95 can still be affected by uneven sampling over table growth; progress quartile per read is recorded. A/A p95 drift 14.16%, raw p95 is 18.12% lower on one runner, so do not promote before independent runner replication and quartile-matched audit.",
+  "limitations": [
+    "One runner, two same-runner phase medians per type; near-threshold p95 relative effect requires replication.",
+    "Read p95 distributions contain 74-82 fully overlapped requests per phase, not identical query counts. Progress stratification may be necessary to attribute effects.",
+    "Fixed 12-batch query selects only a small historical window; no high cardinality exact branch filter or 14-day lookback.",
+    "No deliberate memory limit stress or 400-node production churn; stock O1 glibc build and synthetic data.",
+    "CPU mix combines query, write, and natural merge work. This test does not decompose components the way 96-batch stopped-merge test did."
+  ],
+  "next_action": {
+    "question_id": "R02",
+    "step": "Verify independent 2-runner replication CI 416263..., same source script SHA, no p95 A/A drift>25%, input/native exact parity and p95 direction in later progress quartiles. Require new immutable evidence before declaring mixed read improvement.",
+    "stop_condition": "Any missing/incorrect native output, too few overlap reads, stale query cache, A/A p95 drift>25%, OOM, or uneven time-window sampling invalidates conclusions."
+  }
+}
