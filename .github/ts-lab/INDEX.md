@@ -320,3 +320,9 @@ the three-day window; not a true 400-active-node capacity simulator.
 [Physical and native ABBA CI #41618941657](https://github.com/moleus/ClickHouse/actions/runs/41618941657)
 tests the actual count and query cost without a new C++ build.
 
+
+## 2026-11-03: R05 SAMPLES 256-row default and negative mark-range surrogate
+
+R05 owner `chatgpt-r05-mark-bound-20261103`; [root](claims/roots/R05.json), [source and mathematical correction](experiments/R05_MARK_COVERAGE_FEASIBILITY_20261103.md), [surrogate script](experiments/r05_sparse_mark_simulation.py), [3 tests](experiments/test_r05_sparse_mark_simulation.py), [deterministic output](experiments/R05_MARK_COVERAGE_SURROGATE_20261103.json), [handoff](handoffs/20261103-r05-mark-envelope-05.json).
+
+Source-pinned v11 SAMPLES defaults to `(id,bucket)` order, **256 rows per mark** with a 512 KiB granularity-byte limit; earlier R05 hypothetical `g=8192` was **not** an SAMPLES granularity measurement. Candidate-ID selectivity alone does not prove mark pruning: in a synthetic independent 14-day, 95k-ID/day model, 2500 candidates present only in the final part overlap **5208/5208** mark-start key-range envelopes, although only **372/5208** marks contain matching IDs. Three local tests pass. **This is a surrogate, not native ClickHouse selected marks, latency, CPU, or RSS.** No new C++ build; actual persisted part and native EXPLAIN counters remain the decisive gate. R10's independent bucket-width studies are not proof of the R05 key-range mechanism.
