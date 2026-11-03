@@ -1,0 +1,113 @@
+{
+  "days": 14,
+  "envelope_mark_fraction": 1,
+  "granularity_rows": 256,
+  "ids_per_day": 95000,
+  "model": "uniform-64bit-independent-daily-parts-id-first-mark-envelope",
+  "not_clickhouse_measurement": true,
+  "seed": 20261103,
+  "selected_ids_from_last_day": 2500,
+  "total_candidate_envelope_marks": 5208,
+  "total_exact_positive_marks": 372,
+  "total_marks": 5208,
+  "per_day": [
+    {
+      "part_day": 1,
+      "exact_ids": 0,
+      "exact_positive_marks": 0,
+      "envelope_candidate_marks": 372,
+      "marks": 372
+    },
+    {
+      "part_day": 2,
+      "exact_ids": 0,
+      "exact_positive_marks": 0,
+      "envelope_candidate_marks": 372,
+      "marks": 372
+    },
+    {
+      "part_day": 3,
+      "exact_ids": 0,
+      "exact_positive_marks": 0,
+      "envelope_candidate_marks": 372,
+      "marks": 372
+    },
+    {
+      "part_day": 4,
+      "exact_ids": 0,
+      "exact_positive_marks": 0,
+      "envelope_candidate_marks": 372,
+      "marks": 372
+    },
+    {
+      "part_day": 5,
+      "exact_ids": 0,
+      "exact_positive_marks": 0,
+      "envelope_candidate_marks": 372,
+      "marks": 372
+    },
+    {
+      "part_day": 6,
+      "exact_ids": 0,
+      "exact_positive_marks": 0,
+      "envelope_candidate_marks": 372,
+      "marks": 372
+    },
+    {
+      "part_day": 7,
+      "exact_ids": 0,
+      "exact_positive_marks": 0,
+      "envelope_candidate_marks": 372,
+      "marks": 372
+    },
+    {
+      "part_day": 8,
+      "exact_ids": 0,
+      "exact_positive_marks": 0,
+      "envelope_candidate_marks": 372,
+      "marks": 372
+    },
+    {
+      "part_day": 9,
+      "exact_ids": 0,
+      "exact_positive_marks": 0,
+      "envelope_candidate_marks": 372,
+      "marks": 372
+    },
+    {
+      "part_day": 10,
+      "exact_ids": 0,
+      "exact_positive_marks": 0,
+      "envelope_candidate_marks": 372,
+      "marks": 372
+    },
+    {
+      "part_day": 11,
+      "exact_ids": 0,
+      "exact_positive_marks": 0,
+      "envelope_candidate_marks": 372,
+      "marks": 372
+    },
+    {
+      "part_day": 12,
+      "exact_ids": 0,
+      "exact_positive_marks": 0,
+      "envelope_candidate_marks": 372,
+      "marks": 372
+    },
+    {
+      "part_day": 13,
+      "exact_ids": 0,
+      "exact_positive_marks": 0,
+      "envelope_candidate_marks": 372,
+      "marks": 372
+    },
+    {
+      "part_day": 14,
+      "exact_ids": 2500,
+      "exact_positive_marks": 372,
+      "envelope_candidate_marks": 372,
+      "marks": 372
+    }
+  ]
+}
