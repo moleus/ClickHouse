@@ -67,6 +67,56 @@ def validate_handoff(data):
     return errors
 
 
+def validate_claim(data):
+    errors = []
+    if not isinstance(data, dict):
+        return ['Expected a JSON object']
+    required = ('id', 'question', 'owner', 'state', 'source_sha', 'baseline',
+                'candidate', 'fixture', 'single_variable', 'math_bound',
+                'falsifier', 'test_matrix', 'runner_budget',
+                'planned_workflow', 'dependencies')
+    for key in required:
+        if key not in data:
+            errors.append('Missing: ' + key)
+    if not isinstance(data.get('id'), str) or not ID.fullmatch(data['id']):
+        errors.append('Invalid claim ID')
+    if data.get('state') != 'claimed':
+        errors.append('Initial claim state must be claimed; changes use new evidence files')
+    if not isinstance(data.get('source_sha'), str) or not SHA.fullmatch(data['source_sha']):
+        errors.append('source_sha must be a full 40-character SHA')
+    for key in ('question', 'owner', 'baseline', 'candidate', 'fixture',
+                'single_variable', 'math_bound', 'falsifier', 'test_matrix',
+                'runner_budget', 'planned_workflow'):
+        if not isinstance(data.get(key), str) or not data[key].strip():
+            errors.append(key + ' must be a nonempty string')
+    if not isinstance(data.get('dependencies'), list):
+        errors.append('dependencies must be an array')
+    if SECRET.search(json.dumps(data)):
+        errors.append('Potential token/secret in PUBLIC claim')
+    return errors
+
+
+def validate_tree(root):
+    errors = []
+    folder = root / '.github' / 'ts-lab'
+    for path in sorted((folder / 'handoffs').glob('*.json')):
+        try:
+            for error in validate_handoff(json.loads(path.read_text(encoding='utf-8'))):
+                errors.append(str(path) + ': ' + error)
+        except (ValueError, OSError) as exc:
+            errors.append(str(path) + ': ' + str(exc))
+    for path in sorted((folder / 'claims').glob('*.json')):
+        try:
+            data = json.loads(path.read_text(encoding='utf-8'))
+            if isinstance(data, dict) and path.stem != data.get('id'):
+                errors.append(str(path) + ': name differs from claim ID')
+            for error in validate_claim(data):
+                errors.append(str(path) + ': ' + error)
+        except (ValueError, OSError) as exc:
+            errors.append(str(path) + ': ' + str(exc))
+    return errors
+
+
 def fetch_json(url, token=None):
     headers = {'Accept': 'application/vnd.github+json',
                'User-Agent': 'public-timeseries-lab-resume/1'}
@@ -92,7 +142,7 @@ def snapshot(repo, branch, token=None, limit=12):
     for source, key in ((running, 'live_runs'), (pending, 'queued_runs')):
         relevant = [r for r in source.get('workflow_runs', [])
                     if r.get('head_branch') == branch or
-                    r.get('head_branch', '').startswith('lab/ts-')]
+                    (r.get('head_branch') or '').startswith('lab/ts-')]
         results[key] = [
             {'id': r['id'], 'name': r['name'], 'branch': r['head_branch'],
              'status': r['status'], 'url': r['html_url']}
@@ -119,10 +169,22 @@ def main(argv=None):
     s.add_argument('--fixture', help='Use a local saved snapshot instead of network access')
     v = sub.add_parser('validate-handoff', help='Check a handoff JSON before publishing')
     v.add_argument('file', type=Path)
+    c = sub.add_parser('validate-claim', help='Check an atomic GitHub claim JSON')
+    c.add_argument('file', type=Path)
+    t = sub.add_parser('validate-tree', help='Validate all committed handoffs and claims')
+    t.add_argument('root', type=Path, nargs='?', default=Path('.'))
     args = parser.parse_args(argv)
     if args.command == 'validate-handoff':
         errors = validate_handoff(json.loads(args.file.read_text(encoding='utf-8')))
         print('\n'.join(errors) if errors else 'VALID handoff')
+        return 1 if errors else 0
+    if args.command == 'validate-claim':
+        errors = validate_claim(json.loads(args.file.read_text(encoding='utf-8')))
+        print('\n'.join(errors) if errors else 'VALID claim')
+        return 1 if errors else 0
+    if args.command == 'validate-tree':
+        errors = validate_tree(args.root)
+        print('\n'.join(errors) if errors else 'VALID tree')
         return 1 if errors else 0
     try:
         data = json.loads(Path(args.fixture).read_text()) if args.fixture else snapshot(args.repo, args.branch)
