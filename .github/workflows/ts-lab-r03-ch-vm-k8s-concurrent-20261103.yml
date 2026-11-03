@@ -1,4 +1,4 @@
-name: R03 matched CH O1 vs VM1.134 multi-cadence native 1 4 8 clients
+name: R03 corrected 64-wave VM vs CH 1 4 8 concurrent PromQL ABBA
 
 on:
   push:
@@ -216,6 +216,7 @@ jobs:
       - name: Matched native ClickHouse and VM 1 4 8 client A B B A workload
         run: |
           set -euo pipefail
+          echo 'R03 corrected control: no live RSS observer, 64 measured waves, nanosecond thread schedstat CPU, both-engine A/A gates' | tee evidence/r03/revision.txt
           python3 -u .github/ts-lab-r03/bench_native_vm_concurrency.py \
             --fixture "$RUNNER_TEMP/k8s-mixed.jsonl" \
             --manifest evidence/r01/manifest.json \
