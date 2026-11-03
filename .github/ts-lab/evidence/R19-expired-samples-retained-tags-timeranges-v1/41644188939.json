@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "question_id": "R19-expired-samples-retained-tags-timeranges-v1",
+  "subexperiment": "same-50000-TAGS-same-2000-live-SAMPLES-TimeRanges-retired-48000-native-ABBA",
+  "scientific_decision": "NO_ROBUST_BROAD_IMPROVEMENT",
+  "ci_status": "success",
+  "verified_utc": "2026-11-03T13:27:00Z",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary": {
+    "sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "compiler": "LLVM22.1.8",
+    "flags": "O1 unmodified stock glibc",
+    "build_run": 41596421285
+  },
+  "fixture": {
+    "original_R19_expired_input_sha256": "fc6ff8bf4ee1842b2f31e787d8cb336801bc59601c98ff249bdb0f6d16232267",
+    "live_input_sha256": "df80189979bdc9ae0ba3ec0c4103f42444d703ef5948cfa5929989ae28b115d6",
+    "retired_series": 48000,
+    "active_series": 2000,
+    "old_sample_partition_dropped": "202608",
+    "live_sample_partition_kept": "202610",
+    "same_tags_schema": true,
+    "same_samples_schema": true,
+    "exact_same_live_sample_bytes": true,
+    "actual_old_max_time_cutoff": "2026-09-01 00:00:00 UTC",
+    "mutation": "ALTER DELETE WHERE max_time < toDateTime64(cutoff,3,UTC), mutations_sync=2"
+  },
+  "protocol": "Two same-host unmodified RAW_UUID TimeSeries v11 tables; both ingest same 48000 old and2000 live IDs and physically DROP only August old SAMPLES partition, with source/body SHA equality. One keeps original 50000 TAGS and50000 TimeRanges, the other keeps same50000 TAGS and deletes 48000 old TimeRanges. No extra sidecar/index and no C++ build. Both active SAMPLES parts exact same bytes. Stop merges during queries. For broad1d and project=p0, paired A0(full),B1(pruned),B2(pruned),A3(full) with 3 warmup+10 timed native full-label/timestamp/numeric-oracle requests per phase, QueryFinish cpu/read_rows/bytes/marks/query peak, control drift gate25%. Then reinsert one old ID with fresh sample and verify TimeRanges restoration and native group. 104 full native queries.",
+  "physical": {
+    "full": {
+      "tags_ids": 50000,
+      "timeranges_ids": 50000,
+      "active_sample_points": 2000
+    },
+    "pruned": {
+      "tags_ids": 50000,
+      "timeranges_ids": 2000,
+      "active_sample_points": 2000
+    },
+    "tags_compressed_bytes_equal": true,
+    "samples_compressed_bytes_equal": true,
+    "resurrection": {
+      "samples_rows": 2001,
+      "tags_rows": 50000,
+      "timeranges_rows": 2001,
+      "native": {
+        "active": 1.4744499999999998,
+        "retired": 999
+      },
+      "payload_sha256": "51952d061e269a9223404f1ac38abafc9e04d40b710621ab07d1caacec4c8a00"
+    }
+  },
+  "ratios": {
+    "broad": {
+      "full_p50_ms": 28.84075,
+      "pruned_p50_ms": 28.26485,
+      "pruned_over_full_wall": 0.9800317259433268,
+      "wall_AA_control_drift": 0.00243058866,
+      "full_cpu_p50_ms": 29.247,
+      "pruned_cpu_p50_ms": 27.8375,
+      "pruned_over_full_cpu": 0.95180702294,
+      "cpu_AA_control_drift": 0.00536807194,
+      "read_rows_full": 102000,
+      "read_rows_pruned": 54000,
+      "read_rows_ratio": 0.5294117647,
+      "read_bytes_full": 7894106,
+      "read_bytes_pruned": 5974106,
+      "read_bytes_ratio": 0.7567805651,
+      "marks_full": 22,
+      "marks_pruned": 16,
+      "query_peak_p95_full_bytes": 13793404.525,
+      "query_peak_p95_pruned_bytes": 13129973.8
+    },
+    "project_p0": {
+      "full_p50_ms": 20.88925,
+      "pruned_p50_ms": 21.6254,
+      "pruned_over_full_wall": 1.03524061419,
+      "wall_AA_drift": 0.02620965329,
+      "full_cpu_p50_ms": 20.8635,
+      "pruned_cpu_p50_ms": 21.1475,
+      "pruned_over_full_cpu": 1.0136122894,
+      "cpu_AA_drift": 0.032976250389,
+      "read_rows_full": 102000,
+      "read_rows_pruned": 54000,
+      "read_rows_ratio": 0.5294117647,
+      "read_bytes_full": 7944106,
+      "read_bytes_pruned": 6024106,
+      "read_bytes_ratio": 0.758311382,
+      "marks_full": 22,
+      "marks_pruned": 16,
+      "query_peak_p95_same_bytes": 8719412
+    }
+  },
+  "validity": {
+    "full_nonempty_native_output_exact": true,
+    "all_104_requests_success": true,
+    "all_query_logs_present": true,
+    "no_client_cache": true,
+    "all_controls_under25pct": true,
+    "all_physical_source_input_sha_equal": true,
+    "all_2000_live_samples_exact": true,
+    "all_50000_tags_retained": true,
+    "single_variable_TimeRanges_only": true,
+    "resurrection_restores_original_id": true
+  },
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41644188939",
+    "run_id": 41644188939,
+    "job_id": 125945062540,
+    "artifact_id": 13235035383,
+    "official_zip_sha256": "ca0a897783d44fc72bc093c3869aca443416c64c79ff4bb69c5e9934439c3243",
+    "script_path": ".github/ts-lab/experiments/r19_timeranges_prune_native_abba.py",
+    "script_commit": "d26141782eaa8728890716549f84ad3814d97277",
+    "workflow_file": ".github/workflows/ts-lab-r19-timeranges-native-abba-20261103.yml",
+    "workflow_commit": "dfbc99fd02b0d2de7ebf8640f6a1b36e35a707e3"
+  },
+  "cost_bound": "Removing 48000/50000 TimeRanges rows cuts native SQL read_rows from 102000 to54000 (-47.06%), matching 50000 TAGS+2000 TR+2000 SAMPLES. Read_bytes cut ~24.3%, but wall p50 improved only ~2%, and exact project p50 regressed ~3.5%. Broad query CPU effect ~4.82% below preregistered 5% practical minimum despite 0.54% drift. This gives an empirical Amdahl-style bound for this workload: metadata IO reduction alone does not dominate full native time. Garbage collection mutation CPU/writes are not yet counted, so net economics likely less favorable.",
+  "limitations": [
+    "One hosted runner; minor 2-5% effects should not be promoted without independent repetition and cleanup-write-cost accounting.",
+    "Direct TimeRanges mutation is isolated but unsafe to run in production without TTL completion proof, concurrent-writer isolation, and multi-replica coordination.",
+    "Only broad/p0 finite gauge 1d selectors, not 14d high-cardinality regex/negative matchers or histograms/NaN.",
+    "Another agent owns R07 time-day sidecar. Do not duplicate its active-ID access path or treat read row count as latency."
+  ],
+  "next_action": {
+    "question_id": "R19",
+    "step": "Do not promote TimeRanges-only direct cleanup as a performance optimization. Focus on the larger remaining 50000 TAGS scan via read-only time-aware access path only with R07 owner coordination. If considering retention-based physical GC, first design atomic cache and replica invalidation plus late-arrival/resurrection tests, and measure mutation CPU/storage lifecycle.",
+    "stop_condition": "No global TimeRanges deletion or TAGS GC in production; negative narrow-result and limited broad result remain part of scientific record."
+  }
+}
