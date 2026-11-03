@@ -186,7 +186,7 @@ jobs:
               'ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d'
           fi
 
-      - name: Exact four-codec DDL 2x2 physical size and complete native PromQL CPU ABBA
+      - name: Validate quoted SHOW CREATE through chr96 then full 2x2 native ABBA and physical bytes
         run: |
           set -euo pipefail
           pattern="${{ matrix.pattern }}"
