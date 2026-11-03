@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "question_id": "R19",
+  "primary_claim_id": "R19-expired-samples-retained-tags-timeranges-v1",
+  "owner": "chatgpt-r19-metadata-retention-20261103",
+  "scope": "Stock native TimeSeries v11 with high-churn expired samples: retained TAGS and TimeRanges physical rows and native query CPU/IO after old SAMPLES partitions are dropped, compared with a clean live-only table containing identical active samples; no C++ build, no production changes. Distinct from R07 time-day covering metadata and R02 write CPU.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-03T12:17:00Z",
+  "source_evidence": "Pinned StorageTimeSeries.cpp #retention: TAGS has no TTL by default, even after SAMPLES expire; TimeSeriesSettings.cpp describes TTL of recent samples and deduplication cache separately."
+}
