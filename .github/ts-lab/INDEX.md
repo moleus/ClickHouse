@@ -786,3 +786,13 @@ with an optimized+jemalloc binary. The independent C++ build
 [#41607779848](https://github.com/moleus/ClickHouse/actions/runs/41607779848)
 was still compiling in the last check; do not cancel or replace.
 
+
+## 2026-11-03 R19: actual 30d SAMPLES TTL, late insertion and resumed-ID semantics PASS
+
+[Immutable successful TTL proof](evidence/R19-expired-samples-retained-tags-timeranges-v1/41637046443.json) / [stock-O1 CI #41637046443](https://github.com/moleus/ClickHouse/actions/runs/41637046443), same pinned source/binary. **A real inner SAMPLES AggregatingMergeTree** with `PARTITION BY toDate(bucket,'UTC')`, `TTL toDateTime(bucket,'UTC') + INTERVAL 30 DAY`, `ttl_only_drop_parts=1`, and `recent_samples_ttl_seconds=0` was verified with `SHOW CREATE`. 128 older Aug10 IDs and 16 live Oct20 IDs ingested, native `avg by(scope)(avg_over_time(metric[1d]))` oracle confirmed.
+
+- After `MATERIALIZE TTL SETTINGS mutations_sync=2`, SAMPLES had **16 live rows**, historical Aug10 **0 rows**, and historical TAGS+TimeRanges still **144 IDs**. Native live average exactly **100.75**.
+- A late expired sample in the Aug10 bucket disappeared after another actual `MATERIALIZE TTL`, leaving **16** live points and unchanged native result.
+- Reusing one original expired ID with a fresh Oct20 sample produced **17** SAMPLES rows and native groups `live=100.75` and `old=7.0`, while TAGS and TimeRanges stayed **144 stable IDs after FINAL**. This verifies this specific resurrection/late-write scenario, not NaN, ACL or HA.
+- **Important part lifecycle finding**: old `20260810` partition can remain in `system.parts` with **0 rows** and **1244 B** even after TTL; after one late old insert it had two empty parts totalling **2488 B**. **Zero-row parts are not retained expired samples**. First [CI #41636600724](https://github.com/moleus/ClickHouse/actions/runs/41636600724) incorrectly required complete partition disappearance, failed after `post_ingest`, and is preserved as [INVALID_METHOD evidence](evidence/R19-expired-samples-retained-tags-timeranges-v1/41636600724.json). Fixed no-expired-rows oracle in commit `dc1d7869912b8d3a6b9ee2e48c0944308ceb1086`; source and binary unchanged.
+- Next question **within existing R19 ownership**: do repeated late expired inserts accumulate zero-row parts, and does natural merge/explicit `OPTIMIZE FINAL` remove them? Do not claim a permanent part leak before a part-lifecycle test. No automatic TAGS deletion recommended.
