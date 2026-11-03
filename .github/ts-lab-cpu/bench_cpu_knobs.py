@@ -52,7 +52,7 @@ def capture_profiles(qids):
             "sum(output_wait_elapsed_us) AS output_wait_us,"
             "sum(input_rows) AS input_rows,sum(output_rows) AS output_rows "
             "FROM system.processors_profile_log WHERE query_id IN "+ids+
-            " GROUP BY query_id,plan_step_name,name ORDER BY query_id,work_us DESC LIMIT 1000",o,"processors")
+            " GROUP BY query_id,plan_step_name,name ORDER BY query_id,work_us DESC LIMIT 300 BY query_id",o,"processors")
     # No limit on input samples. Classify complete CPU trace_log on the server.
     classifier="""multiIf(
       arrayExists(s -> position(s,'ReverseIndex')>0 OR position(s,'ColumnUnique')>0 OR position(s,'SerializationLowCardinality')>0 OR position(s,'ColumnLowCardinality')>0, symbols), '01_lowcard_dictionary',
@@ -66,15 +66,15 @@ def capture_profiles(qids):
       '09_other')"""
     capture("SELECT query_id,"+classifier+" AS component,count() AS cpu_samples "
             "FROM system.trace_log WHERE trace_type='CPU' AND query_id IN "+ids+
-            " GROUP BY query_id,component ORDER BY query_id,cpu_samples DESC LIMIT 180",o,"cpu_components")
+            " GROUP BY query_id,component ORDER BY query_id,cpu_samples DESC LIMIT 90 BY query_id",o,"cpu_components")
     capture("SELECT query_id,trace_type,arrayFirst(x -> x != '',symbols) AS leaf,"
             "count() AS samples,sum(size) AS bytes FROM system.trace_log WHERE query_id IN "+ids+
             " AND trace_type IN ('CPU','Memory')"
-            " GROUP BY query_id,trace_type,leaf ORDER BY query_id,samples DESC LIMIT 500",o,"hot_leaves")
+            " GROUP BY query_id,trace_type,leaf ORDER BY query_id,samples DESC LIMIT 250 BY query_id",o,"hot_leaves")
     capture("SELECT query_id,trace_type,"
             "arrayStringConcat(arrayReverse(symbols),';') AS stack,"
             "count() AS samples,sum(size) AS bytes FROM system.trace_log WHERE query_id IN "+ids+
-            " GROUP BY query_id,trace_type,stack ORDER BY query_id,samples DESC LIMIT 600",o,"folded_stacks")
+            " GROUP BY query_id,trace_type,stack ORDER BY query_id,samples DESC LIMIT 300 BY query_id",o,"folded_stacks")
     return o
 
 def main():
