@@ -3,6 +3,10 @@
 **Depends on:** E06 frozen fixtures; informs E03/E05.
 **Goal:** explain *why* VictoriaMetrics scans/decodes fewer or different bytes/IDs for the same label/time selector, and determine which techniques transfer to ClickHouse TimeSeries without unacceptable ingest and HA costs.
 
+## Progress: ClickHouse text-index source parity (2026-11-03)
+
+[Second pinned-source audit](../../ts-lab-e04/E04_CLICKHOUSE_TEXT_INDEX_SOURCE_PARITY_20261103.md): ClickHouse already has per-part **row-ID posting lists**, bitmap intersection/union, exact Map key-value token matching, per-query token-cardinality ordering, and a conditional direct-read path. VM's postings instead contain **stable MetricIDs and optional date prefix**. CH's native `matcherToAST` emits `equals(arrayElement(tags,key),value)`, which the pinned text-index parser can recognize for **nonempty** exact values. Do not build a second generic inverted index or claim ClickHouse lacks posting cardinality estimates. The missing candidate is **time-local metadata / native plan integration**, with E03 responsible for CBO and R07 for a day-covering sidecar. R27 is an independent VM high-churn path experiment; it does not modify E03.
+
 ## Progress: runtime index-path attribution — R25/R26 (2026-11-03)
 
 - [R26 validated same-release VM index path A/B/B/A](../../ts-lab-e04/R26_VM_PERDAY_GLOBAL_RESULTS_20261103.md), [CI #41670634959](https://github.com/moleus/ClickHouse/actions/runs/41670634959): 1-evaluation full native node query global→per-day p50 **11.70→9.00ms (1.30×)**, process CPU **28.54→24.38ms**; broad Pod **21.27→15.62ms (1.36×)**, CPU **38.96→33.44ms**. All four broad primary cases valid; three-tick gains small. Exact nonempty results and querytracer path verified. One namespace 1-tick **excluded** due 47.98% A/A wall drift. **VM-only index-path result, not ClickHouse acceleration.** [Immutable evidence](../../ts-lab/evidence/R26-vm-perday-vs-global-query-index-path-v1/41670634959.json).
