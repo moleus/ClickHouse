@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "question_id": "R07",
+  "run_id": 41641109486,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41641109486",
+  "workflow_commit": "a15906cee7488e884d46669ec968c6bedf029ec2",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "stock_o1_binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "artifact": {
+    "name": "tslab-r07-stale-grid-41641109486",
+    "digest": "sha256:3931f42b56936721b929767c457aa5dad10698ba076994dcc36f751a9a515873",
+    "size_bytes": 5194,
+    "full_report": "r07-grid/report.json"
+  },
+  "result": {
+    "errors": [],
+    "exact_points": 22,
+    "passed": true,
+    "physical": {
+      "points": 18,
+      "rows": 6
+    },
+    "raw_mismatch_count": 6,
+    "raw_mismatch_keys": [
+      "('stale_mix', 1785801720)",
+      "('stale_mix', 1785801780)",
+      "('stale_only', 1785801660)",
+      "('stale_only', 1785801720)",
+      "('stale_only', 1785801840)",
+      "('stale_only', 1785801900)"
+    ],
+    "status": "PASS_STALE_SAFE_NATIVE_5TICK_FULL_PARITY",
+    "stored": {
+      "boundary": {
+        "finite_sum": 125,
+        "ordinary_nan_count": 0,
+        "points": 4,
+        "stage": "boundary",
+        "stale_count": 0
+      },
+      "cross_insert": {
+        "finite_sum": 10,
+        "ordinary_nan_count": 0,
+        "points": 2,
+        "stage": "cross_insert",
+        "stale_count": 0
+      },
+      "duplicate": {
+        "finite_sum": 15,
+        "ordinary_nan_count": 0,
+        "points": 3,
+        "stage": "duplicate",
+        "stale_count": 0
+      },
+      "ordinary_nan": {
+        "finite_sum": 10,
+        "ordinary_nan_count": 1,
+        "points": 3,
+        "stage": "ordinary_nan",
+        "stale_count": 0
+      },
+      "stale_mix": {
+        "finite_sum": 25,
+        "ordinary_nan_count": 0,
+        "points": 4,
+        "stage": "stale_mix",
+        "stale_count": 1
+      },
+      "stale_only": {
+        "finite_sum": 0,
+        "ordinary_nan_count": 0,
+        "points": 2,
+        "stage": "stale_only",
+        "stale_count": 2
+      }
+    }
+  },
+  "method": "Stock v11 TimeSeries, same unmodified O1 binary. Source-specified stale-NaN bit check only, original TAGS/SAMPLES, no new index. Tiny six-series synthetic fixture with multi-INSERT/duplicate max arbitration. Native single prometheusQueryRange over five 60s evaluation grid ticks compared with one SQL statement CROSS JOIN same five ticks, avg per full-ID after filtering exact stale-bit values and then avg by(stage). Explicit isNaN and finite surrogate ensure original NaNs are retained and JSON can express their classification.",
+  "math_and_semantics": [
+    "Native range selector excludes exact bit payload 0x7ff0000000000002, preserves ordinary NaN 0x7ff8000000000001. The SQL WHERE bit filter is equivalent for this verified subset; filtering all NaNs is invalid.",
+    "22 exact nonempty stage/timestamp/value-or-NaN-classification observations matched across native vs stale-safe SQL in a five-tick single query.",
+    "The earlier unfiltered SQL differed at six entries, including 2 stale_mix query ticks and 4 stale_only spurious series ticks.",
+    "Input same-timestamp 1 vs7 wins 7 after TimeSeriesSink dedup, with cross-INSERT time duplicate also merged into two stored points; standard window (start,end] respected.",
+    "No sidecar, planner patch, new C++ compile, production data or image changes."
+  ],
+  "limits": [
+    "Finite/stale/ordinary-NaN and duplicate tiny fixture only; no histograms, rate, regex/ACL, arbitrary PromQL operators or multi-client throughput.",
+    "One pinned O1 binary and tiny 5-tick exactness test, not speed. Stale-safe bit filter CPU cost will be measured in a separate frozen 2.488m R01 ABBA."
+  ],
+  "next_gate": "Run 41641536895 six-phase stock-O1 native/raw/stale-safe SQL same-source R01 ABBA, 18 grid parity checks, require exact outputs and controls; reject or qualify any overhead or divergence before C++ integration."
+}
