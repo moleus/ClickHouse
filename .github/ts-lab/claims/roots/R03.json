@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "question_id": "R03",
+  "primary_claim_id": "R03-k8s-400node-native-vm-concurrency-v1",
+  "owner": "chatgpt-r03-native-vm-comparison-20261103",
+  "scope": "Matched same-host VM1.134.0 vs ClickHouse pinned stock O1 full native query_range on identical deterministic 400-node 3d multi-cadence Kubernetes TimeSeries fixture. Separate 1/4/8 concurrent clients, CPU/RSS/p50/p95/p99/QPS, nonempty exact labels/time/values, remote-import success, no OOM hidden. No new C++ builds and no production writes.",
+  "allowed_support_claims": [],
+  "based_on": "R01 400-node mix exactly SHA ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d, fixed RAW opt-in; R10 bucket comparison and R02 ingest are independent.",
+  "competing_builds": "Do not cancel the in-progress jemalloc run 41607779848; reuse stock O1 run41596421285 and VM1.134.0 run41288854734."
+}
