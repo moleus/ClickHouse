@@ -6,15 +6,16 @@ Not a native PromQL optimization. No C++ patch, no production writes.
 import argparse
 import json
 import pathlib
+import statistics
 import sys
 import time
 import traceback
 sys.path[:0]=[".github/ts-lab/experiments",".github/ts-lab-perf",".github/ts-lab-bench",".github/ts-lab-cpu"]
 from r15_native_partition_probe import DAYS,PER_DAY,METRIC,END,fixture,create,table,native,identity,stamp
 from bench_granularity_v11 import sql,inner,streamed_insert,optimize_table,wait_no_merges
-from bench_bucket_cxx_abca import post,normalize_any,assert_same
+from bench_bucket_cxx_abca import post,normalize_any,assert_same,pct
 from bench_filtered_selector_v4_sql import sql_string
-from bench_native_multiclient_stock_20261103 import save
+from bench_native_multiclient_stock_20261103 import complete_logs,save
 
 COVER="tslab_r07_cover"
 
@@ -72,6 +73,54 @@ def normalize_sql(body):
         out[key]=float(row["value"])
     return out
 
+
+def run_abba(days,stage,oracle):
+    """Paired same-server native vs SQL diagnostics, output parity every request.
+
+    This is NOT proof of safe native planner integration or write-path gain.
+    """
+    matched="" if stage is None else '{stage="'+stage+'"}'
+    statements={"native":native("day",days,matched),
+                "sql":query_sidecar(days,stage)+" FORMAT JSONEachRow"}
+    phases=[]
+    for i,kind in enumerate(("native","sql","sql","native")):
+        prefix="r07abba_"+str(os.getpid())+"_"+str(days)+"_"+str(stage)+"_"+kind+"_"+str(i)+"_"
+        trials=[]
+        for repeat in range(6):
+            qid=prefix+str(repeat)
+            ms,body=post("http://127.0.0.1:18191",statements[kind],qid)
+            parsed=normalize_any(body) if kind=="native" else normalize_sql(body)
+            assert_same(oracle,parsed,"R07",str((days,stage,kind,i,repeat)))
+            trials.append({"id":qid,"client_ms":ms,"warmup":repeat<2})
+        logs=complete_logs(prefix,{v["id"] for v in trials})
+        for trial in trials:
+            row=logs[trial["id"]]
+            ev=row.get("ProfileEvents",{})
+            trial.update({
+                "cpu_ms":ev.get("OSCPUVirtualTimeMicroseconds",0)/1000,
+                "marks":ev.get("SelectedMarks",0),
+                "read_rows":row["read_rows"],"read_bytes":row["read_bytes"],
+                "query_mem":row["memory_usage"],
+            })
+        m=trials[2:]
+        med=lambda k:statistics.median(x[k] for x in m)
+        phases.append({"kind":kind,"trials":trials,"summary":{
+            "p50_ms":pct([x["client_ms"] for x in m],.5),
+            "p95_ms":pct([x["client_ms"] for x in m],.95),
+            "cpu_ms":med("cpu_ms"),"marks":med("marks"),
+            "read_rows":med("read_rows"),"read_bytes":med("read_bytes"),
+            "peak_memory_bytes":max(x["query_mem"] for x in m)}})
+    a=[p["summary"] for p in phases if p["kind"]=="native"]
+    b=[p["summary"] for p in phases if p["kind"]=="sql"]
+    avg=lambda rows,k:statistics.mean(x[k] for x in rows)
+    drift=abs(a[0]["p50_ms"]-a[1]["p50_ms"])/avg(a,"p50_ms")
+    summary={"control_drift":drift,"valid_control":drift<=.25}
+    for key in ("p50_ms","p95_ms","cpu_ms","marks","read_rows","read_bytes","peak_memory_bytes"):
+        summary["native_"+key]=avg(a,key)
+        summary["sql_"+key]=avg(b,key)
+    summary["native_over_sql_p50_ratio"]=avg(a,"p50_ms")/avg(b,"p50_ms")
+    return {"summary":summary,"phases":phases}
+
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--fixture",required=True)
@@ -101,10 +150,11 @@ def main():
             ms=(time.perf_counter()-begun)*1000
             parity=assert_same(baseline,normalize_sql(other),days,stage)
             result["cases"][str(days)+"d"+(stage or "all")]={"sql":q,"explain":explain,
-                "sidecar_client_ms_single_trial":ms,"native_points":len(baseline),"parity":parity}
+                "sidecar_client_ms_single_trial":ms,"native_points":len(baseline),"parity":parity,"abba":run_abba(days,stage,baseline)}
             save(a.output,result)
-        result["passed"]=True
-        result["state"]="ORACLE_PASS_SINGLE_TRIAL_NO_ABBA"
+        result["passed"]=all(x["abba"]["summary"]["valid_control"]
+                             for x in result["cases"].values())
+        result["state"]="ORACLE_ABBA_PASS_SQL_NOT_NATIVE_PLANNER" if result["passed"] else "INVALID_CONTROL_DRIFT"
     except Exception as exc:
         result["passed"]=False
         result["state"]="FAILED"
