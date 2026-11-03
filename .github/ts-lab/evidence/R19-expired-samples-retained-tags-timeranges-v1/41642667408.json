@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "question_id": "R19-expired-samples-retained-tags-timeranges-v1",
+  "subexperiment": "direct-inner-TAGS-deletion-and-cache-stale-safety-with-control-v2",
+  "scientific_decision": "INVALID_METHOD",
+  "ci_conclusion": "failure",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "valid_partial": {
+    "cache_enabled": {
+      "initial": {
+        "tags_rows": 1,
+        "physical_points": 1,
+        "native_visible": true
+      },
+      "after_direct_delete": {
+        "tags_rows": 0,
+        "physical_points": 1,
+        "native_visible": false
+      },
+      "after_same_id_insert": {
+        "tags_rows": 0,
+        "physical_points": 2,
+        "native_visible": false
+      },
+      "after_table_scoped_cache_reset_and_reinsert": {
+        "tags_rows": 1,
+        "physical_points": 3,
+        "native_visible": true
+      }
+    },
+    "cache_disabled": {
+      "initial": {
+        "tags_rows": 1,
+        "physical_points": 1,
+        "native_visible": true
+      },
+      "after_direct_delete": {
+        "tags_rows": 0,
+        "physical_points": 1,
+        "native_visible": false
+      },
+      "after_same_id_insert": {
+        "tags_rows": 1,
+        "physical_points": 2,
+        "native_visible": true
+      },
+      "after_third_insert": {
+        "tags_rows": 2,
+        "physical_points": 3,
+        "native_visible": true
+      }
+    }
+  },
+  "error": "Test incorrectly required 1 raw physical TAGS row in cache-disabled third stage; ReplacingMergeTree has 2 unmerged physical rows for the same logical TAGS ID.",
+  "source_proof": "Pinned StorageTimeSeries.cpp states TAGS uses ReplacingMergeTree and duplicate physical rows merge; ParserSystemQuery requires table argument for system cache reset. This is not a logical ID duplication.",
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41642667408",
+    "job_id": 125939843238,
+    "artifact_id": 13232918950,
+    "official_sha256": "417a2f329193be85fb8bdca4098adc70416689a558c19cd0f2ae2c0679f5436e"
+  },
+  "correction": {
+    "source_commit": "0ec174e49d4e9aa6bd48adc43a5715368cc75835",
+    "workflow_commit": "fb8b546f945a54b4e872bebda706bb7423fde54d",
+    "note": "Now compare uniqExact(id)=1 with raw physical TAGS rows separately, rerun, do not change source fixture or correctness hypotheses."
+  },
+  "limitations": [
+    "This run confirms native invisibility and recovery controls but failed an overstrict physical row count gate; no formal PASS.",
+    "Never generalize to supported TTL behavior; direct inner TAGS mutations are an unsafe operation unless outer cache is synchronized across writers/replicas."
+  ]
+}
