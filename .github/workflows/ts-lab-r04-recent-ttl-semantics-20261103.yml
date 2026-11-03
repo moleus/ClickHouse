@@ -1,0 +1,107 @@
+name: TimeSeries R04 RecentSamples TTL routing and late-write semantics
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r04-recent-ttl-semantics-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ts-lab-r04-recent-ttl-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  r04:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      BINARY_SHA256: 3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Source and preflight
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r04
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          python3 -m py_compile .github/ts-lab/experiments/r04_recent_ttl_parity.py
+          python3 .github/ts-lab/experiments/r04_recent_ttl_parity.py --help > evidence/r04/help.txt
+          git rev-parse HEAD > evidence/r04/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r04_recent_ttl_parity.py > evidence/r04/script-sha256.txt
+      - name: Reuse pinned SHA verified O1 binary (no recompilation)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r04-art" "$RUNNER_TEMP/r04-bin"
+          gh run download 41531656434 -R "$REPO" \
+            -n tslab-cbo-join-override-binary-f5e42456d7c09c56eb19e96e9ad6844623bc894e \
+            -D "$RUNNER_TEMP/r04-art"
+          archive="$(find "$RUNNER_TEMP/r04-art" -name 'clickhouse-cbo-join-override-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r04/archive-verify.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r04-bin"
+          (cd "$RUNNER_TEMP/r04-bin" && sha256sum -c SHA256SUMS) | tee evidence/r04/binary-verify.txt
+          test "$(sha256sum "$RUNNER_TEMP/r04-bin/clickhouse" | cut -d' ' -f1)" = "$BINARY_SHA256"
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r04-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/r04-bin/BUILD_INFO.txt" evidence/r04/build-info.txt
+          chmod +x "$RUNNER_TEMP/r04-bin/clickhouse"
+          "$RUNNER_TEMP/r04-bin/clickhouse" --version | tee evidence/r04/version.txt
+      - name: Start isolated native ClickHouse
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r04"/{data,tmp,userfiles}
+          cat > "$RUNNER_TEMP/r04/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/r04/data/</path><tmp_path>$RUNNER_TEMP/r04/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/r04/userfiles/</user_files_path>
+            <max_server_memory_usage>1500000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions><max_threads>2</max_threads><max_memory_usage>750000000</max_memory_usage><log_queries>1</log_queries></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/r04-bin/clickhouse" server --config-file="$RUNNER_TEMP/r04/config.xml" > evidence/r04/server.log 2>&1 &
+          echo "$!" > evidence/r04/server.pid
+          ready=0
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping > evidence/r04/ping.txt 2>/dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then tail -100 evidence/r04/server.log; exit 1; fi
+      - name: Native PromQL main/recent routing, late inserts and real part merges
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r04_recent_ttl_parity.py \
+            --endpoint http://127.0.0.1:18191/ \
+            --table tslab_r04_recent_ttl \
+            --output evidence/r04/report.json | tee evidence/r04/console.log
+          python3 - <<'PY'
+          import json,os
+          d=json.load(open("evidence/r04/report.json"))
+          assert d['passed'] and len(d['cases'])==18 and not d['errors'],d.get('errors')
+          assert len(d['inputs'])==2 and all(len(x['sha256'])==64 for x in d['inputs'])
+          assert all(d['physical'][x]['recentsamples']['parts']>=1
+                     for x in ('initial','late_insert','after_merge'))
+          for phase in ('initial','late_insert','after_merge'):
+              assert d['cases'][phase+'/hot5m']['read_target_prefer_on']=='recent'
+              assert d['cases'][phase+'/straddle2h']['read_target_prefer_on']=='main'
+          print('R04_FINAL_CHECK',json.dumps({'passed':True,'cases':len(d['cases']),
+                'base_epoch':d['base_epoch'],'inputs':d['inputs'],
+                'physical':d['physical']}))
+          PY
+      - name: Preserve raw correct and failed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r04-recent-ttl-${{ github.run_id }}
+          path: evidence/r04/
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
