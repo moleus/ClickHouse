@@ -34,6 +34,9 @@ jobs:
             .github/ts-lab-layout/bench_layout_full.py \
             .github/ts-lab-perf/bench_granularity_v11.py
           python3 .github/ts-lab-layout/bench_metadata_paths.py --help >/dev/null
+          test "$(readlink AGENTS.md)" = ".claude/CLAUDE.md"
+          python3 -m py_compile .github/ts-lab-cpu/bench_native_pipeline_graph.py .github/ts-lab-cpu/test_native_pipeline_graph.py
+          python3 .github/ts-lab-cpu/test_native_pipeline_graph.py
           echo "LAYOUT_PREFLIGHT_IMPORTS_OK binary setup and data ingest can begin"
 
       - name: Download byte-for-byte unmodified ClickHouse 52529f0c7 LLVM22 O1
