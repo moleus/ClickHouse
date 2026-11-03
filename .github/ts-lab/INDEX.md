@@ -2,6 +2,10 @@
 
 **Single write branch:** `lab/ts-cbo-adaptive-20261103`. All agents should commit their research here. Keep one append-only history; do not reset, amend, rebase, or force-push.
 
+## E03 / R06 native order-aware planner source gate (2026-11-03)
+
+- [R06 canonical claim](claims/roots/R06.json), [specific claim](claims/R06-native-order-aware-plan-cost-v1.json), and [source-level decision audit](epics/20261103-release-parity/E03-R06-order-aware-native-planner-source-audit-20261103.md). Source `52529f0c711566d696917678bf15e7068772fdde`: selector forces ordered merge and in-order read; physical projection can break join order, and `timeSeriesStoreTags` has per-query side effects. Historical native factorial 41589798782 shows fewer rows but more sorting and worse p50 in stage/project. R06 has **no new native CI run, no optimized binary and no gain claim**; next gate is same-source internal plan capture, conservative memory model and independent held-out fixture. R05/R07 ownership is unchanged.
+
 ## Entry points
 
 | Purpose | Resource |
