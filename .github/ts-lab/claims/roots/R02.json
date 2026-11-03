@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "question_id": "R02",
+  "primary_claim_id": "R02-small-batch-raw-lc-write-v1",
+  "owner": "chatgpt-r02-write-merge-20261103",
+  "scope": "Native TimeSeries repeated-ID small batch ingest and merge amplification under the same stock O1 binary, LC UUID vs explicit raw UUID inner schema.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-03T09:43:00Z",
+  "reason": "One canonical R02 write-path question, no overlapping active R02 root observed."
+}
