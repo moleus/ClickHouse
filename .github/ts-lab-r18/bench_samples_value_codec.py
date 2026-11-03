@@ -106,7 +106,9 @@ def create_table(kind):
     )
     sql(ddl)
     effective = sql("SHOW CREATE TABLE " + inner(name, "samples") + " FORMAT TSVRaw")
-    normal = re.sub(r"\s+", "", effective).lower()
+    # SHOW CREATE normalizes names with backticks and expands Delta to Delta(8).
+    # Compare effective codec semantics, not superficial SQL rendering.
+    normal = re.sub(r"\s+", "", effective).replace("`", "").lower()
     if kind == "alp":
         if "codecsamples.value(alp,zstd(3))" not in normal:
             raise AssertionError(("Default value codec not confirmed",kind,effective[:2800]))
@@ -119,7 +121,10 @@ def create_table(kind):
             raise AssertionError(("Value subcolumn CODEC no-op or invalid",kind,effective[:2800]))
         if "codecsamples.value(alp" in normal:
             raise AssertionError(("ALP still enabled for override",kind,effective[:2800]))
-    if "codecsamples.timestamp(delta,t64,zstd(3))" not in normal:
+    if not any(codec in normal for codec in (
+        "codecsamples.timestamp(delta,t64,zstd(3))",
+        "codecsamples.timestamp(delta(8),t64,zstd(3))",
+    )):
         raise AssertionError(("Timestamp codec changed unexpectedly",kind,effective[:2800]))
     print("R18_CODEC_DDL",json.dumps({
         "kind":kind,"table":name,"effective_value":samples_codec or "ALP,ZSTD(3)",
