@@ -59,3 +59,11 @@ If a projection changes required `id` ordering, add sorting work/peak to the com
 4. Use E06 oracle and R08 semantics before C++ opt-in hook. No unconditional removal of TimeRanges and no direct TAGS deletion. Keep the source's full sorting merge default.
 
 **Result:** correctness and plan capture PASS; currently demonstrated **estimation failure**, not an optimized plan. No code path for automatic native CBO was changed; master/production untouched, no scheduled workflow enabled and no other active CI cancelled.
+
+## New R30 repeated-TimeRanges counterexample (same source, different fixture)
+
+[R30 SQL-stage immutable evidence](../ts-lab/evidence/R30-any-sql-premerge-41714502297.json) / [CI 41714502297](https://github.com/moleus/ClickHouse/actions/runs/41714502297) supplies a second independent cardinality failure mechanism. 4096 stable IDs were inserted 16 times while merges were stopped; the TimeRanges target contains 65,536 in-window physical right-side rows. The `EXPLAIN PLAN` for stage/project displays **time_ranges_subquery[7136]** after the optimizer physically swaps the sides (`Type: right`) and **Output rows: estimated 919** for both `Strictness: all` and `Strictness: any`.
+
+Actual direct SQL JOIN outputs for stage are **16,384 ALL / 1,024 ANY**; for project **32,768 ALL / 2,048 ANY**. Plans report equal cost ~919.09 for the two strictness modes. This verifies that **on this fixture** the native-generated SQL CBO estimates both inputs and output multiplicity poorly; the plan estimate is not a safe memory-admission bound. The source's unmodified native path is still ALL; the candidate ANY was applied only in standalone SQL.
+
+Consequence for E03/R06: if physical `TimeRanges` can have many rows per ID between merges, a useful cost model needs per-ID **right-side multiplicity/part state** and explicit JOIN strictness, not only total distinct IDs or label selectivity. Input rows and distinct IDs are different. Do not hard-code a global 9.18× correction; observed ratios depend on merge state and the query time window. R30 is responsible for ALL/ANY semantics and candidate validation; R06 can consume its immutable estimator evidence without starting a duplicate experiment.
