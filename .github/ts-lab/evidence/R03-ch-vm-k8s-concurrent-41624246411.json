@@ -1,0 +1,702 @@
+{
+  "schema_version": 1,
+  "question_id": "R03-k8s-400node-native-vm-concurrency-v1",
+  "decision": "ACCEPT_DIAGNOSTIC_SAME_RUNNER_VM_FASTER_ON_ALL_12",
+  "ci_conclusion": "success",
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41624246411",
+  "workflow_commit": "3beeda9385ad5d96a1ef85b5f0dae8b4439308f2",
+  "job_id": 125877459109,
+  "artifact_id": 13225163145,
+  "artifact_name": "tslab-r03-native-ch-vm-41624246411",
+  "artifact_zip_sha256": "9b25a00522d1d640b94664a7206fe4817f2b5e896036228d80b49c008d620c17",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "clickhouse": {
+    "build_run": 41596421285,
+    "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "compiler": "LLVM22.1.8 -O1 stock source, glibc",
+    "table": "v11 TimeSeries, RAW_UUID opt-in on TAGS, TimeRanges and SAMPLES; recent samples disabled, default 3600s main bucket",
+    "max_threads_per_query": 2,
+    "max_server_memory_usage_bytes": 4800000000,
+    "query_max_memory_usage_bytes": 3500000000,
+    "physical_inner_parts_unchanged": true
+  },
+  "vm": {
+    "version": "v1.134.0 single-server optimized upstream release",
+    "pinned_build_run": 41288854734,
+    "release_archive_sha256": "cd6e109bae85ff7c138d838b32be9a7fe2a6d7a9b3a387a7cf9234f22991da10",
+    "flags": [
+      "-search.disableCache",
+      "-search.maxUniqueTimeseries=165000",
+      "-memory.allowedBytes=4294967296",
+      "-retentionPeriod=6"
+    ],
+    "query_param": "nocache=1",
+    "note": "VM memory.allowedBytes controls VM memory/caches rather than strict process RSS cgroup; index/tag-filter cache may still be active despite query response cache disabled."
+  },
+  "fixture": {
+    "source": "R01 same 400-node 3d mixed-cadence deterministic synthetic Kubernetes-shape",
+    "sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+    "series": 28896,
+    "sample_points": 2488320,
+    "intervals_seconds": [
+      15,
+      60,
+      300
+    ],
+    "node_lifetime_s": 10800,
+    "node_starts": "aligned to UTC three-hour boundary (known R10 limitation)",
+    "vm_import_prometheus_requests": 139,
+    "vm_import_wire_bytes": 552172658,
+    "vm_last_day_node_samples_confirmed": 576000,
+    "ch_source_point_sum_verified": true
+  },
+  "method": {
+    "one_runner": "ubuntu-24.04 GitHub Actions CPU and hardware in artifact",
+    "requests": "For each selector node_broad,pod_namespace,pod_broad,burst15 and n=1,4,8, VM/CH/CH/VM A/B/B/A phases, 2 warmup and 64 measured concurrent waves/phase with synchronized client barrier and source exactly equal query output.",
+    "query": "avg by(group)(avg_over_time(metric{selector}[1d])) evaluated via native CH prometheusQueryRange and VM /api/v1/query_range at three daily timestamps",
+    "parity": "assert_same on full labels/timestamps/numeric values after each HTTP request and independent cross-engine oracle per selector; no silent empty/error responses",
+    "timing": "p50/p95/p99 HTTP client latency and wave-based completed QPS, per engine",
+    "cpu": "Per-process Linux CPU jiffies and sum of /proc/PID/task/TID/schedstat nanosecond running-time before/after measured waves. Process CPU includes background engine work; not query-isolated VM CPU.",
+    "memory": "VM and CH begin/end process VmRSS snapshots and lifetime VmHWM only outside timed query waves; no high-rate observer; CH QueryFinish peak memory separately.",
+    "controls": "Both engines A/A p50/QPS/schedstat CPU relative drift <=25%, reject incomplete or invalid comparison. Nonzero VM / CH result values exact.",
+    "prior_invalid": "Run41623609320 was censored by RSS polling overhead and VM 8-wave CPU time granularity, superseded rather than silently counted as 12 valid."
+  },
+  "validity": {
+    "complete_12_of_12": true,
+    "all_4_oracle_label_timestamp_numeric_values_equal": true,
+    "max_abs_oracle_difference": 2.498001805406602e-16,
+    "all_12_abba_valid": true,
+    "max_vm_control_p50_drift": 0.13979,
+    "max_vm_control_qps_drift": 0.20621,
+    "max_vm_control_schedstat_cpu_drift": 0.1499,
+    "max_ch_control_p50_drift": 0.1325,
+    "max_ch_control_qps_drift": 0.15972,
+    "max_ch_control_schedstat_cpu_drift": 0.06448,
+    "full_ch_physical_parts_stable": true,
+    "fixture_hash_exact": true,
+    "no_errors": true,
+    "no_oom": true,
+    "source_log_verified": true
+  },
+  "oracle": {
+    "node_broad": {
+      "points": 24,
+      "max_abs_error": 2.220446049250313e-16
+    },
+    "pod_namespace": {
+      "points": 3,
+      "max_abs_error": 5.551115123125783e-17
+    },
+    "pod_broad": {
+      "points": 48,
+      "max_abs_error": 2.498001805406602e-16
+    },
+    "burst15": {
+      "points": 12,
+      "max_abs_error": 1.1102230246251565e-16
+    }
+  },
+  "measurements": {
+    "node_broad_1": {
+      "p50_ms": {
+        "vm": 20.294,
+        "ch": 114.186,
+        "ch_div_vm": 5.62659,
+        "vm_control_drift": 0.09737,
+        "ch_control_drift": 0.0646
+      },
+      "p95_ms": {
+        "vm": 23.9995,
+        "ch": 124.852,
+        "ch_div_vm": 5.20228,
+        "vm_control_drift": 0.12404,
+        "ch_control_drift": 0.01799
+      },
+      "p99_ms": {
+        "vm": 26.7715,
+        "ch": 128.4945,
+        "ch_div_vm": 4.79968,
+        "vm_control_drift": 0.23021,
+        "ch_control_drift": 0.00623
+      },
+      "qps": {
+        "vm": 48.6566,
+        "ch": 8.7689,
+        "ch_div_vm": 0.18022,
+        "vm_control_drift": 0.10872,
+        "ch_control_drift": 0.04816
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 54.2965,
+        "ch": 197.9685,
+        "ch_div_vm": 3.64606,
+        "vm_control_drift": 0.10647,
+        "ch_control_drift": 0.05209
+      },
+      "schedstat_cpu_ms_per_request": {
+        "vm": 54.3299,
+        "ch": 197.9805,
+        "ch_div_vm": 3.64404,
+        "vm_control_drift": 0.10675,
+        "ch_control_drift": 0.05211
+      },
+      "valid": true
+    },
+    "node_broad_4": {
+      "p50_ms": {
+        "vm": 68.798,
+        "ch": 301.358,
+        "ch_div_vm": 4.38033,
+        "vm_control_drift": 0.09663,
+        "ch_control_drift": 0.1325
+      },
+      "p95_ms": {
+        "vm": 82.8935,
+        "ch": 368.682,
+        "ch_div_vm": 4.44766,
+        "vm_control_drift": 0.28394,
+        "ch_control_drift": 0.216
+      },
+      "p99_ms": {
+        "vm": 86.8055,
+        "ch": 391.978,
+        "ch_div_vm": 4.51559,
+        "vm_control_drift": 0.26693,
+        "ch_control_drift": 0.22603
+      },
+      "qps": {
+        "vm": 53.9427,
+        "ch": 12.209,
+        "ch_div_vm": 0.22633,
+        "vm_control_drift": 0.20621,
+        "ch_control_drift": 0.15972
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 63.281,
+        "ch": 297.0115,
+        "ch_div_vm": 4.69353,
+        "vm_control_drift": 0.00247,
+        "ch_control_drift": 0.01223
+      },
+      "schedstat_cpu_ms_per_request": {
+        "vm": 63.2552,
+        "ch": 297.0412,
+        "ch_div_vm": 4.69592,
+        "vm_control_drift": 0.00263,
+        "ch_control_drift": 0.01238
+      },
+      "valid": true
+    },
+    "node_broad_8": {
+      "p50_ms": {
+        "vm": 115.9625,
+        "ch": 591.532,
+        "ch_div_vm": 5.10106,
+        "vm_control_drift": 0.04742,
+        "ch_control_drift": 0.0466
+      },
+      "p95_ms": {
+        "vm": 133.638,
+        "ch": 673.9115,
+        "ch_div_vm": 5.04281,
+        "vm_control_drift": 0.06341,
+        "ch_control_drift": 0.04058
+      },
+      "p99_ms": {
+        "vm": 137.4355,
+        "ch": 692.6275,
+        "ch_div_vm": 5.03965,
+        "vm_control_drift": 0.05234,
+        "ch_control_drift": 0.0155
+      },
+      "qps": {
+        "vm": 61.3965,
+        "ch": 12.4627,
+        "ch_div_vm": 0.20299,
+        "vm_control_drift": 0.0667,
+        "ch_control_drift": 0.04399
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 62.0605,
+        "ch": 315.83,
+        "ch_div_vm": 5.08907,
+        "vm_control_drift": 0.06263,
+        "ch_control_drift": 0.04521
+      },
+      "schedstat_cpu_ms_per_request": {
+        "vm": 62.0418,
+        "ch": 315.8492,
+        "ch_div_vm": 5.0909,
+        "vm_control_drift": 0.06274,
+        "ch_control_drift": 0.04514
+      },
+      "valid": true
+    },
+    "pod_namespace_1": {
+      "p50_ms": {
+        "vm": 2.5785,
+        "ch": 52.3585,
+        "ch_div_vm": 20.3058,
+        "vm_control_drift": 0.05701,
+        "ch_control_drift": 0.08027
+      },
+      "p95_ms": {
+        "vm": 4.351,
+        "ch": 59.4125,
+        "ch_div_vm": 13.65491,
+        "vm_control_drift": 0.49552,
+        "ch_control_drift": 0.04304
+      },
+      "p99_ms": {
+        "vm": 4.9775,
+        "ch": 61.466,
+        "ch_div_vm": 12.34877,
+        "vm_control_drift": 0.42853,
+        "ch_control_drift": 0.06368
+      },
+      "qps": {
+        "vm": 357.8025,
+        "ch": 18.8534,
+        "ch_div_vm": 0.05269,
+        "vm_control_drift": 0.11447,
+        "ch_control_drift": 0.06818
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 5.8595,
+        "ch": 83.828,
+        "ch_div_vm": 14.30634,
+        "vm_control_drift": 0.08004,
+        "ch_control_drift": 0.06523
+      },
+      "schedstat_cpu_ms_per_request": {
+        "vm": 5.8969,
+        "ch": 83.9022,
+        "ch_div_vm": 14.2283,
+        "vm_control_drift": 0.07256,
+        "ch_control_drift": 0.06448
+      },
+      "valid": true
+    },
+    "pod_namespace_4": {
+      "p50_ms": {
+        "vm": 6.982,
+        "ch": 100.025,
+        "ch_div_vm": 14.32612,
+        "vm_control_drift": 0.13979,
+        "ch_control_drift": 0.03057
+      },
+      "p95_ms": {
+        "vm": 10.312,
+        "ch": 126.3665,
+        "ch_div_vm": 12.25432,
+        "vm_control_drift": 0.18057,
+        "ch_control_drift": 0.04314
+      },
+      "p99_ms": {
+        "vm": 12.1485,
+        "ch": 134.3665,
+        "ch_div_vm": 11.06034,
+        "vm_control_drift": 0.1955,
+        "ch_control_drift": 0.04224
+      },
+      "qps": {
+        "vm": 490.461,
+        "ch": 36.2957,
+        "ch_div_vm": 0.074,
+        "vm_control_drift": 0.162,
+        "ch_control_drift": 0.03652
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 5.918,
+        "ch": 103.906,
+        "ch_div_vm": 17.55762,
+        "vm_control_drift": 0.15174,
+        "ch_control_drift": 0.03309
+      },
+      "schedstat_cpu_ms_per_request": {
+        "vm": 5.9079,
+        "ch": 103.9234,
+        "ch_div_vm": 17.59058,
+        "vm_control_drift": 0.1499,
+        "ch_control_drift": 0.03314
+      },
+      "valid": true
+    },
+    "pod_namespace_8": {
+      "p50_ms": {
+        "vm": 11.1495,
+        "ch": 201.954,
+        "ch_div_vm": 18.11328,
+        "vm_control_drift": 0.1122,
+        "ch_control_drift": 0.00435
+      },
+      "p95_ms": {
+        "vm": 17.108,
+        "ch": 237.4645,
+        "ch_div_vm": 13.88032,
+        "vm_control_drift": 0.16367,
+        "ch_control_drift": 0.01126
+      },
+      "p99_ms": {
+        "vm": 19.7775,
+        "ch": 247.0865,
+        "ch_div_vm": 12.49331,
+        "vm_control_drift": 0.14982,
+        "ch_control_drift": 0.02291
+      },
+      "qps": {
+        "vm": 529.5839,
+        "ch": 36.033,
+        "ch_div_vm": 0.06804,
+        "vm_control_drift": 0.10522,
+        "ch_control_drift": 0.00441
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 5.7325,
+        "ch": 107.871,
+        "ch_div_vm": 18.81744,
+        "vm_control_drift": 0.11252,
+        "ch_control_drift": 0.00326
+      },
+      "schedstat_cpu_ms_per_request": {
+        "vm": 5.7415,
+        "ch": 107.8679,
+        "ch_div_vm": 18.78741,
+        "vm_control_drift": 0.1106,
+        "ch_control_drift": 0.00331
+      },
+      "valid": true
+    },
+    "pod_broad_1": {
+      "p50_ms": {
+        "vm": 39.5145,
+        "ch": 131.85,
+        "ch_div_vm": 3.33675,
+        "vm_control_drift": 0.00863,
+        "ch_control_drift": 0.00111
+      },
+      "p95_ms": {
+        "vm": 43.0565,
+        "ch": 145.9055,
+        "ch_div_vm": 3.3887,
+        "vm_control_drift": 0.01614,
+        "ch_control_drift": 0.00482
+      },
+      "p99_ms": {
+        "vm": 44.1275,
+        "ch": 149.687,
+        "ch_div_vm": 3.39215,
+        "vm_control_drift": 0.00637,
+        "ch_control_drift": 0.02086
+      },
+      "qps": {
+        "vm": 25.0795,
+        "ch": 7.5086,
+        "ch_div_vm": 0.29939,
+        "vm_control_drift": 0.00672,
+        "ch_control_drift": 0.00931
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 87.656,
+        "ch": 244.3755,
+        "ch_div_vm": 2.78789,
+        "vm_control_drift": 0,
+        "ch_control_drift": 0.00767
+      },
+      "schedstat_cpu_ms_per_request": {
+        "vm": 87.8194,
+        "ch": 244.5401,
+        "ch_div_vm": 2.78458,
+        "vm_control_drift": 0.00065,
+        "ch_control_drift": 0.00838
+      },
+      "valid": true
+    },
+    "pod_broad_4": {
+      "p50_ms": {
+        "vm": 98.5955,
+        "ch": 303.109,
+        "ch_div_vm": 3.07427,
+        "vm_control_drift": 0.02877,
+        "ch_control_drift": 0.00627
+      },
+      "p95_ms": {
+        "vm": 113.6925,
+        "ch": 355.5595,
+        "ch_div_vm": 3.12738,
+        "vm_control_drift": 0.0522,
+        "ch_control_drift": 0.00407
+      },
+      "p99_ms": {
+        "vm": 127.8385,
+        "ch": 370.6305,
+        "ch_div_vm": 2.89921,
+        "vm_control_drift": 0.16077,
+        "ch_control_drift": 0.02663
+      },
+      "qps": {
+        "vm": 38.7839,
+        "ch": 12.1417,
+        "ch_div_vm": 0.31306,
+        "vm_control_drift": 0.02153,
+        "ch_control_drift": 0.00251
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 97.031,
+        "ch": 321.1525,
+        "ch_div_vm": 3.30979,
+        "vm_control_drift": 0.02576,
+        "ch_control_drift": 0.00304
+      },
+      "schedstat_cpu_ms_per_request": {
+        "vm": 97.0175,
+        "ch": 321.1624,
+        "ch_div_vm": 3.31035,
+        "vm_control_drift": 0.02618,
+        "ch_control_drift": 0.00293
+      },
+      "valid": true
+    },
+    "pod_broad_8": {
+      "p50_ms": {
+        "vm": 179.104,
+        "ch": 603.252,
+        "ch_div_vm": 3.36817,
+        "vm_control_drift": 0.00805,
+        "ch_control_drift": 0.01096
+      },
+      "p95_ms": {
+        "vm": 207.622,
+        "ch": 685.5155,
+        "ch_div_vm": 3.30175,
+        "vm_control_drift": 0.02335,
+        "ch_control_drift": 0.01397
+      },
+      "p99_ms": {
+        "vm": 220.194,
+        "ch": 708.62,
+        "ch_div_vm": 3.21816,
+        "vm_control_drift": 0.01464,
+        "ch_control_drift": 0.01396
+      },
+      "qps": {
+        "vm": 39.6362,
+        "ch": 12.0398,
+        "ch_div_vm": 0.30376,
+        "vm_control_drift": 0.02105,
+        "ch_control_drift": 0.01213
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 97.0995,
+        "ch": 328.486,
+        "ch_div_vm": 3.38298,
+        "vm_control_drift": 0.0175,
+        "ch_control_drift": 0.01421
+      },
+      "schedstat_cpu_ms_per_request": {
+        "vm": 97.098,
+        "ch": 328.4679,
+        "ch_div_vm": 3.38285,
+        "vm_control_drift": 0.01751,
+        "ch_control_drift": 0.01414
+      },
+      "valid": true
+    },
+    "burst15_1": {
+      "p50_ms": {
+        "vm": 0.89,
+        "ch": 36.5935,
+        "ch_div_vm": 41.11629,
+        "vm_control_drift": 0.02022,
+        "ch_control_drift": 0.03528
+      },
+      "p95_ms": {
+        "vm": 1.0435,
+        "ch": 40.693,
+        "ch_div_vm": 38.99665,
+        "vm_control_drift": 0.15237,
+        "ch_control_drift": 0.03848
+      },
+      "p99_ms": {
+        "vm": 1.269,
+        "ch": 43.345,
+        "ch_div_vm": 34.15682,
+        "vm_control_drift": 0.46966,
+        "ch_control_drift": 0.06644
+      },
+      "qps": {
+        "vm": 1046.4739,
+        "ch": 26.8122,
+        "ch_div_vm": 0.02562,
+        "vm_control_drift": 0.02322,
+        "ch_control_drift": 0.03897
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 1.641,
+        "ch": 54.7655,
+        "ch_div_vm": 33.37325,
+        "vm_control_drift": 0.09506,
+        "ch_control_drift": 0.03139
+      },
+      "schedstat_cpu_ms_per_request": {
+        "vm": 1.6549,
+        "ch": 54.6522,
+        "ch_div_vm": 33.02447,
+        "vm_control_drift": 0.10563,
+        "ch_control_drift": 0.03743
+      },
+      "valid": true
+    },
+    "burst15_4": {
+      "p50_ms": {
+        "vm": 2.2945,
+        "ch": 69.475,
+        "ch_div_vm": 30.27893,
+        "vm_control_drift": 0.02397,
+        "ch_control_drift": 0.02358
+      },
+      "p95_ms": {
+        "vm": 2.96,
+        "ch": 88.1525,
+        "ch_div_vm": 29.78125,
+        "vm_control_drift": 0.06419,
+        "ch_control_drift": 0.04432
+      },
+      "p99_ms": {
+        "vm": 3.6105,
+        "ch": 98.503,
+        "ch_div_vm": 27.28237,
+        "vm_control_drift": 0.04182,
+        "ch_control_drift": 0.14079
+      },
+      "qps": {
+        "vm": 1368.5814,
+        "ch": 52.1728,
+        "ch_div_vm": 0.03812,
+        "vm_control_drift": 0.02942,
+        "ch_control_drift": 0.00128
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 1.4645,
+        "ch": 71.133,
+        "ch_div_vm": 48.57153,
+        "vm_control_drift": 0.02663,
+        "ch_control_drift": 0.00219
+      },
+      "schedstat_cpu_ms_per_request": {
+        "vm": 1.476,
+        "ch": 71.1317,
+        "ch_div_vm": 48.19221,
+        "vm_control_drift": 0.00014,
+        "ch_control_drift": 0.00269
+      },
+      "valid": true
+    },
+    "burst15_8": {
+      "p50_ms": {
+        "vm": 4.051,
+        "ch": 135.466,
+        "ch_div_vm": 33.44014,
+        "vm_control_drift": 0.02617,
+        "ch_control_drift": 0.02455
+      },
+      "p95_ms": {
+        "vm": 5.732,
+        "ch": 166.0985,
+        "ch_div_vm": 28.97741,
+        "vm_control_drift": 0.05199,
+        "ch_control_drift": 0.02221
+      },
+      "p99_ms": {
+        "vm": 6.84,
+        "ch": 175.1515,
+        "ch_div_vm": 25.60694,
+        "vm_control_drift": 0.12135,
+        "ch_control_drift": 0.02824
+      },
+      "qps": {
+        "vm": 1407.4873,
+        "ch": 53.0161,
+        "ch_div_vm": 0.03767,
+        "vm_control_drift": 0.04286,
+        "ch_control_drift": 0.01666
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 1.504,
+        "ch": 72.578,
+        "ch_div_vm": 48.25665,
+        "vm_control_drift": 0.10372,
+        "ch_control_drift": 0.021
+      },
+      "schedstat_cpu_ms_per_request": {
+        "vm": 1.492,
+        "ch": 72.5784,
+        "ch_div_vm": 48.64504,
+        "vm_control_drift": 0.08552,
+        "ch_control_drift": 0.0208
+      },
+      "valid": true
+    }
+  },
+  "summary": {
+    "vm_lowers_p50_all_12": true,
+    "min_clickhouse_over_vm_p50_ratio": 3.07427,
+    "max_clickhouse_over_vm_p50_ratio": 41.11629,
+    "by_case_8_clients": {
+      "node_broad_8": {
+        "vm_p50_ms": 115.9625,
+        "ch_p50_ms": 591.532,
+        "latency_ratio_ch_vs_vm": 5.10106,
+        "vm_p95_ms": 133.638,
+        "ch_p95_ms": 673.9115,
+        "vm_qps": 61.3965,
+        "ch_qps": 12.4627,
+        "vm_schedstat_cpu_ms_per_request": 62.0418,
+        "ch_schedstat_cpu_ms_per_request": 315.8492
+      },
+      "pod_namespace_8": {
+        "vm_p50_ms": 11.1495,
+        "ch_p50_ms": 201.954,
+        "latency_ratio_ch_vs_vm": 18.11328,
+        "vm_p95_ms": 17.108,
+        "ch_p95_ms": 237.4645,
+        "vm_qps": 529.5839,
+        "ch_qps": 36.033,
+        "vm_schedstat_cpu_ms_per_request": 5.7415,
+        "ch_schedstat_cpu_ms_per_request": 107.8679
+      },
+      "pod_broad_8": {
+        "vm_p50_ms": 179.104,
+        "ch_p50_ms": 603.252,
+        "latency_ratio_ch_vs_vm": 3.36817,
+        "vm_p95_ms": 207.622,
+        "ch_p95_ms": 685.5155,
+        "vm_qps": 39.6362,
+        "ch_qps": 12.0398,
+        "vm_schedstat_cpu_ms_per_request": 97.098,
+        "ch_schedstat_cpu_ms_per_request": 328.4679
+      },
+      "burst15_8": {
+        "vm_p50_ms": 4.051,
+        "ch_p50_ms": 135.466,
+        "latency_ratio_ch_vs_vm": 33.44014,
+        "vm_p95_ms": 5.732,
+        "ch_p95_ms": 166.0985,
+        "vm_qps": 1407.4873,
+        "ch_qps": 53.0161,
+        "vm_schedstat_cpu_ms_per_request": 1.492,
+        "ch_schedstat_cpu_ms_per_request": 72.5784
+      }
+    }
+  },
+  "limits": [
+    "ClickHouse O1 glibc lab binary vs optimized VM1.134 production release; these are NOT production-normalized engine ratios. CH uses opt-in RAW UUID, not stock default LC ID. C++ optimizer and allocator parity not achieved.",
+    "VM metricIDs/tag-filter cache and CH internal index/page caches may be warm even when HTTP response cache disabled.",
+    "Both backends share one runner even though only one actively queried per ABBA phase; idle process page cache/background compaction/VM memory allowance and CH tracking cap are not identical strict cgroups.",
+    "Only 3d synthetic synchronized 400-node life, no real HPA, staggered starts, 14d 1.33m Jenkins dashboard, O2 or jemalloc ClickHouse, multi-region, remote network, simultaneous ingest+read, or production search.maxUniqueTimeseries boundary under >165k matches.",
+    "Process CPU schedstat and process RSS are snapshots across all threads/engine work, not per-query isolated CPU or heap allocation attribution.",
+    "Full profiler operator stacks or direct VM index filter cache hit counters were not collected; different index and query pipeline paths are hypotheses, not proven causes."
+  ],
+  "scientific_conclusion": "VM1.134 is faster and uses less measured per-process CPU than stock O1 ClickHouse with opt-in RAW_UUID on all 12 native matched synthetic 3d selector/concurrency comparisons; requires production-optimization and realistic 14d/VM-limit retest before recommending storage engine replacement.",
+  "next_action": "Do not promote ClickHouse as a VictoriaMetrics replacement from O1 data; prioritize matched O2+jemalloc CH and VM benchmark under same host cgroup and 1.33m/14d workload, with VM 165k series cap explicit. Reuse jemalloc build #41607779848 once complete. Investigate precise CH ID-set/metadata join and SAMPLES physical marking costs in coordination with R05, without repeating R05 index experiment."
+}
