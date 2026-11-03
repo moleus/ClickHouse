@@ -5,6 +5,7 @@ Not a native PromQL optimization. No C++ patch, no production writes.
 """
 import argparse
 import json
+import os
 import pathlib
 import statistics
 import sys
