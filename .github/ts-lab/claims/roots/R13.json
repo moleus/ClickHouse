@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "question_id": "R13",
+  "primary_claim_id": "R13-large-regex-alternation-in-vs-match-v1",
+  "owner": "chatgpt-r13-regex-plan-20261103",
+  "scope": "Same-series native TimeSeries PromQL performance, CPU and correctness for long literal branch alternations automatically converted to IN versus compact equivalent regex handled by match. Does not overlap R05 mark-range pruning or R10 bucket shape.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-03T10:33:00Z"
+}
