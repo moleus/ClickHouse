@@ -170,3 +170,19 @@ Whole n8 pending at this checkpoint.
 The follow-up [fresh-server project8 `max_threads=1` #41609140400](https://github.com/moleus/ClickHouse/actions/runs/41609140400)
 is an independent memory-survival test and does not cancel the ongoing build.
 
+## 2026-11-03: all fixed-client RAW UUID thread-budget jobs PASS
+
+Complete [CI #41608382567](https://github.com/moleus/ClickHouse/actions/runs/41608382567),
+[full report](NATIVE_CLIENT_THREAD_BUDGET_RESULTS_20261103.md),
+identical binary SHA256 `f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e`,
+fixture SHA256 `8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858`.
+Fixed clients and full native PromQL parity, `max_threads=2/1/1/2`, all 3 jobs
+PASS with physical part parity.
+- stage14d n8: p50 1521→1452ms, CPU/request737→696ms, control drift4.65%;
+- project14d n4: p50 3959→3849ms, CPU3615→3522ms, drift3.75%;
+- whole1d n8: p50 2702→2684ms, CPU1234→1225ms, drift2.40%.
+**No confidently large improvement:** stage/project p50 deltas are comparable
+with A/A drift, whole negligible. Thread budget should not be promoted as
+a generic tuning change. Fresh project8 max_threads1 [#41609140400](https://github.com/moleus/ClickHouse/actions/runs/41609140400)
+remains a separate capacity experiment.
+
