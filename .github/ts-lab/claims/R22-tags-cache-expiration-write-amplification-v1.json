@@ -1,0 +1,22 @@
+{
+  "id": "R22-tags-cache-expiration-write-amplification-v1",
+  "question": "Does the default one-hour TAGS dedup cache entry expiration force a periodic burst of TAGS table writes/read overhead even if cache capacity is sufficient for every stable metric series, and how much do normal ReplacingMergeTree merges mitigate the physical row cost?",
+  "owner": "chatgpt-r22-expiration-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Stock-O1 glibc LLVM22 TimeSeries v11 RAW UUID fixed 4096 distinct long-lived series, cache1MiB (>nominal 589824B working set), tags_deduplication_cache_expiration_seconds=3600, 12 inserts separated by 1.1sec. Merger state explicitly declared (initial stopped merge gate).",
+  "candidate": "The exact same schema and cache size, source, fixture, timestamps/values, write timing and exact native PromQL, but tags_deduplication_cache_expiration_seconds=1, so every repeated series entry expires before its next batch. This is a 3600x accelerated TTL, not a claim that production TTL is 1sec.",
+  "fixture": "Reuse R21 canonical original SHA256 052b2058e7adc280a956b083c9af7d2e636eba6ab2607c204e6f676fcc5d1883: 4096 stable full IDs x 12 batches at 60sec timestamp offsets, 49152 physical sample points; real wall-clock sleep1.1sec between batches, frozen order fixed. Same unmodified stock O1 binary SHA f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e.",
+  "single_variable": "tags_deduplication_cache_expiration_seconds (3600 vs 1); both cache capacities exactly 1048576 bytes and 12 consecutive inserts paced at identical 1.1s wall delay. Workload fixture, physical ID columns, compiler, QUERY events, START/STOP MERGES condition and native query identical.",
+  "math_bound": "TimeSeriesDeduplicationCache.cpp checks std::chrono::duration_cast<seconds>(now-written_at).count()>=expiration_seconds. For 4096 IDs and >1.1sec between completed batches, expiration=1s yields 12*4096=49152 cache misses and TAGS row writes with no TAGS merges; 3600s yields first 4096 misses and next 45056 hits, TAGS rows4096. Difference 45056 raw TAGS rows and potentially native read_rows +45056. MergeTree TAGS is ReplacingMergeTree, so after merges duplicate logical IDs may disappear; no permanent 12x TAGS retention claim.",
+  "falsifier": "If the per-phase global cache ProfileEvents do not match physical TAGS rows (with merges stopped), if exact native labels/timestamp/numerical values differ, if all 4096 IDs/49152 samples are not present, if A/A process CPU or native p50 drift>25%, reject performance conclusion. If 1sec expiration does not induce near all misses despite verified pacing+source, revisit isExpired timing boundary; no guessed behavior. With natural merges, measure actual rows and part_log rather than assume no duplicates remain.",
+  "test_matrix": "One path-scoped run, 4 fresh process ABBA baseline 3600s / candidate 1s / candidate 1s / baseline3600s, cache1MiB all, fixed canonical R21 fixture, exactly 12 batches paced1.1s. Same source and binary, no recompilation. First STOP MERGES for strict counter/physical causality, full native oracle 3+6 queries. If passes, second distinct workflow natural merges and forced FINAL before final native to separate write/merge/read costs.",
+  "runner_budget": "One GitHub-hosted ubuntu-24.04 runner <=35min. Four sequential stock O1 processes, 12*1.1s ~53sec wall sleep minimum. No schedules, no cancellation of existing builds or state, local ephemeral synthetic data only, RSS limit2.8GB. Only one job initially.",
+  "planned_workflow": ".github/workflows/ts-lab-r22-cache-expiration-20261103.yml path-only push, run-unique concurrency, never on master/production.",
+  "dependencies": [
+    "R21 source/fixture and isolated process CPU helpers CI41652867042",
+    "R21 negative CPU/ordering drift pilot41653813776",
+    "R19 direct TAGS cache/TTL source safety proof CI41642999590",
+    "R18 compiler/codec and R20 native query path are separately owned"
+  ]
+}
