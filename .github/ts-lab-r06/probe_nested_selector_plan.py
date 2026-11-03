@@ -131,11 +131,62 @@ def insert_fixture(path):
     with urllib.request.urlopen(req, timeout=180) as response: response.read()
 
 
-def timeranges():
-    q = "SELECT name FROM system.tables WHERE database='default' AND startsWith(name,'.inner_id.timeranges.') FORMAT JSONEachRow"
+def inner_table(kind):
+    if kind not in ('timeranges', 'tags'):
+        raise ValueError('Unexpected TimeSeries inner target')
+    q = ("SELECT name FROM system.tables WHERE database='default' "
+         f"AND startsWith(name,'.inner_id.{kind}.') FORMAT JSONEachRow")
     names = [json.loads(line)['name'] for line in request(q).splitlines() if line.strip()]
-    if len(names) != 1: raise ValueError(f'Expected one TimeRanges inner table, found {names}')
+    if len(names) != 1: raise ValueError(f'Expected one {kind} inner table, found {names}')
     return chr(96) + names[0].replace(chr(96), chr(96) * 2) + chr(96)
+
+
+def rows(query):
+    data = [json.loads(line) for line in request(query + ' FORMAT JSONEachRow').splitlines() if line.strip()]
+    if len(data) != 1: raise ValueError(f'Cardinality expected one row, found {len(data)}')
+    return data[0]
+
+
+def observed_cardinality(fixture_path, tags_target, time_target):
+    """Compare *input* row estimates against exact source-table filter counts."""
+    fixture_rows = [json.loads(line) for line in pathlib.Path(fixture_path).read_text().splitlines()]
+    expected = {
+        'stage': sum(x['tags'].get('stage') == 'stage-0007' for x in fixture_rows),
+        'project': sum(x['tags'].get('project') == 'project-00' for x in fixture_rows),
+    }
+    actual = {}
+    for case,value in (('stage','stage-0007'),('project','project-00')):
+        q = (f"SELECT count() AS n, uniqExact(id) AS uniq_ids FROM {tags_target} "
+             f"WHERE metric_name='r06_cpu_seconds_total' AND tags[{quoted(case)}]={quoted(value)}")
+        res = rows(q)
+        actual[case] = {'estimated_from_fixture':expected[case],
+                        'tag_rows':int(res['n']), 'tag_uniq_ids':int(res['uniq_ids'])}
+        if actual[case]['tag_rows'] != expected[case] or actual[case]['tag_uniq_ids'] != expected[case]:
+            raise ValueError(f'{case}: actual TAGS rows/ids disagree with input fixture')
+    # Native avg_over_time(...[1d]) extends the selector left edge by a day.
+    lower_ms = (START - 86400) * 1000 + 1
+    upper_ms = END * 1000
+    q = (f'SELECT count() AS n, uniqExact(id) AS uniq_ids FROM {time_target} '
+         f'WHERE max_time>=fromUnixTimestamp64Milli({lower_ms}) '
+         f'AND min_time<=fromUnixTimestamp64Milli({upper_ms})')
+    res = rows(q)
+    actual['timeranges'] = {'right_rows':int(res['n']),
+                           'right_uniq_ids':int(res['uniq_ids']),
+                           'bounded_range_start_ms':lower_ms,
+                           'bounded_range_end_ms':upper_ms}
+    return actual
+
+
+def estimated_join_rows(explain_plan):
+    """Parse ClickHouse human-formatted EXPLAIN estimates; not optimizer internals."""
+    import re
+    estimates={}
+    for side in ('Left','Right'):
+        m=re.search(rf'{side}: rows estimated ([0-9.]+)(?: (thousand|million|billion))?',explain_plan)
+        if not m: raise ValueError(f'Missing JOIN {side} input cardinality estimate')
+        unit={'thousand':1e3,'million':1e6,'billion':1e9,None:1}[m.group(2)]
+        estimates[side.lower()]=float(m.group(1))*unit
+    return estimates
 
 
 def settings_for(mode):
@@ -179,8 +230,10 @@ def main():
         report['fixture'] = fixture(data, args.series)
         request('CREATE TABLE r06_ts ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0')
         insert_fixture(data)
-        target = timeranges()
+        target = inner_table('timeranges')
+        tags_target = inner_table('tags')
         report['timeranges_target'] = target
+        report['tags_target'] = tags_target
         for query in (f"ALTER TABLE {target} MODIFY SETTING deduplicate_merge_projection_mode='rebuild'",
                       f'ALTER TABLE {target} ADD INDEX idx_time_max max_time TYPE minmax GRANULARITY 1',
                       f'ALTER TABLE {target} MATERIALIZE INDEX idx_time_max SETTINGS mutations_sync=2',
@@ -189,6 +242,7 @@ def main():
             request(query)
         report['timeranges_show_create'] = request('SHOW CREATE TABLE ' + target)
         request('SYSTEM STOP MERGES')
+        report['observed_cardinality'] = observed_cardinality(data,tags_target,target)
         for case, matcher in MATCHERS.items():
             report['cases'][case] = {}
             expr = f'avg by(stage)(avg_over_time(r06_cpu_seconds_total{matcher}[1d]))'
@@ -211,6 +265,10 @@ def main():
                         'generated_sql_sha256': hashlib.sha256(nested.encode()).hexdigest(),
                         'generated_selector_sql': nested, 'ids_selector_sql': ids,
                         'explain': explain(nested, settings), 'explain_ids': explain(ids, settings)}
+                item['estimated_join_inputs'] = estimated_join_rows(item['explain_ids']['plan'])
+                item['observed_join_input_proxy'] = {
+                    'left_tags': report['observed_cardinality'][case]['tag_rows'],
+                    'right_timeranges': report['observed_cardinality']['timeranges']['right_rows']}
                 report['cases'][case][mode] = item
                 (folder / f'{case}-{mode}-selector.sql').write_text(nested + '\n')
                 (folder / f'{case}-{mode}-ids.sql').write_text(ids + '\n')
