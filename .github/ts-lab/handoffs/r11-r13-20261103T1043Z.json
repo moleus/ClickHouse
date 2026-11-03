@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "session_id": "r11-r13-20261103T1043Z",
+  "status": "done",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "ae916f9b89a97698508c39b9ffdf62331a87c29b",
+  "last_verified_utc": "2026-11-03T10:43:24Z",
+  "summary": "Two new source-backed, nonduplicate investigations on stock O1: R11 native PromQL opt-in query cache returned proven stale result after INSERT (expected documented behavior), R13 literal 200-branch regex -> IN versus equivalent compact regex -> match showed no robust CPU/wall benefit; 24 matched full-native queries and 128/128 SAMPLES marks. Source files, SHA, immutable evidence and corrected scientific classifier committed. No user production/master, no CI cancellations.",
+  "completed": [
+    "R11 source proof QueryResultCache.h and QueryResultCache.cpp: cache key AST hash + expiry does not invalidate on INSERT. CI https://github.com/moleus/ClickHouse/actions/runs/41619761382 SUCCESS. Exact values before 1, uncached after INSERT 2, cached after INSERT 1 (QueryCacheHits 1->2), after DROP 2; artifact ZIP SHA33490c9bf372ca34eaedaef9586b1405b921e9f1857c368ca02cbb2b1ddc686e; evidence .github/ts-lab/evidence/R11-native-promql-query-cache-consistency-v1/41619761382.json (REJECT cache for strict freshness).",
+    "R13 sourced tryGetLiteralAlternatives and matcherToAST, Python fullmatch confirms 200/1024 branch equivalence, fixture 32768, selected 6400. CI https://github.com/moleus/ClickHouse/actions/runs/41621089700 SUCCESS, 4 phases A/B/B/A, 2+4 each, 24 native queries, full numeric parity, ABBA drift1.76%. Literal/compact p50 wall63.414/64.263ms, CPU63.645/64.183ms; all SAMPLES marks128/128, read_rows98304 both. Artifact SHA bdfa7a6fd3056bd9afc3d65687da16a21b1e7f682bd6a306311398b00b06bc52. Immutable NO_EFFECT .github/ts-lab/evidence/R13-large-regex-alternation-in-vs-match-v1/41621089700.json.",
+    "R13 raw script initially used ACCEPT_FOR_NEXT_GATE for methodology only; corrected scientific classification of effects within drift in commit 9f79496283683e96428dc3afe6f3f88e92b762e3; raw artifact unchanged and evidence resolves interpretation.",
+    "INDEX.md appended R11/R13 in commits f67c9d95a4fad0fb2151f1193d754217ac4c048f and ae916f9b89a97698508c39b9ffdf62331a87c29b; GitHub root locks R11/R13 and atomic claim files used."
+  ],
+  "negative_results": [
+    "R11: native QueryResultCache serves stale data after INSERT when explicitly enabled. This is documented contract, not engine correctness bug; must define staleness budget or bypass cache.",
+    "R13: compact regex vs literal 200-item alternation changes the matcher source path but does not yield proven latency/CPU win on sparse, mixed-by-ID fixture; 1.34% wall and0.85% CPU differences are below1.76% A/A drift. Query tracker memory differs (~1MB), not generalized.",
+    "R13: Original report.json uses ACCEPT_FOR_NEXT_GATE to mean gates pass, not scientific speedup; immutable evidence says NO_EFFECT. Script fixed for future runs; do not rerun same fixture just to change label."
+  ],
+  "active_run_ids": [
+    41607779848
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "fixture_sha256": "R11: 560b6ac120a8e2f58ed984e17c0dca6fa3d24292dbd1ef1ba0ae396e76463b63+e170ce3e6bf85d8be77bcdb63349ebd02ec1cacfb036b3da2928ad09b0c138b4; R13: e102f02fbffbba6df3a96e202a5b7fdf65c55108f7189068ecc5bddd5e7174d9",
+  "relevant_paths": [
+    ".github/ts-lab/INDEX.md",
+    ".github/ts-lab/RESEARCH_COORDINATION_20261103.md",
+    ".github/ts-lab/claims/roots/R11.json",
+    ".github/ts-lab/claims/roots/R13.json",
+    ".github/ts-lab/evidence/R11-native-promql-query-cache-consistency-v1/41619761382.json",
+    ".github/ts-lab/evidence/R13-large-regex-alternation-in-vs-match-v1/41621089700.json",
+    ".github/ts-lab/experiments/r11_native_query_cache_freshness.py",
+    ".github/ts-lab/experiments/r13_native_regex_in_vs_match.py"
+  ],
+  "blocked_by": [
+    "Pending source-pinned O1 jemalloc C++ build 41607779848 was still compiling at last check; do not cancel it.",
+    "Other agent now owns R09 upstream, R12 decoder, R14 step-grid and R05 mark-pruning; do not duplicate them."
+  ],
+  "next_action": {
+    "question_id": "R02",
+    "step": "Refresh all live CI and R02 root/claim. If not already claimed by a newer R02 variant, design a cheap same-runner stock-O1 fresh-server A/B/B/A write test for true whole-process CPU and natural background merges under simultaneous native reads. Reuse R02 48k point fixture and immutable prior evidence 41613436491; preserve negative findings and no build duplication.",
+    "stop_condition": "If another live R02 run or claim covers the same write-CPU question, stop and review its artifact instead; otherwise require exact sample point/native parity, valid A/A drift and CPU accounting before claims."
+  }
+}
