@@ -326,3 +326,42 @@ tests the actual count and query cost without a new C++ build.
 R05 owner `chatgpt-r05-mark-bound-20261103`; [root](claims/roots/R05.json), [source and mathematical correction](experiments/R05_MARK_COVERAGE_FEASIBILITY_20261103.md), [surrogate script](experiments/r05_sparse_mark_simulation.py), [3 tests](experiments/test_r05_sparse_mark_simulation.py), [deterministic output](experiments/R05_MARK_COVERAGE_SURROGATE_20261103.json), [handoff](handoffs/20261103-r05-mark-envelope-05.json).
 
 Source-pinned v11 SAMPLES defaults to `(id,bucket)` order, **256 rows per mark** with a 512 KiB granularity-byte limit; earlier R05 hypothetical `g=8192` was **not** an SAMPLES granularity measurement. Candidate-ID selectivity alone does not prove mark pruning: in a synthetic independent 14-day, 95k-ID/day model, 2500 candidates present only in the final part overlap **5208/5208** mark-start key-range envelopes, although only **372/5208** marks contain matching IDs. Three local tests pass. **This is a surrogate, not native ClickHouse selected marks, latency, CPU, or RSS.** No new C++ build; actual persisted part and native EXPLAIN counters remain the decisive gate. R10's independent bucket-width studies are not proof of the R05 key-range mechanism.
+
+## 2026-11-03: R10 staggered node-start native counterexample PASS
+
+[Full source-pinned native ABBA #41618941657](https://github.com/moleus/ClickHouse/actions/runs/41618941657)
+PASS, [immutable evidence](evidence/R10-staggered-native-41618941657.json),
+[source and CPU attribution](../ts-lab-r10/START_ALIGNMENT_CPU_AUDIT_20261103.md).
+The independent staggered generator changes only per-slot sample timestamps;
+SHA256 `ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a`;
+tags, original values, 28,896 series and 2,488,320 sample elements unchanged.
+Actual ClickHouse after merge: 3600s **113,760** SAMPLES bucket rows,
+10800s **57,120**, in full agreement with the exact per-series math.
+Both RAW_UUID layouts pass full nonempty native PromQL labels, times,
+values and A/B/B/A drift gates; one active part per target, no OOM.
+
+**Within the shifted fixture**, bucket3600→10800:
+- `pod_namespace`: native p50 **73.726→85.345ms (+15.8%)**,
+  CPU **135.859→168.388ms (+23.9%)**, control drift **1.68%**.
+- `burst15`: p50 **54.164→61.632ms (+13.8%)**,
+  CPU **90.879→114.482ms (+26.0%)**, drift **5.08%**.
+- `pod_broad`: p50 **209.54→220.334ms (+5.2%)**,
+  CPU **413.43→439.35ms**, drift **2.50%**.
+- `node_broad`: p50 **272.19→261.66ms (-3.9%)**,
+  but drift **13.19%**: inconclusive gain.
+
+**Read-path paradox:** namespace `read_rows` **119,008→83,168**
+and marks **294→154**, uncompressed read bytes **22.69→21.09MB**
+decrease, yet CPU rises. One representative `MergeTreeSelect`
+processor trace shows summed work **89.2→122.4ms** and CPU read/decode
+samples **85→120**. More rows and marks are NOT a complete read CPU
+cost model; larger bucket arrays or decoding cost matter. Single-query
+profile work is not wall critical-path proof.
+
+This forbids promoting `10800s` globally. The earlier *aligned* fixture
+and this shifted experiment were on **different CI runners**, so the
+hypothesis that alignment itself reverses performance needs
+[a same-runner 2×2 interaction test #41619669176](https://github.com/moleus/ClickHouse/actions/runs/41619669176),
+not a cross-runner ratio comparison. The staggered generator is an
+alignment probe, not a complete 400-active-node HPA simulator.
+
