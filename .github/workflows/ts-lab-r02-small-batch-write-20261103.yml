@@ -1,0 +1,111 @@
+name: TimeSeries R02 repeated-ID small batch write and merge LC RAW O1
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r02-small-batch-write-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ts-lab-r02-small-batch-write-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  r02:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      BINARY_SHA256: f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Source and preflight
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r02
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          python3 -m py_compile .github/ts-lab/experiments/r02_small_batch_write_merge.py
+          python3 .github/ts-lab/experiments/r02_small_batch_write_merge.py --help > evidence/r02/help.txt
+          git rev-parse HEAD > evidence/r02/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r02_small_batch_write_merge.py > evidence/r02/script-sha256.txt
+      - name: Reuse pinned SHA verified O1 binary (no recompilation)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r02-art" "$RUNNER_TEMP/r02-bin"
+          gh run download 41596421285 -R "$REPO" \
+            --pattern 'tslab-stock-clickhouse-o1-binary-*' \
+            -D "$RUNNER_TEMP/r02-art"
+          archive="$(find "$RUNNER_TEMP/r02-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r02/archive-verify.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r02-bin"
+          (cd "$RUNNER_TEMP/r02-bin" && sha256sum -c SHA256SUMS) | tee evidence/r02/binary-verify.txt
+          test "$(sha256sum "$RUNNER_TEMP/r02-bin/clickhouse" | cut -d' ' -f1)" = "$BINARY_SHA256"
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r02-bin/BUILD_INFO.txt"
+          grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/r02-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/r02-bin/BUILD_INFO.txt" evidence/r02/build-info.txt
+          chmod +x "$RUNNER_TEMP/r02-bin/clickhouse"
+          "$RUNNER_TEMP/r02-bin/clickhouse" --version | tee evidence/r02/version.txt
+      - name: Start isolated native ClickHouse
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r02"/{data,tmp,userfiles}
+          cat > "$RUNNER_TEMP/r02/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/r02/data/</path><tmp_path>$RUNNER_TEMP/r02/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/r02/userfiles/</user_files_path>
+            <max_server_memory_usage>2800000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions><max_threads>2</max_threads><max_memory_usage>1800000000</max_memory_usage><log_queries>1</log_queries></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/r02-bin/clickhouse" server --config-file="$RUNNER_TEMP/r02/config.xml" > evidence/r02/server.log 2>&1 &
+          echo "$!" > evidence/r02/server.pid
+          ready=0
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping > evidence/r02/ping.txt 2>/dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then tail -100 evidence/r02/server.log; exit 1; fi
+      - name: Small repeated-ID inserts, native parity and physical merge evidence
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r02_small_batch_write_merge.py \
+            --endpoint http://127.0.0.1:18191/ \
+            --prefix tslab_r02 \
+            --slots 2000 \
+            --batches 12 \
+            --out evidence/r02/report.json | tee evidence/r02/console.log
+          python3 - <<'PY'
+          import json,os
+          d=json.load(open("evidence/r02/report.json"))
+          assert d['passed'] and len(d['inserts'])==24 and not d['errors'],d.get('errors')
+          assert len(d['merges'])==18
+          assert d['final_physical']['lc']['physical_sample_points']==48000
+          assert d['final_physical']['raw']['physical_sample_points']==48000
+          assert len(d['input_sha256'])==12
+          assert d['native']['tslab_r02_lc']['values'].keys()==d['native']['tslab_r02_raw']['values'].keys()
+          print('R02_FINAL_CHECK',json.dumps({'passed':True,'insertions':len(d['inserts']),
+             'merges':len(d['merges']),'points':d['final_physical']['lc']['physical_sample_points'],
+             'part_log_available':d['part_log']['available'],
+             'final_bytes':{table:{k:v[k]['bytes'] for k in ('samples','tags','timeranges')}
+                for table,v in d['final_physical'].items()}}))
+          PY
+      - name: Preserve raw correct and failed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r02-small-batch-write-${{ github.run_id }}
+          path: evidence/r02/
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
