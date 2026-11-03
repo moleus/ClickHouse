@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "question_id": "R16",
+  "primary_claim_id": "R16-high-cardinality-165k-ch-vm-native-v1",
+  "owner": "chatgpt-r16-highcard-vm-constraint-20261103",
+  "scope": "Pinned stock O1 ClickHouse TimeSeries RAW UUID vs VM1.134 on exact 1.33m distinct Jenkins stage series over 14 days, with VM -search.maxUniqueTimeseries=165000. Prove selector cardinalities, exact native semantics for stage14d below cap and expected error for project/whole14d above cap; bounded 1/4-client CPU/p50/QPS on successful stage queries; no new binaries, separate from R03 3d Kubernetes and R02 write cost.",
+  "allowed_support_claims": [],
+  "based_on": "R03 matched 400-node 3d full native completed 12/12 valid in run41624246411; R16 answers remaining 165k limit and 14d cardinality not covered by R03.",
+  "builds": {
+    "clickhouse": 41596421285,
+    "vm": 41288854734
+  },
+  "created_utc": "2026-11-03T11:17:00.329Z"
+}
