@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "session_id": "r07-day-cover-source-proof-20261103-09",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "3d3d40adb7370bb4fd221fb0c5bd9d215817ca55",
+  "last_verified_utc": "2026-11-03T11:27:01.543Z",
+  "question_id": "R07",
+  "summary": "New exclusive R07 root and claim; R15 physical SAMPLES 13.65x mark reduction versus 1.226x native broad1d wall shows metadata bottleneck. Exact full-ID UTC-day metadata covering oracle and 12-test CI prove restricted finite-float safety and source-exact extra index entries for R01 without a native speedup claim.",
+  "completed": [
+    "Canonical R07 root created atomically, no R05/R10/R14 branch changes; full-original-ID day-cover source, 12 safety tests and 5-minute branch/path-scoped workflow persisted.",
+    "CI 41627103046 SUCCESS, decoded logs show all 12/12 unittest cases pass including exact R01 source-generated start-phase replay and 28 seeded query parity checks; earlier CI 41626770898 passed 10/10.",
+    "R01 aligned 400-slot/3d: 28896 distinct series, 28896 day-cover rows (1.0x); R01 staggered same tags/series/points: 32424 day-cover rows (1.122093x), 3528 series in two dates, days [9608,10808,10808,1200] due stagger pushing samples past nominal 3d horizon.",
+    "Immutable evidence .github/ts-lab/evidence/R07-source-day-cover-r01-41627103046.json and detailed R07_TIME_DAY_COVERED_METADATA_20261103.md saved.",
+    "R15 native CI 41625086352 PASS; source-pinned stock O1 broad1d 210000->145000 read_rows from date-partitioning SAMPLES; unrelated 140k row metadata cost remains plausible but not per-operator-proven."
+  ],
+  "negative_results": [
+    "Initial R07 test CI 41626607817 failed only incorrect 1.125 exactly: with 60s cadence and first sample at start+60s, exact minute-uniform expectation is 1+179/1440=1.1243055556; corrected test and claim math, both 10/10 and 12/12 later succeeded.",
+    "Day-index sidecar must dedup full original ID before per-series and cross-series average: naive repeated day rows create wrong results; long-lived 30d ~31 copies/ID fails defined budget.",
+    "New covering sidecar is ADDITIONAL approximately 1.12N metadata writes on 3h R01 fixture if original TAGS/TimeRanges are retained; not merely 12% total write overhead. No measured native read, write, merge, memory, freshness/replication safety or ACL.",
+    "Historical 16-bit prefix ID packing truncated original hash128 to112 bits and had some broad OOM, not a production alternative. This candidate preserves full IDs."
+  ],
+  "active_run_ids": [
+    41607779848
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "not used for R07 mathematical oracle; stock O1 f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e is available for later same-source native tests",
+  "fixture_sha256": "R01 aligned ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d; staggered ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a",
+  "relevant_paths": [
+    ".github/ts-lab/claims/roots/R07.json",
+    ".github/ts-lab/claims/R07-time-day-covering-metadata-v1.json",
+    ".github/ts-lab/experiments/r07_day_cover_oracle.py",
+    ".github/ts-lab/experiments/test_r07_day_cover_oracle.py",
+    ".github/ts-lab/experiments/R07_TIME_DAY_COVERED_METADATA_20261103.md",
+    ".github/ts-lab/evidence/R07-source-day-cover-r01-41627103046.json",
+    ".github/workflows/ts-lab-r07-day-cover-math-20261103.yml",
+    "src/Storages/StorageTimeSeriesSelector.cpp"
+  ],
+  "blocked_by": [
+    "No native ClickHouse sidecar or query-plan alternative: pure Python source/math proof only; no speed claim.",
+    "Atomic versioned freshness, late writes, sidecar index consistency and replicated query fallback have not been designed or measured.",
+    "Maintaining day-cover label metadata as a second copy may cost more write/merge CPU and disk than read savings.",
+    "Lab state contract validator currently fails on pre-existing R03 handoff missing next_action.question_id, next_action.step and next_action.stop_condition, not R07 (do not overwrite other owner's immutable handoff)."
+  ],
+  "next_action": {
+    "question_id": "R07",
+    "step": "On existing source-pinned stock O1 and synthetic R01/R15 fixture, create a separate read-only/opt-in SQL sidecar (day, full id, stage/job/project/branch) and compare exact native nonempty PromQL outputs (including cross-day same-ID dedup), source revision, original 3h and stable30d series; obtain per-target compressed bytes, ingest/merge CPU and EXPLAIN before considering native C++ routing.",
+    "stop_condition": "Stop and publish negative evidence if source-vs-sidecar freshness cannot be atomically assured, same-ID dedup or ACL labels differ, planner cannot prune day partitions, per-series copies explode for stable series, or write/RSS budget fails; do not start duplicate long C++ runner or alter other roots."
+  }
+}
