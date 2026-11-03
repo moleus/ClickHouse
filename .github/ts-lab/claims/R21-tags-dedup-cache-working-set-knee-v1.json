@@ -1,0 +1,14 @@
+{
+  "id": "R21-tags-dedup-cache-working-set-knee-v1",
+  "question_id": "R21",
+  "owner": "chatgpt-r21-cache-working-set-20261103",
+  "created_utc": "2026-11-03T13:31:00Z",
+  "question": "Does a TAGS dedup cache smaller than the set of active, repeatedly written metric IDs cause a nonlinear increase of physical TAGS ReplacingMergeTree rows and ingest CPU/IO, and does input order alter eviction/caching at fixed logical data?",
+  "source": "src/Storages/TimeSeries/TimeSeriesDeduplicationCache.h/.cpp and StorageTimeSeries.cpp pinned ClickHouse 52529f0c711566d696917678bf15e7068772fdde",
+  "source_math": "On 64bit: KeyHash=16, RowHash=16, TimePoint=8, pointer=8, WrittenRow size approx24; exact source constant=(16+6*8)+(16+2*8)+(24+3*8)=144. cache entries= floor(size_bytes/144). For N=4096 stable IDs, ideal capacity >=589824 bytes. Small 32768->227 entries, large 1048576->7281 entries; no cache 0 writes all TAGS each batch. B=12 inserts, ~49152 time-series references. Large cache expected TAGS rows 4096, no-cache expected 49152 before merges; tiny may lie between; actual filtered rows + cache stats measured rather than assumed.",
+  "primary_falsifier": "If the small-cache variant produces the same TAGS count as large despite confirmed cache size, capacity knee hypothesis is false for this fixture. If source fixture IDs/bucket/writes/native outputs differ, or control drift exceeds 25%, experiment invalid. If fixed-vs-rotated order yields identical per-batch hits/misses, do not claim order sensitivity.",
+  "baseline": "Unmodified stock-O1 ClickHouse TimeSeries v11 same RAW UUID inner columns from R02 source; tags_deduplication_cache_size_bytes=1048576 with >4096 approximate entries; 3600s expiration and 12 batches in <3600s.",
+  "candidate": "Same binary/source/schema/data/12 batches, but size_bytes=32768 (227 approximate entries); rotate row order by deterministic offset in independently run fixture; native full oracle and exact query_log cache Hits/Misses.",
+  "controls": "Four fresh-process ABBA phases (large/small/small/large) per order, same runner. Two independent order jobs 'fixed' and 'rotate' with exact sorted canonical fixture digest, each 4 server phases. No query cache, same full native labels/timestamp/float oracle, QueryFinish insert CPU plus process CPU/IO delta, raw physical TAGS vs SAMPLES cardinality and parts, A/A drift<=25% and practical magnitude>=5%. Optional no-cache table is a physical accounting control if cheap.",
+  "stop_conditions": "Do not change default TimeSeries TAGS cache globally; no memory pressure/production inference from synthetic small sizes until high-churn multiple metrics and real 100MiB/S3/13d tested. Protect R02/R18 old CI artifacts and R20 owner."
+}
