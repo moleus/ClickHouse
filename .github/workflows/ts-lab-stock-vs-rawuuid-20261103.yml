@@ -1,6 +1,8 @@
 name: TimeSeries unmodified ClickHouse stock O1 versus verified raw UUID ID schema
 on:
-  workflow_dispatch:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-stock-vs-rawuuid-20261103.yml']
 permissions:
   contents: read
   actions: read
