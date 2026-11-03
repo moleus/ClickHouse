@@ -1,0 +1,614 @@
+{
+  "schema_version": 1,
+  "question_id": "R18-timeseries-samples-value-codec-v1",
+  "dependent_gate": "2x2 baseline HPA 3h start alignment x SAMPLES.value ALP/ZSTD(3) vs ZSTD(1), native 1/4/8 clients",
+  "status": "COMPLETE_SUCCESS",
+  "scientific_decision": "KEEP_DEFAULT_GLOBAL_CODEC_NO_ROBUST_UNIVERSAL_READ_WIN",
+  "ci": {
+    "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41633815009",
+    "conclusion": "success",
+    "head_sha": "d755456f46061c76279eb9462432eb2d0729b5e5",
+    "job_id": 125909792261,
+    "artifact_id": 13230495191,
+    "artifact_name": "tslab-r18-stagger-codec-concurrency-41633815009",
+    "artifact_zip_sha256": "a29dc6cdbf6c3594c2deec7ed436853cb2e10b78ef585868adbc0fd206981dce",
+    "full_report": "r18-concurrent/report.json",
+    "compact_report": "r18-concurrent/report.compact.json"
+  },
+  "source": {
+    "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+    "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "build_run": 41596421285,
+    "compilation": "LLVM22.1.8 -O1 stock ClickHouse no patches; glibc; production jemalloc parity not tested"
+  },
+  "method": {
+    "all_phase_count": 144,
+    "all_nested_panels_count": 36,
+    "all_outer_interactions_count": 9,
+    "total_native_client_requests": 4992,
+    "measured_client_requests": 3744,
+    "warmup_client_requests": 1248,
+    "clients": [
+      1,
+      4,
+      8
+    ],
+    "cases": [
+      "pod_namespace",
+      "burst15",
+      "node_broad"
+    ],
+    "outer_alignment": "aligned/stagger/stagger/aligned",
+    "inner_codec": "ALP/ZSTD1/ZSTD1/ALP",
+    "per_phase": "2 full concurrent warmup waves +6 measured waves, one native query per client synchronized via threading Barrier",
+    "query_mode": "Full native prometheusQueryRange avg by(project|namespace)(avg_over_time(...[1d])) with 3 UTC daily eval timestamps; exact labels, timestamps and numeric values per alignment compared to native oracle",
+    "same_runner": true,
+    "validity": "All 144 phases completed, 36 independent nested ABBA and 9 repeated-align interactions pass <=25% control drift, QueryFinish CPU, p50,p95,p99,QPS, RSS before/after. All parts physically unchanged.",
+    "process_cpu_metric": "QueryFinish.OSCPUVirtualTimeMicroseconds for request CPU; process cumulative CPU and per-thread schedstat separately; scheduler runnable wait is not lock contention"
+  },
+  "fixture": {
+    "aligned_sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+    "stagger_sha256": "ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a",
+    "identical_values_and_tags_digest": "2c185986f50c585b2262c40c53bec57c6e106d090c9177dc42500dce3cf7caba",
+    "series": 28896,
+    "points": 2488320,
+    "timestamps_shifted": 2464992,
+    "node_life_seconds": 10800,
+    "stagger_policy": "node start = (slot*317)%10800",
+    "data_days": 3
+  },
+  "samples_storage": {
+    "tslab_r18_aligned_alp": {
+      "compressed_samples_bytes": 5303391,
+      "samples_bucket_rows": 86688,
+      "selected_total_marks": 340,
+      "parts": 1
+    },
+    "tslab_r18_aligned_zstd1": {
+      "compressed_samples_bytes": 3414486,
+      "samples_bucket_rows": 86688,
+      "selected_total_marks": 340,
+      "parts": 1
+    },
+    "tslab_r18_stagger_alp": {
+      "compressed_samples_bytes": 5952971,
+      "samples_bucket_rows": 113760,
+      "selected_total_marks": 446,
+      "parts": 1
+    },
+    "tslab_r18_stagger_zstd1": {
+      "compressed_samples_bytes": 4126572,
+      "samples_bucket_rows": 113760,
+      "selected_total_marks": 446,
+      "parts": 1
+    }
+  },
+  "storage_effect": {
+    "aligned_savings_pct": 35.62,
+    "stagger_savings_pct": 30.68,
+    "alp_size_growth_from_stagger_pct": 12.25,
+    "zstd1_size_growth_from_stagger_pct": 20.85
+  },
+  "comparisons": [
+    {
+      "case": "pod_namespace",
+      "clients": 1,
+      "aligned": {
+        "p50_ms": {
+          "mean_codec_ratio": 1.003281,
+          "repeat_codec_effect_drift": 0.062139,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 0.99937,
+          "repeat_codec_effect_drift": 0.054262,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 1.005253,
+          "repeat_codec_effect_drift": 0.048578,
+          "valid_repeat": true
+        }
+      },
+      "stagger": {
+        "p50_ms": {
+          "mean_codec_ratio": 1.047347,
+          "repeat_codec_effect_drift": 0.076291,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 1.042472,
+          "repeat_codec_effect_drift": 0.080424,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 0.968817,
+          "repeat_codec_effect_drift": 0.059059,
+          "valid_repeat": true
+        }
+      },
+      "cross_alignment_interaction": {
+        "p50_ms": {
+          "aligned_codec_ratio": 1.003281,
+          "stagger_codec_ratio": 1.047347,
+          "stagger_div_aligned_ratio": 1.04392
+        },
+        "cpu_queryfinish_mean_ms": {
+          "aligned_codec_ratio": 0.99937,
+          "stagger_codec_ratio": 1.042472,
+          "stagger_div_aligned_ratio": 1.04313
+        },
+        "qps": {
+          "aligned_codec_ratio": 1.005253,
+          "stagger_codec_ratio": 0.968817,
+          "stagger_div_aligned_ratio": 0.96375
+        }
+      }
+    },
+    {
+      "case": "pod_namespace",
+      "clients": 4,
+      "aligned": {
+        "p50_ms": {
+          "mean_codec_ratio": 0.969223,
+          "repeat_codec_effect_drift": 0.007823,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 0.974656,
+          "repeat_codec_effect_drift": 0.039725,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 1.025288,
+          "repeat_codec_effect_drift": 0.010128,
+          "valid_repeat": true
+        }
+      },
+      "stagger": {
+        "p50_ms": {
+          "mean_codec_ratio": 1.051453,
+          "repeat_codec_effect_drift": 0.129936,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 1.012395,
+          "repeat_codec_effect_drift": 0.014783,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 0.936917,
+          "repeat_codec_effect_drift": 0.066547,
+          "valid_repeat": true
+        }
+      },
+      "cross_alignment_interaction": {
+        "p50_ms": {
+          "aligned_codec_ratio": 0.969223,
+          "stagger_codec_ratio": 1.051453,
+          "stagger_div_aligned_ratio": 1.08484
+        },
+        "cpu_queryfinish_mean_ms": {
+          "aligned_codec_ratio": 0.974656,
+          "stagger_codec_ratio": 1.012395,
+          "stagger_div_aligned_ratio": 1.03872
+        },
+        "qps": {
+          "aligned_codec_ratio": 1.025288,
+          "stagger_codec_ratio": 0.936917,
+          "stagger_div_aligned_ratio": 0.91381
+        }
+      }
+    },
+    {
+      "case": "pod_namespace",
+      "clients": 8,
+      "aligned": {
+        "p50_ms": {
+          "mean_codec_ratio": 0.987998,
+          "repeat_codec_effect_drift": 0.02175,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 0.98246,
+          "repeat_codec_effect_drift": 0.026074,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 1.022104,
+          "repeat_codec_effect_drift": 0.02094,
+          "valid_repeat": true
+        }
+      },
+      "stagger": {
+        "p50_ms": {
+          "mean_codec_ratio": 1.026606,
+          "repeat_codec_effect_drift": 0.056968,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 0.991812,
+          "repeat_codec_effect_drift": 0.015954,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 0.971742,
+          "repeat_codec_effect_drift": 0.049071,
+          "valid_repeat": true
+        }
+      },
+      "cross_alignment_interaction": {
+        "p50_ms": {
+          "aligned_codec_ratio": 0.987998,
+          "stagger_codec_ratio": 1.026606,
+          "stagger_div_aligned_ratio": 1.03908
+        },
+        "cpu_queryfinish_mean_ms": {
+          "aligned_codec_ratio": 0.98246,
+          "stagger_codec_ratio": 0.991812,
+          "stagger_div_aligned_ratio": 1.00952
+        },
+        "qps": {
+          "aligned_codec_ratio": 1.022104,
+          "stagger_codec_ratio": 0.971742,
+          "stagger_div_aligned_ratio": 0.95073
+        }
+      }
+    },
+    {
+      "case": "burst15",
+      "clients": 1,
+      "aligned": {
+        "p50_ms": {
+          "mean_codec_ratio": 1.035352,
+          "repeat_codec_effect_drift": 0.026786,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 1.038582,
+          "repeat_codec_effect_drift": 0.017018,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 0.969462,
+          "repeat_codec_effect_drift": 0.020226,
+          "valid_repeat": true
+        }
+      },
+      "stagger": {
+        "p50_ms": {
+          "mean_codec_ratio": 0.942275,
+          "repeat_codec_effect_drift": 0.085782,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 0.952093,
+          "repeat_codec_effect_drift": 0.066295,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 1.044147,
+          "repeat_codec_effect_drift": 0.058783,
+          "valid_repeat": true
+        }
+      },
+      "cross_alignment_interaction": {
+        "p50_ms": {
+          "aligned_codec_ratio": 1.035352,
+          "stagger_codec_ratio": 0.942275,
+          "stagger_div_aligned_ratio": 0.9101
+        },
+        "cpu_queryfinish_mean_ms": {
+          "aligned_codec_ratio": 1.038582,
+          "stagger_codec_ratio": 0.952093,
+          "stagger_div_aligned_ratio": 0.91672
+        },
+        "qps": {
+          "aligned_codec_ratio": 0.969462,
+          "stagger_codec_ratio": 1.044147,
+          "stagger_div_aligned_ratio": 1.07704
+        }
+      }
+    },
+    {
+      "case": "burst15",
+      "clients": 4,
+      "aligned": {
+        "p50_ms": {
+          "mean_codec_ratio": 0.992111,
+          "repeat_codec_effect_drift": 0.010311,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 0.994189,
+          "repeat_codec_effect_drift": 0.003086,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 0.996678,
+          "repeat_codec_effect_drift": 0.003455,
+          "valid_repeat": true
+        }
+      },
+      "stagger": {
+        "p50_ms": {
+          "mean_codec_ratio": 1.005275,
+          "repeat_codec_effect_drift": 0.005815,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 1.004053,
+          "repeat_codec_effect_drift": 0.006521,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 1.000301,
+          "repeat_codec_effect_drift": 0.006103,
+          "valid_repeat": true
+        }
+      },
+      "cross_alignment_interaction": {
+        "p50_ms": {
+          "aligned_codec_ratio": 0.992111,
+          "stagger_codec_ratio": 1.005275,
+          "stagger_div_aligned_ratio": 1.01327
+        },
+        "cpu_queryfinish_mean_ms": {
+          "aligned_codec_ratio": 0.994189,
+          "stagger_codec_ratio": 1.004053,
+          "stagger_div_aligned_ratio": 1.00992
+        },
+        "qps": {
+          "aligned_codec_ratio": 0.996678,
+          "stagger_codec_ratio": 1.000301,
+          "stagger_div_aligned_ratio": 1.00364
+        }
+      }
+    },
+    {
+      "case": "burst15",
+      "clients": 8,
+      "aligned": {
+        "p50_ms": {
+          "mean_codec_ratio": 0.98451,
+          "repeat_codec_effect_drift": 0.02216,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 0.993183,
+          "repeat_codec_effect_drift": 0.027678,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 1.024676,
+          "repeat_codec_effect_drift": 0.040535,
+          "valid_repeat": true
+        }
+      },
+      "stagger": {
+        "p50_ms": {
+          "mean_codec_ratio": 0.997812,
+          "repeat_codec_effect_drift": 0.010747,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 1.003,
+          "repeat_codec_effect_drift": 0.01966,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 0.996842,
+          "repeat_codec_effect_drift": 0.033059,
+          "valid_repeat": true
+        }
+      },
+      "cross_alignment_interaction": {
+        "p50_ms": {
+          "aligned_codec_ratio": 0.98451,
+          "stagger_codec_ratio": 0.997812,
+          "stagger_div_aligned_ratio": 1.01351
+        },
+        "cpu_queryfinish_mean_ms": {
+          "aligned_codec_ratio": 0.993183,
+          "stagger_codec_ratio": 1.003,
+          "stagger_div_aligned_ratio": 1.00988
+        },
+        "qps": {
+          "aligned_codec_ratio": 1.024676,
+          "stagger_codec_ratio": 0.996842,
+          "stagger_div_aligned_ratio": 0.97284
+        }
+      }
+    },
+    {
+      "case": "node_broad",
+      "clients": 1,
+      "aligned": {
+        "p50_ms": {
+          "mean_codec_ratio": 1.005493,
+          "repeat_codec_effect_drift": 0.104261,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 0.98916,
+          "repeat_codec_effect_drift": 0.103309,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 1.010772,
+          "repeat_codec_effect_drift": 0.096746,
+          "valid_repeat": true
+        }
+      },
+      "stagger": {
+        "p50_ms": {
+          "mean_codec_ratio": 0.996007,
+          "repeat_codec_effect_drift": 0.003136,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 0.989397,
+          "repeat_codec_effect_drift": 0.007426,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 1.009593,
+          "repeat_codec_effect_drift": 0.005674,
+          "valid_repeat": true
+        }
+      },
+      "cross_alignment_interaction": {
+        "p50_ms": {
+          "aligned_codec_ratio": 1.005493,
+          "stagger_codec_ratio": 0.996007,
+          "stagger_div_aligned_ratio": 0.99057
+        },
+        "cpu_queryfinish_mean_ms": {
+          "aligned_codec_ratio": 0.98916,
+          "stagger_codec_ratio": 0.989397,
+          "stagger_div_aligned_ratio": 1.00024
+        },
+        "qps": {
+          "aligned_codec_ratio": 1.010772,
+          "stagger_codec_ratio": 1.009593,
+          "stagger_div_aligned_ratio": 0.99883
+        }
+      }
+    },
+    {
+      "case": "node_broad",
+      "clients": 4,
+      "aligned": {
+        "p50_ms": {
+          "mean_codec_ratio": 0.986093,
+          "repeat_codec_effect_drift": 0.031118,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 0.987797,
+          "repeat_codec_effect_drift": 0.014094,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 1.013351,
+          "repeat_codec_effect_drift": 0.012596,
+          "valid_repeat": true
+        }
+      },
+      "stagger": {
+        "p50_ms": {
+          "mean_codec_ratio": 0.974295,
+          "repeat_codec_effect_drift": 0.030973,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 0.980053,
+          "repeat_codec_effect_drift": 0.030329,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 1.021373,
+          "repeat_codec_effect_drift": 0.031196,
+          "valid_repeat": true
+        }
+      },
+      "cross_alignment_interaction": {
+        "p50_ms": {
+          "aligned_codec_ratio": 0.986093,
+          "stagger_codec_ratio": 0.974295,
+          "stagger_div_aligned_ratio": 0.98804
+        },
+        "cpu_queryfinish_mean_ms": {
+          "aligned_codec_ratio": 0.987797,
+          "stagger_codec_ratio": 0.980053,
+          "stagger_div_aligned_ratio": 0.99216
+        },
+        "qps": {
+          "aligned_codec_ratio": 1.013351,
+          "stagger_codec_ratio": 1.021373,
+          "stagger_div_aligned_ratio": 1.00792
+        }
+      }
+    },
+    {
+      "case": "node_broad",
+      "clients": 8,
+      "aligned": {
+        "p50_ms": {
+          "mean_codec_ratio": 0.969117,
+          "repeat_codec_effect_drift": 0.007186,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 0.982217,
+          "repeat_codec_effect_drift": 0.004605,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 1.017634,
+          "repeat_codec_effect_drift": 0.022357,
+          "valid_repeat": true
+        }
+      },
+      "stagger": {
+        "p50_ms": {
+          "mean_codec_ratio": 1.003813,
+          "repeat_codec_effect_drift": 0.011687,
+          "valid_repeat": true
+        },
+        "cpu_queryfinish_mean_ms": {
+          "mean_codec_ratio": 0.995472,
+          "repeat_codec_effect_drift": 0.004486,
+          "valid_repeat": true
+        },
+        "qps": {
+          "mean_codec_ratio": 1.001219,
+          "repeat_codec_effect_drift": 0.010587,
+          "valid_repeat": true
+        }
+      },
+      "cross_alignment_interaction": {
+        "p50_ms": {
+          "aligned_codec_ratio": 0.969117,
+          "stagger_codec_ratio": 1.003813,
+          "stagger_div_aligned_ratio": 1.0358
+        },
+        "cpu_queryfinish_mean_ms": {
+          "aligned_codec_ratio": 0.982217,
+          "stagger_codec_ratio": 0.995472,
+          "stagger_div_aligned_ratio": 1.01349
+        },
+        "qps": {
+          "aligned_codec_ratio": 1.017634,
+          "stagger_codec_ratio": 1.001219,
+          "stagger_div_aligned_ratio": 0.98387
+        }
+      }
+    }
+  ],
+  "validation": {
+    "all_panels_valid": true,
+    "all_outer_interactions_valid": true,
+    "full_native_parity": true,
+    "all_four_PHYSICAL_TARGETS_equal_id_labels": true,
+    "physical_parts_unchanged": true,
+    "oom": false,
+    "errors": []
+  },
+  "conclusions": [
+    "Aligned raw R01 source: ZSTD1 SAMPLES compressed bytes 3,414,486 vs ALP+ZSTD3 5,303,391 (~35.6% saving); staggered same value/labels: 4,126,572 vs 5,952,971 (~30.7% saving). Start-time staggering adds 31.2% physical hourly SAMPLES rows (86,688->113,760), +12.2% ALP bytes and +20.9% ZSTD1 bytes.",
+    "At 8 clients, across three selectors the mean ZSTD1/ALP QueryFinish CPU ratios are ~0.982-0.993 on aligned and ~0.992-1.003 on stagger; all small effects. This supports no material global CPU win from changing codecs under 8-client CPU pressure on this 3d fixture.",
+    "One-client pod_namespace ZSTD1 p50 ratio 1.003 aligned, 1.047 stagger with baseline repeated-ratio drift6.2%/7.6%; no strong interaction beyond repeat variance.",
+    "One-client burst15 ZSTD1 p50 ratio 1.035 aligned vs0.942 stagger, but repeated effect drift2.7% vs8.6%; do not assert a robust sign-changing optimization without a stronger, independent repetition.",
+    "All 36 panels valid at the default <=25% gate. For small effects <~5%, repeat ratio drift and A/A phase drift can exceed effect; do not label a 1-3% ratio an established global gain."
+  ],
+  "limitations": [
+    "Both clock distributions are synthetic and lifecycle starts shifted without simulating correct 400-active-node population at first/final boundary, as noted in source R10.",
+    "Same fixed low-entropy repetitive gauge values; high-entropy heldout is separate evidence, not part of this 2x2 stagger/concurrency test.",
+    "Source ClickHouse is unoptimized O1 glibc; production allocator and optimized build not matched; no native VM comparison.",
+    "All tests are read-only on OPTIMIZE FINAL single-part inner tables; no live writer, natural merges, late data, histograms, staleness, NaN/Inf, counter reset.",
+    "Earlier R18 ALPZSTD3 vs ZSTD1 changes two codecs at once (ALP transform and ZSTD level); later 2x2 orthogonal factorial must isolate them.",
+    "Runtime profiles sampled near request with no continuously sampled RSS; no proof of mutex contention, scheduler queue vs CPU wait separation uses exact Linux event counters."
+  ],
+  "next_action": "Resolve pending independent ALP transform x ZSTD(1/3) 2x2 factorial run; validate exact SAMPLES.value effective DDL, same physical schema, full native parity and controls. Do not globally promote any codec, cancel concurrent C++ build or reuse cross-runner CPU values."
+}
