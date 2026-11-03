@@ -1,0 +1,111 @@
+name: R21 same-runner TAGS cache 32KiB fixed versus rotated input order ABBA
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r21-input-order-controlled-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ts-lab-r21-order-controlled-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  r21:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      BINARY_SHA256: f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Source and preflight
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r21order
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          python3 -m py_compile .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py .github/ts-lab/experiments/r21_input_order_small_cache_abba.py
+          python3 .github/ts-lab/experiments/r21_input_order_small_cache_abba.py --help > evidence/r21order/help.txt
+          grep -q "system.events global worker-inclusive delta" .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py
+          grep -q "start_cache_events.get(hit_event,0)" .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py
+          git rev-parse HEAD > evidence/r21order/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py .github/ts-lab/experiments/r21_input_order_small_cache_abba.py > evidence/r21order/script-sha256.txt
+      - name: Reuse pinned SHA verified O1 binary (no recompilation)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r21order-art" "$RUNNER_TEMP/r21order-bin"
+          gh run download 41596421285 -R "$REPO" \
+            --pattern 'tslab-stock-clickhouse-o1-binary-*' \
+            -D "$RUNNER_TEMP/r21order-art"
+          archive="$(find "$RUNNER_TEMP/r21order-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r21order/archive-verify.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r21order-bin"
+          (cd "$RUNNER_TEMP/r21order-bin" && sha256sum -c SHA256SUMS) | tee evidence/r21order/binary-verify.txt
+          test "$(sha256sum "$RUNNER_TEMP/r21order-bin/clickhouse" | cut -d' ' -f1)" = "$BINARY_SHA256"
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r21order-bin/BUILD_INFO.txt"
+          grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/r21order-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/r21order-bin/BUILD_INFO.txt" evidence/r21order/build-info.txt
+          chmod +x "$RUNNER_TEMP/r21order-bin/clickhouse"
+          "$RUNNER_TEMP/r21order-bin/clickhouse" --version | tee evidence/r21order/version.txt
+      - name: Four fresh stock servers same 32KiB cache fixed-rotate-rotate-fixed ordering
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r21_input_order_small_cache_abba.py \
+            --binary "$RUNNER_TEMP/r21order-bin/clickhouse" \
+            --outdir evidence/r21order --port 18191 | tee evidence/r21order/console.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/r21order/report.json'))
+          assert d['passed'] and not d['errors'],d['errors']
+          assert d['scientific_decision'] in (
+            'ORDER_CHANGES_CACHE_EFFECT_PENDING_REPLICATION',
+            'ORDER_CHANGES_READ_LAYOUT_PENDING_REPLICATION',
+            'NO_ROBUST_ORDER_EFFECT')
+          assert d['cache_bytes']==32768
+          assert d['canonical_fixture_sha256']=='052b2058e7adc280a956b083c9af7d2e636eba6ab2607c204e6f676fcc5d1883'
+          assert d['source_sha']=='52529f0c711566d696917678bf15e7068772fdde'
+          assert len(d['phases'])==4 and len(d['comparison'])==10
+          assert d['fixture_by_order']['fixed']['ordered_sha256'] != d['fixture_by_order']['rotate']['ordered_sha256']
+          for phase,order in (('A0','fixed'),('B1','rotate'),('B2','rotate'),('A3','fixed')):
+              v=d['phases'][phase]
+              assert v['input_order']==order and v['variant']=='small'
+              assert v['passed'] and not v['errors']
+              assert v['cache_bytes']==32768
+              assert v['input_sha256']==d['fixture_by_order'][order]['ordered_sha256']
+              assert v['physical']['physical_samples_points']==49152
+              assert v['physical']['tags']['distinct_id']==4096
+              assert v['physical']['tags']['count']==v['stats']['total_cache_misses']
+              assert v['stats']['total_cache_hits']+v['stats']['total_cache_misses']==49152
+              assert len(v['insert_rows'])==12 and len(v['native_samples'])==9
+          for name in ('write_cpu_s','native_wall_p50_ms','native_cpu_p50_ms'):
+              assert d['comparison'][name]['fixed_control_drift']<=.25
+          print('R21_ORDER_CONTROL_VALIDATED',json.dumps({
+            'passed':True,'decision':d['scientific_decision'],
+            'ratios':d['comparison'],'fixture_sha256':d['canonical_fixture_sha256']},
+            separators=(',',':')))
+
+          PY
+      - name: Preserve raw correct and failed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r21-order-controlled-${{ github.run_id }}
+          path: |
+            evidence/r21order/*.txt
+            evidence/r21order/*.log
+            evidence/r21order/*.json
+            evidence/r21order/A*/report.json
+            evidence/r21order/B*/report.json
+            evidence/r21order/A*/config.xml
+            evidence/r21order/B*/config.xml
+            evidence/r21order/A*/server.log
+            evidence/r21order/B*/server.log
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
