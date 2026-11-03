@@ -17,7 +17,7 @@ Assume a mark has `g` **distinct**, independently and uniformly selected IDs, an
 
 This is not a worst-case bound for arbitrary physical ID distributions. An ID-ordered part with correlated predicates can touch many fewer or many more marks. Real mark row counts may differ; repeated samples for a single ID reduce effective distinct-ID occupancy.
 
-For **illustration only**, take `g=8192`, not a verified ClickHouse SAMPLES part setting:
+For **illustration only**, take `g=8192` as a hypothetical distinct-ID occupancy. **Source correction (2026-11-03): v11 SAMPLES defaults to `index_granularity=256` rows with `index_granularity_bytes=524288` and sorts by `(id,bucket)`; 8192 is not its row granularity. Actual distinct IDs per mark may be smaller than 256 due to multiple bucket rows per series. The model below remains valid only under its assumptions:**
 
 | Selected ID fraction s | Expected touched marks |
 |---:|---:|
@@ -41,3 +41,13 @@ A finite, exactly-K, without-replacement model has `P(no match in a mark) = C(N-
 ## Failure criteria
 
 Reject the sparse-read hypothesis if actual SAMPLES selected marks remain approximately unchanged over the relevant selectors, or if a selective candidate increases read CPU/latency, write/merge cost, or RSS. Never interpret reduced matching IDs alone as fewer compressed blocks read. Keep negative and invalid outcomes as immutable evidence.
+
+## 2026-11-03 source correction and deterministic surrogate
+
+- Pinned [StorageTimeSeries.cpp](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/StorageTimeSeries.cpp) documents v11 SAMPLES `ORDER BY (id,bucket)`, default `index_granularity=256` **rows** and `index_granularity_bytes=524288`. RecentSamples also uses 256 rows but a different byte threshold. Actual rows/mark in existing parts still require measurement.
+- Distinguish **(a)** a mark containing a matching ID from **(b)** a mark key-range envelope overlapping the ID set, even when the part contains no matching ID. Primary-key index analysis can retain (b). The occupancy model of matched rows alone does not capture false-positive mark selections.
+- Reproducible no-ClickHouse surrogate: [Python model](r05_sparse_mark_simulation.py), [three unit tests](test_r05_sparse_mark_simulation.py). Seed 20261103, fourteen independent sorted daily parts, 95,000 uniform 64-bit IDs per part, 256 rows/mark, 2500 selected IDs from the last day only. The code compares candidate keys against intervals between adjacent mark starts. This is a conservative **interval approximation, not ClickHouse's exact KeyCondition or selected-mark count**.
+- Local Python tests: **3/3 pass** after fixing a first-run `OverflowError` from `random.sample(range(2**64))` by generating unique keys with `getrandbits(64)`. The failed first run is part of the method history.
+- Surrogate result: **5208/5208 mark envelopes overlap candidate IDs**; **372/5208 marks actually contain selected IDs**. The earlier 13 independent parts have **zero exact selected IDs** yet **all mark intervals overlap candidates**. This falsifies the unqualified assumption that sparse exact-ID membership implies low physical mark reads.
+- Independent uniform approximation for `N=95000` IDs/part, `K=2500` candidate IDs and `g=256` rows/mark: envelope overlap `1-(1-g/N)^K ≈ 99.88%`. Hash clustering, stored bucket rows, and actual KeyCondition analysis can change the result.
+- There is **no measured native ClickHouse CPU, RSS, or latency gain**. A C++ optimization must wait for same-binary EXPLAIN and actual selected-mark counters on persisted physical parts.
