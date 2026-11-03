@@ -38,6 +38,13 @@ def target(table):
     return "default." + chr(96) + ".inner_id.timeranges." + values[0] + chr(96)
 
 
+def freeze_time_ranges_before_insert(table):
+    """The unscoped STOP before CREATE does not guarantee newly-created targets are frozen."""
+    inner=target(table)
+    request("SYSTEM STOP MERGES "+inner)
+    return inner
+
+
 def census(table, series, level):
     tr=target(table)
     result=request(f"SELECT count() AS total,uniqExact(id) AS ids "
@@ -92,16 +99,22 @@ def main():
             "caveat":"Between-level absolute times are not paired. A/A drift is validated within each frozen level."}
     save(folder/"report.json",report)
     try:
-        # Global stop is active before any table creation; it guarantees one
-        # physical TimeRanges row per insert for each stable ID in the fixture.
+        # Preserve default stop for existing tables; additionally stop
+        # each newly-created inner target before its first data INSERT.
         request("SYSTEM STOP MERGES")
         runid=os.getenv("GITHUB_RUN_ID","local")
         for level in LEVELS:
             table=table_name(level)
             request(f"CREATE TABLE {table} ENGINE=TimeSeries "
                     "SETTINGS recent_samples_ttl_seconds=0")
+            # IMPORTANT: STOP MERGES without a table before CREATE did not
+            # prevent newly-created inner TimeRanges from merging in CI
+            # 41716512958. Pin an explicit stop on EACH new target before
+            # its first INSERT, then fail closed if counts do not match.
+            frozen_target=freeze_time_ranges_before_insert(table)
             insert(table,inserted,args.series,level)
-            record={"level":level,"table":table,"physical":census(table,args.series,level)}
+            record={"level":level,"table":table,"frozen_time_ranges_target":frozen_target,
+                    "physical":census(table,args.series,level)}
             report["levels"][str(level)]=record
             save(folder/"report.json",report)
             expr=f'avg by(stage)(avg_over_time({METRIC}{{project="project-01"}}[1d]))'
