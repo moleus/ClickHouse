@@ -137,3 +137,43 @@ def approximate_row_ceiling(distinct_series,retention_days,life_hours,query_days
             "expected_cover_scan_rows":selected_cover,
             "metadata_rows_ratio":baseline_meta/selected_cover,
             "does_not_include_samples_or_write_cpu":True}
+
+
+def audit_r01_400_slot_fixture(stagger):
+    """Exact sampled-day count from pinned R01 generator parameters, no big JSON.
+
+    Replays src in .github/ts-lab-r01/generate_k8s_churn_fixture.py:
+    BASE=2026-08-04 00:00 UTC, LIFE=10800s, 24 lifetimes, 400 slots,
+    node60 + 2 pod300 + burst15 on slots divisible by100. First sample is
+    start+cadence-1, last is start+LIFE-1. Stagger=(slot*317)%LIFE.
+    This is NOT the actual write cost or native query plan of any sidecar.
+    """
+    import datetime as dt
+    from collections import Counter
+    base=int(dt.datetime(2026,8,4,tzinfo=dt.timezone.utc).timestamp())
+    lengths=Counter()
+    by_day=Counter()
+    by_tier=Counter()
+    for life in range(24):
+        for slot in range(400):
+            delta=(slot*317)%10800 if stagger else 0
+            tiers=(("node60",60),("pod300",300),("pod300",300))
+            if slot%100==0:
+                tiers+=(("burst15",15),)
+            for tier,cadence in tiers:
+                begin=base+life*10800+delta+cadence-1
+                end=base+life*10800+delta+10800-1
+                start_day=(begin-base)//DAY
+                stop_day=(end-base)//DAY
+                copies=stop_day-start_day+1
+                lengths[copies]+=1
+                by_tier[tier]+=1
+                for day in range(start_day,stop_day+1):
+                    by_day[day]+=1
+    n=sum(lengths.values())
+    copies=sum(k*v for k,v in lengths.items())
+    return {"staggered":stagger,"series":n,"copies":copies,
+            "copies_per_series":copies/n,
+            "copy_count_histogram":dict(sorted(lengths.items())),
+            "metadata_entries_by_day":dict(sorted(by_day.items())),
+            "tier_series_count":dict(sorted(by_tier.items()))}
