@@ -1,0 +1,21 @@
+{
+  "id": "R07-time-day-covering-metadata-v1",
+  "question": "Can an opt-in UTC-day-partitioned covering metadata index keyed by (day,metric_name,stable full ID) plus original labels avoid repeated all-history TAGS/TimeRanges scans for short-lived high-churn native TimeSeries PromQL, with exact dedup, staleness and write/merge cost?",
+  "owner": "chatgpt-r07-day-covering-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Stock unmodified TimeSeries v11 TAGS ORDER BY(metric_name,id), TimeRanges ORDER BY id, SAMPLES ORDER BY(id,bucket); R15 native source-pinned 14d 70k high-churn shows broad 1d 210000 read_rows falling to145000 after day SAMPLES partition, with remaining ~140000 metadata/other scanned rows.",
+  "candidate": "Schema-design-only offline sidecar of (UTC sample day, FULL stable ClickHouse id, metric_name, tags), one row per distinct series/day, not per sample. Query reads conservative day partitions, matches labels, DISTINCT full IDs before native per-series evaluation. Trusted revision/fallback when lagging; no C++ implementation or production default.",
+  "fixture": "Deterministic pure-Python oracle for phase-uniform 3h lifetimes, long-lived 30d, boundary duplicates, late correction and randomized finite PromQL avg_over_time. R15 native 70k fixture SHA 351dff6b4f49986bb7f0f586459b86b918d99fd4d4cbb0b3293b4dfa680a8efb.",
+  "single_variable": "Presence of optional date-keyed complete-label metadata covering access path, preserving original logical full ID and identical SAMPLES; must not change ID hashing or sample semantics.",
+  "math_bound": "For constant L-day lifetime and uniformly random start phase, expected active UTC-day copies per series is 1+L/86400 (when L measured in seconds, no empty series). 3h=>1.125 copies, 30d=>31 copies. N originals over D equal-traffic days, 1day metadata scan ~N*(1+L/day)/D (or twice that for query windows touching 2 UTC dates); baseline TAGS+TimeRanges ~2N. On 14d, 3h, day query touching 2 days: ~2N*1.125/14=0.1607N metadata entries vs2N, conditional 12.44x metadata row ratio; NOT native end-to-end speed.",
+  "falsifier": "If full ID dedup across UTC days changes result, late/retracted samples are invisible, source revisions cannot be trusted, label filters/ACL cannot be matched, sidecar rows grow unbounded for long-lived series, write/merge CPU or storage exceeds benefit, or native PromQL correctness/performance fails, reject or restrict to short-lived metric families.",
+  "test_matrix": "Python algebra boundary 3h phase, duplicate-ID multi-day avg, left-open range, source revision invalidation, finite and randomized mixed lifetimes. Later source-pinned stock O1 same fixture compare candidate sidecar SQL and canonical native oracle, exact labels/timestamps/values, day boundaries, cross-tenant matcher, late writes, repeated IDs, partition stats, 1/3/7/14d, ingest/merge CPU, storage and RSS; only then native integration and ABBA.",
+  "runner_budget": "Zero new C++ builds, begin pure-Python CI only; no new huge Actions until positive math/cost bound and source read-path integration proof.",
+  "planned_workflow": "Path-scoped short Python oracle validation only. No schedules.",
+  "dependencies": [
+    "R15 source-pinned physical time-pruning result #41625086352; metadata fixed-cost evidence.",
+    "R05 root owner is separate candidate-ID mark pruning; do not claim it.",
+    "Historical packed-ID label prefix #41509482488 improved some selectors but truncated hash128 to112 bits and failed broad OOM in fastpath-off; preserve full ID."
+  ]
+}
