@@ -54,3 +54,17 @@ If paired runs confirm bounded RSS and acceptable latency, `MALLOC_ARENA_MAX=2` 
 - Same-runner trim workflow commit `f5b99bb4a5d6146c608b0b7614347f5094b76ef0`; arena2 workflow commit `0d62cd119838bd73f317d190ff5abd57cbb84cc1`.
 
 No production, master, schedule or existing build mutations.
+
+## 2026-11-03 experimental integrity correction
+
+The first same-runner default/trim workflow, run 41605644182, correctly captured RSS and allocator environments, but is **INVALID for per-query CPU/wall comparisons**: two repeated phases used identical `query_id` strings after server restart. Because ClickHouse retained `system.query_log` across those restarts, the log reader could return records belonging to an earlier phase. Specifically phase1 and phase2 show identical per-query timing despite fresh process. RSS snapshots were read directly from current `/proc/PID/status` and remain independently usable.
+
+Fix: `.github/ts-lab-cbo/probe_glibc_retention.py` now supports `--phase` and inserts the unique phase value into every query ID, commit https://github.com/moleus/ClickHouse/commit/b6ea96234ca4f8f542453b7d9c9043ba8f967bea.
+
+Fresh same-runner runs, **do not publish their performance figures until artifacts verified**:
+- `default / trim / trim / default`: [41606326654](https://github.com/moleus/ClickHouse/actions/runs/41606326654), workflow commit ce5b069d7836cea398ecec46dba854567655546f.
+- `default / arena2 / arena2 / default`: [41606334340](https://github.com/moleus/ClickHouse/actions/runs/41606334340), workflow commit 3e3321370c9fa7f6b102684ddab4b8f3d1ca4767.
+
+The four **independent runner** jobs in 41604969692 retain distinct Github run IDs and their logs were not affected. Their RSS conclusions and per-job query timing remain valid, but timing differences across runners are not causal comparisons.
+
+Other researchers are concurrently running stock O1 native LC versus RAW UUID under client concurrency (run 41605951284); no duplicate build/test should be launched. All ongoing workflows have cancel-in-progress false and no schedules.
