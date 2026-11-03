@@ -30,6 +30,22 @@ path=Path("src/Interpreters/ContextTimeSeriesTagsCollector.cpp")
 c=path.read_text()
 assert c.count("#include <Common/PODArray.h>")==1
 c=c.replace("#include <Common/PODArray.h>","#include <Common/PODArray.h>\n#include <Common/ProfileEvents.h>\n#include <chrono>")
+# Built-in event names are not declared in ProfileEvents.h: users of new
+# ProfileEvents must provide extern declarations in their own translation unit.
+declarations = """namespace ProfileEvents
+{
+    extern const Event TimeSeriesCollectorReadLockWaitNanoseconds;
+    extern const Event TimeSeriesCollectorReadLockHoldNanoseconds;
+    extern const Event TimeSeriesCollectorWriteLockWaitNanoseconds;
+    extern const Event TimeSeriesCollectorWriteLockHoldNanoseconds;
+    extern const Event TimeSeriesCollectorWriteAcquisitions;
+    extern const Event TimeSeriesCollectorPendingIDs;
+}
+
+"""
+assert c.count("namespace DB\\n{")==1
+c=c.replace("namespace DB\\n{",declarations+"namespace DB\\n{")
+
 marker='    using Group = ContextTimeSeriesTagsCollector::Group;\n'
 assert c.count(marker)==1
 instrument="""    /// Laboratory-only lock timing. The hold timer destructor runs before
