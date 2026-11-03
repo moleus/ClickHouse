@@ -1,0 +1,399 @@
+{
+  "schema_version": 1,
+  "question_id": "R15",
+  "run_id": 41625086352,
+  "job_id": 125880293350,
+  "workflow_head": "4e8f7fe45357454f6b3f8ceb4297a21d611d7b00",
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41625086352",
+  "status": "PASS",
+  "passed": true,
+  "proof_type": "native ClickHouse stock O1 same server same 14d synthetic fixture, one-point-per-ID, two tables differing only in SAMPLES calendar partition",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "artifact_name": "tslab-r15-native-calendar-41625086352",
+  "artifact_zip_sha256": "58a3e3586c172c304687033e609d3a9bf1ac40b5484de3db90edd45e8534670e",
+  "data": {
+    "sha256": "351dff6b4f49986bb7f0f586459b86b918d99fd4d4cbb0b3293b4dfa680a8efb",
+    "rows": 70000,
+    "days": 14,
+    "one_sample_per_series": true
+  },
+  "methods": {
+    "schema_variable": "SAMPLES PARTITION BY toYYYYMM(toDateTime(bucket,'UTC')) vs toDate(toDateTime(bucket,'UTC'))",
+    "fixed": "v11, Tuple(UInt64,UUID), 3600-second buckets, same metric/tags/samples and explicit OPTIMIZE all inner layers, recent TTL disabled",
+    "query": "native prometheusQueryRange avg by(stage)(avg_over_time(tslab_r15_stage_seconds{selector}[width])) at fixed end",
+    "comparisons": "6 native A/B/B/A sequences with 2 warmups and 4 measured requests per phase = 144 trial queries, 6 nonempty reference outputs, exact native result set parity (labels/timestamps/relative numeric tolerance) per source script; 8 direct physical query+EXPLAIN probes",
+    "valid_control_threshold": 0.25,
+    "high_cost_compilation": false
+  },
+  "partitions": {
+    "month": {
+      "count": 1,
+      "details": [
+        {
+          "partition": "202608",
+          "rows": 70000,
+          "marks": 274,
+          "bytes": 2289798,
+          "parts": 1
+        }
+      ],
+      "inner_schema": {
+        "tags": {
+          "name": ".inner_id.tags.a841dbb5-812e-42c0-94fa-d2622593a200",
+          "id_column": "Tuple(UInt64, UUID)",
+          "parts": {
+            "part_count": 1,
+            "rows": 70000,
+            "marks": 10,
+            "bytes": 2901498
+          }
+        },
+        "timeranges": {
+          "name": ".inner_id.timeranges.a841dbb5-812e-42c0-94fa-d2622593a200",
+          "id_column": "Tuple(UInt64, UUID)",
+          "parts": {
+            "part_count": 1,
+            "rows": 70000,
+            "marks": 10,
+            "bytes": 1520721
+          }
+        },
+        "samples": {
+          "name": ".inner_id.samples.a841dbb5-812e-42c0-94fa-d2622593a200",
+          "id_column": "Tuple(UInt64, UUID)",
+          "parts": {
+            "part_count": 1,
+            "rows": 70000,
+            "marks": 274,
+            "bytes": 2289798
+          }
+        }
+      }
+    },
+    "day": {
+      "count": 14,
+      "details": [
+        {
+          "partition": "2026-08-04",
+          "rows": 5000,
+          "marks": 21,
+          "bytes": 101607,
+          "parts": 1
+        },
+        {
+          "partition": "2026-08-05",
+          "rows": 5000,
+          "marks": 21,
+          "bytes": 101605,
+          "parts": 1
+        },
+        {
+          "partition": "2026-08-06",
+          "rows": 5000,
+          "marks": 21,
+          "bytes": 101618,
+          "parts": 1
+        },
+        {
+          "partition": "2026-08-07",
+          "rows": 5000,
+          "marks": 21,
+          "bytes": 101620,
+          "parts": 1
+        },
+        {
+          "partition": "2026-08-08",
+          "rows": 5000,
+          "marks": 21,
+          "bytes": 101627,
+          "parts": 1
+        },
+        {
+          "partition": "2026-08-09",
+          "rows": 5000,
+          "marks": 21,
+          "bytes": 101689,
+          "parts": 1
+        },
+        {
+          "partition": "2026-08-10",
+          "rows": 5000,
+          "marks": 21,
+          "bytes": 101626,
+          "parts": 1
+        },
+        {
+          "partition": "2026-08-11",
+          "rows": 5000,
+          "marks": 21,
+          "bytes": 101631,
+          "parts": 1
+        },
+        {
+          "partition": "2026-08-12",
+          "rows": 5000,
+          "marks": 21,
+          "bytes": 101639,
+          "parts": 1
+        },
+        {
+          "partition": "2026-08-13",
+          "rows": 5000,
+          "marks": 21,
+          "bytes": 101634,
+          "parts": 1
+        },
+        {
+          "partition": "2026-08-14",
+          "rows": 5000,
+          "marks": 21,
+          "bytes": 101624,
+          "parts": 1
+        },
+        {
+          "partition": "2026-08-15",
+          "rows": 5000,
+          "marks": 21,
+          "bytes": 101623,
+          "parts": 1
+        },
+        {
+          "partition": "2026-08-16",
+          "rows": 5000,
+          "marks": 21,
+          "bytes": 101692,
+          "parts": 1
+        },
+        {
+          "partition": "2026-08-17",
+          "rows": 5000,
+          "marks": 21,
+          "bytes": 101620,
+          "parts": 1
+        }
+      ],
+      "inner_schema": {
+        "tags": {
+          "name": ".inner_id.tags.5877449c-9183-4b51-9f43-2f24f08d5e23",
+          "id_column": "Tuple(UInt64, UUID)",
+          "parts": {
+            "part_count": 1,
+            "rows": 70000,
+            "marks": 10,
+            "bytes": 2901498
+          }
+        },
+        "timeranges": {
+          "name": ".inner_id.timeranges.5877449c-9183-4b51-9f43-2f24f08d5e23",
+          "id_column": "Tuple(UInt64, UUID)",
+          "parts": {
+            "part_count": 1,
+            "rows": 70000,
+            "marks": 10,
+            "bytes": 1520721
+          }
+        },
+        "samples": {
+          "name": ".inner_id.samples.5877449c-9183-4b51-9f43-2f24f08d5e23",
+          "id_column": "Tuple(UInt64, UUID)",
+          "parts": {
+            "part_count": 14,
+            "rows": 70000,
+            "marks": 294,
+            "bytes": 1422855
+          }
+        }
+      }
+    },
+    "identical_tags": true,
+    "identical_samples": true
+  },
+  "direct": {
+    "1": {
+      "month": {
+        "points": 5000,
+        "plan": "Output: sum(samples.size0)\n\nAggregating\n│  Keys:\n│  Aggregates: sum(samples.size0)\n│  Skip merging: 0\n└──ReadFromMergeTree (default..inner_id.samples.a841dbb5-812e-42c0-94fa-d2622593a200)\n      Read type: Default\n      Parts: 1 | Granules: 273\n      Output: samples.size0\n      Prewhere filter\n      Prewhere filter column:  bucket <= \\'2026-08-17 01:00:00.000\\' AND bucket > \\'2026-08-16 01:00:00.000\\'\n      Indexes:\n        Min-Max\n          Keys:\n            bucket\n          Condition: and((bucket in (-Inf, \\'1786928400\\']), (bucket in (\\'1786842000\\', +Inf)))\n          Parts: 1/1\n          Granules: 273/273\n        Partition\n          Keys:\n            toYYYYMM(toDateTime(bucket, \\'UTC\\'))\n          Condition: and((toYYYYMM(toDateTime(bucket, \\'UTC\\')) in (-Inf, 202608]), (toYYYYMM(toDateTime(bucket, \\'UTC\\')) in [202608, +Inf)))\n          Parts: 1/1\n          Granules: 273/273\n        PrimaryKey\n          Keys:\n            bucket\n          Condition: and((bucket in (-Inf, \\'1786928400\\']), (bucket in (\\'1786842000\\', +Inf)))\n          Parts: 1/1\n          Granules: 273/273\n          Search Algorithm: generic exclusion search\n        Ranges: 1\n",
+        "selected_marks": 273,
+        "read_rows": 70000,
+        "read_bytes": 1120000,
+        "compressed_read_bytes": 263298,
+        "cpu_ms": 10.006
+      },
+      "day": {
+        "points": 5000,
+        "plan": "Output: sum(samples.size0)\n\nAggregating\n│  Keys:\n│  Aggregates: sum(samples.size0)\n│  Skip merging: 0\n└──ReadFromMergeTree (default..inner_id.samples.5877449c-9183-4b51-9f43-2f24f08d5e23)\n      Read type: Default\n      Parts: 1 | Granules: 20\n      Output: samples.size0\n      Prewhere filter\n      Prewhere filter column:  bucket <= \\'2026-08-17 01:00:00.000\\' AND bucket > \\'2026-08-16 01:00:00.000\\'\n      Indexes:\n        Min-Max\n          Keys:\n            bucket\n          Condition: and((bucket in (-Inf, \\'1786928400\\']), (bucket in (\\'1786842000\\', +Inf)))\n          Parts: 1/14\n          Granules: 20/280\n        Partition\n          Keys:\n            toDate(toDateTime(bucket, \\'UTC\\'))\n          Condition: and((toDate(toDateTime(bucket, \\'UTC\\')) in (-Inf, 20682]), (toDate(toDateTime(bucket, \\'UTC\\')) in [20681, +Inf)))\n          Parts: 1/1\n          Granules: 20/20\n        PrimaryKey\n          Keys:\n            bucket\n          Condition: and((bucket in (-Inf, \\'1786928400\\']), (bucket in (\\'1786842000\\', +Inf)))\n          Parts: 1/1\n          Granules: 20/20\n          Search Algorithm: generic exclusion search\n        Ranges: 1\n",
+        "selected_marks": 20,
+        "read_rows": 5000,
+        "read_bytes": 80000,
+        "compressed_read_bytes": 3097,
+        "cpu_ms": 3.118
+      }
+    },
+    "3": {
+      "month": {
+        "points": 15000,
+        "plan": "Output: sum(samples.size0)\n\nAggregating\n│  Keys:\n│  Aggregates: sum(samples.size0)\n│  Skip merging: 0\n└──ReadFromMergeTree (default..inner_id.samples.a841dbb5-812e-42c0-94fa-d2622593a200)\n      Read type: Default\n      Parts: 1 | Granules: 273\n      Output: samples.size0\n      Prewhere filter\n      Prewhere filter column:  bucket <= \\'2026-08-17 01:00:00.000\\' AND bucket > \\'2026-08-14 01:00:00.000\\'\n      Indexes:\n        Min-Max\n          Keys:\n            bucket\n          Condition: and((bucket in (-Inf, \\'1786928400\\']), (bucket in (\\'1786669200\\', +Inf)))\n          Parts: 1/1\n          Granules: 273/273\n        Partition\n          Keys:\n            toYYYYMM(toDateTime(bucket, \\'UTC\\'))\n          Condition: and((toYYYYMM(toDateTime(bucket, \\'UTC\\')) in (-Inf, 202608]), (toYYYYMM(toDateTime(bucket, \\'UTC\\')) in [202608, +Inf)))\n          Parts: 1/1\n          Granules: 273/273\n        PrimaryKey\n          Keys:\n            bucket\n          Condition: and((bucket in (-Inf, \\'1786928400\\']), (bucket in (\\'1786669200\\', +Inf)))\n          Parts: 1/1\n          Granules: 273/273\n          Search Algorithm: generic exclusion search\n        Ranges: 1\n",
+        "selected_marks": 273,
+        "read_rows": 70000,
+        "read_bytes": 1120000,
+        "compressed_read_bytes": 263299,
+        "cpu_ms": 10.872
+      },
+      "day": {
+        "points": 15000,
+        "plan": "Output: sum(samples.size0)\n\nAggregating\n│  Keys:\n│  Aggregates: sum(samples.size0)\n│  Skip merging: 0\n└──ReadFromMergeTree (default..inner_id.samples.5877449c-9183-4b51-9f43-2f24f08d5e23)\n      Read type: Default\n      Parts: 3 | Granules: 60\n      Output: samples.size0\n      Prewhere filter\n      Prewhere filter column:  bucket <= \\'2026-08-17 01:00:00.000\\' AND bucket > \\'2026-08-14 01:00:00.000\\'\n      Indexes:\n        Min-Max\n          Keys:\n            bucket\n          Condition: and((bucket in (-Inf, \\'1786928400\\']), (bucket in (\\'1786669200\\', +Inf)))\n          Parts: 3/14\n          Granules: 60/280\n        Partition\n          Keys:\n            toDate(toDateTime(bucket, \\'UTC\\'))\n          Condition: and((toDate(toDateTime(bucket, \\'UTC\\')) in (-Inf, 20682]), (toDate(toDateTime(bucket, \\'UTC\\')) in [20679, +Inf)))\n          Parts: 3/3\n          Granules: 60/60\n        PrimaryKey\n          Keys:\n            bucket\n          Condition: and((bucket in (-Inf, \\'1786928400\\']), (bucket in (\\'1786669200\\', +Inf)))\n          Parts: 3/3\n          Granules: 60/60\n          Search Algorithm: generic exclusion search\n        Ranges: 3\n",
+        "selected_marks": 60,
+        "read_rows": 15000,
+        "read_bytes": 240000,
+        "compressed_read_bytes": 9237,
+        "cpu_ms": 5.281
+      }
+    },
+    "7": {
+      "month": {
+        "points": 35000,
+        "plan": "Output: sum(samples.size0)\n\nAggregating\n│  Keys:\n│  Aggregates: sum(samples.size0)\n│  Skip merging: 0\n└──ReadFromMergeTree (default..inner_id.samples.a841dbb5-812e-42c0-94fa-d2622593a200)\n      Read type: Default\n      Parts: 1 | Granules: 273\n      Output: samples.size0\n      Prewhere filter\n      Prewhere filter column:  bucket <= \\'2026-08-17 01:00:00.000\\' AND bucket > \\'2026-08-10 01:00:00.000\\'\n      Indexes:\n        Min-Max\n          Keys:\n            bucket\n          Condition: and((bucket in (-Inf, \\'1786928400\\']), (bucket in (\\'1786323600\\', +Inf)))\n          Parts: 1/1\n          Granules: 273/273\n        Partition\n          Keys:\n            toYYYYMM(toDateTime(bucket, \\'UTC\\'))\n          Condition: and((toYYYYMM(toDateTime(bucket, \\'UTC\\')) in (-Inf, 202608]), (toYYYYMM(toDateTime(bucket, \\'UTC\\')) in [202608, +Inf)))\n          Parts: 1/1\n          Granules: 273/273\n        PrimaryKey\n          Keys:\n            bucket\n          Condition: and((bucket in (-Inf, \\'1786928400\\']), (bucket in (\\'1786323600\\', +Inf)))\n          Parts: 1/1\n          Granules: 273/273\n          Search Algorithm: generic exclusion search\n        Ranges: 1\n",
+        "selected_marks": 273,
+        "read_rows": 70000,
+        "read_bytes": 1120000,
+        "compressed_read_bytes": 263299,
+        "cpu_ms": 11.178
+      },
+      "day": {
+        "points": 35000,
+        "plan": "Output: sum(samples.size0)\n\nAggregating\n│  Keys:\n│  Aggregates: sum(samples.size0)\n│  Skip merging: 0\n└──ReadFromMergeTree (default..inner_id.samples.5877449c-9183-4b51-9f43-2f24f08d5e23)\n      Read type: Default\n      Parts: 7 | Granules: 140\n      Output: samples.size0\n      Prewhere filter\n      Prewhere filter column:  bucket <= \\'2026-08-17 01:00:00.000\\' AND bucket > \\'2026-08-10 01:00:00.000\\'\n      Indexes:\n        Min-Max\n          Keys:\n            bucket\n          Condition: and((bucket in (-Inf, \\'1786928400\\']), (bucket in (\\'1786323600\\', +Inf)))\n          Parts: 7/14\n          Granules: 140/280\n        Partition\n          Keys:\n            toDate(toDateTime(bucket, \\'UTC\\'))\n          Condition: and((toDate(toDateTime(bucket, \\'UTC\\')) in (-Inf, 20682]), (toDate(toDateTime(bucket, \\'UTC\\')) in [20675, +Inf)))\n          Parts: 7/7\n          Granules: 140/140\n        PrimaryKey\n          Keys:\n            bucket\n          Condition: and((bucket in (-Inf, \\'1786928400\\']), (bucket in (\\'1786323600\\', +Inf)))\n          Parts: 7/7\n          Granules: 140/140\n          Search Algorithm: generic exclusion search\n        Ranges: 7\n",
+        "selected_marks": 140,
+        "read_rows": 35000,
+        "read_bytes": 560000,
+        "compressed_read_bytes": 21477,
+        "cpu_ms": 7.375
+      }
+    },
+    "14": {
+      "month": {
+        "points": 70000,
+        "plan": "Output: sum(samples.size0)\n\nAggregating\n│  Keys:\n│  Aggregates: sum(samples.size0)\n│  Skip merging: 0\n└──ReadFromMergeTree (default..inner_id.samples.a841dbb5-812e-42c0-94fa-d2622593a200)\n      Read type: Default\n      Parts: 1 | Granules: 273\n      Output: samples.size0\n      Prewhere filter\n      Prewhere filter column:  bucket <= \\'2026-08-17 01:00:00.000\\' AND bucket > \\'2026-08-03 01:00:00.000\\'\n      Indexes:\n        Min-Max\n          Keys:\n            bucket\n          Condition: and((bucket in (-Inf, \\'1786928400\\']), (bucket in (\\'1785718800\\', +Inf)))\n          Parts: 1/1\n          Granules: 273/273\n        Partition\n          Keys:\n            toYYYYMM(toDateTime(bucket, \\'UTC\\'))\n          Condition: and((toYYYYMM(toDateTime(bucket, \\'UTC\\')) in (-Inf, 202608]), (toYYYYMM(toDateTime(bucket, \\'UTC\\')) in [202608, +Inf)))\n          Parts: 1/1\n          Granules: 273/273\n        PrimaryKey\n          Keys:\n            bucket\n          Condition: and((bucket in (-Inf, \\'1786928400\\']), (bucket in (\\'1785718800\\', +Inf)))\n          Parts: 1/1\n          Granules: 273/273\n          Search Algorithm: generic exclusion search\n        Ranges: 1\n",
+        "selected_marks": 273,
+        "read_rows": 70000,
+        "read_bytes": 1120000,
+        "compressed_read_bytes": 263299,
+        "cpu_ms": 9
+      },
+      "day": {
+        "points": 70000,
+        "plan": "Output: sum(samples.size0)\n\nAggregating\n│  Keys:\n│  Aggregates: sum(samples.size0)\n│  Skip merging: 0\n└──ReadFromMergeTree (default..inner_id.samples.5877449c-9183-4b51-9f43-2f24f08d5e23)\n      Read type: Default\n      Parts: 14 | Granules: 280\n      Output: samples.size0\n      Prewhere filter\n      Prewhere filter column:  bucket <= \\'2026-08-17 01:00:00.000\\' AND bucket > \\'2026-08-03 01:00:00.000\\'\n      Indexes:\n        Min-Max\n          Keys:\n            bucket\n          Condition: and((bucket in (-Inf, \\'1786928400\\']), (bucket in (\\'1785718800\\', +Inf)))\n          Parts: 14/14\n          Granules: 280/280\n        Partition\n          Keys:\n            toDate(toDateTime(bucket, \\'UTC\\'))\n          Condition: and((toDate(toDateTime(bucket, \\'UTC\\')) in (-Inf, 20682]), (toDate(toDateTime(bucket, \\'UTC\\')) in [20668, +Inf)))\n          Parts: 14/14\n          Granules: 280/280\n        PrimaryKey\n          Keys:\n            bucket\n          Condition: and((bucket in (-Inf, \\'1786928400\\']), (bucket in (\\'1785718800\\', +Inf)))\n          Parts: 14/14\n          Granules: 280/280\n          Search Algorithm: generic exclusion search\n        Ranges: 14\n",
+        "selected_marks": 280,
+        "read_rows": 70000,
+        "read_bytes": 1120000,
+        "compressed_read_bytes": 42916,
+        "cpu_ms": 10.901
+      }
+    }
+  },
+  "native": {
+    "1d-all": {
+      "control_drift": 0.016460360539264356,
+      "valid": true,
+      "month_p50_ms": 67.9815,
+      "day_p50_ms": 55.4465,
+      "month_cpu_ms": 118.02025,
+      "day_cpu_ms": 83.44425,
+      "month_selected_marks": 291,
+      "day_selected_marks": 38,
+      "month_read_rows": 210000,
+      "day_read_rows": 145000,
+      "month_read_bytes": 19600000,
+      "day_read_bytes": 14920000,
+      "wall_speedup_month_over_day": 1.2260737828357064
+    },
+    "3d-all": {
+      "control_drift": 0.05198499049055038,
+      "valid": true,
+      "month_p50_ms": 87.5445,
+      "day_p50_ms": 74.49950000000001,
+      "month_cpu_ms": 182.79749999999999,
+      "day_cpu_ms": 146.1555,
+      "month_selected_marks": 291,
+      "day_selected_marks": 78,
+      "month_read_rows": 210000,
+      "day_read_rows": 155000,
+      "month_read_bytes": 19600000,
+      "day_read_bytes": 15640000,
+      "wall_speedup_month_over_day": 1.175101846321116
+    },
+    "7d-all": {
+      "control_drift": 0.12466884400274723,
+      "valid": true,
+      "month_p50_ms": 142.68200000000002,
+      "day_p50_ms": 140.5735,
+      "month_cpu_ms": 307.94,
+      "day_cpu_ms": 288.97875,
+      "month_selected_marks": 291,
+      "day_selected_marks": 158,
+      "month_read_rows": 210000,
+      "day_read_rows": 175000,
+      "month_read_bytes": 19600000,
+      "day_read_bytes": 17080000,
+      "wall_speedup_month_over_day": 1.0149992708440783
+    },
+    "14d-all": {
+      "control_drift": 0.04767700318325571,
+      "valid": true,
+      "month_p50_ms": 243.61849999999998,
+      "day_p50_ms": 240.857,
+      "month_cpu_ms": 510.95175,
+      "day_cpu_ms": 515.437,
+      "month_selected_marks": 291,
+      "day_selected_marks": 298,
+      "month_read_rows": 210000,
+      "day_read_rows": 210000,
+      "month_read_bytes": 19600000,
+      "day_read_bytes": 19600000,
+      "wall_speedup_month_over_day": 1.0114653092914052
+    },
+    "1d-stage": {
+      "control_drift": 0.010678909154419953,
+      "valid": true,
+      "month_p50_ms": 40.079,
+      "day_p50_ms": 34.2545,
+      "month_cpu_ms": 54.19325,
+      "day_cpu_ms": 41.60325,
+      "month_selected_marks": 124,
+      "day_selected_marks": 38,
+      "month_read_rows": 167136,
+      "day_read_rows": 145000,
+      "month_read_bytes": 16583792,
+      "day_read_bytes": 14990000,
+      "wall_speedup_month_over_day": 1.1700360536571837
+    },
+    "14d-stage": {
+      "control_drift": 0.01616031590025488,
+      "valid": true,
+      "month_p50_ms": 57.4865,
+      "day_p50_ms": 59.423,
+      "month_cpu_ms": 99.682,
+      "day_cpu_ms": 97.09424999999999,
+      "month_selected_marks": 291,
+      "day_selected_marks": 298,
+      "month_read_rows": 210000,
+      "day_read_rows": 210000,
+      "month_read_bytes": 19670000,
+      "day_read_bytes": 19670000,
+      "wall_speedup_month_over_day": 0.9674116082998165
+    }
+  },
+  "analytical_observations": [
+    "1d direct SAMPLES: 273 monthly selected marks and 70000 scanned rows versus 20 daily marks and 5000 scanned rows (13.65x marks, 14x rows), EXPLAIN shows MinMax on day parts 1/14; 1d direct CPU 10.006 vs3.118ms.",
+    "1d broad full PromQL: 291 monthly selected marks versus 38 daily, 210000 versus145000 scanned rows; p50 67.9815ms vs55.4465ms (1.2261x), CPU 118.02025 vs83.44425ms (1.4144x).",
+    "14d full window: monthly SAMPLES 273 marks vs daily 280, native broad p50 essentially unchanged; 14d stage p50 57.4865 vs59.423ms (slower daily), no global promotion.",
+    "Metadata TAGS/TimeRanges retained: 70000+70000 read rows for broad queries; physical SAMPLES savings do not remove those scans. This is a new R05 time-gating hypothesis, not proof of R05 optimization.",
+    "On this single merged synthetic fixture day SAMPLES compressed storage bytes 1422855 vs month 2289798 (37.86% smaller), but 14 vs1 parts and unpaired single-pass ingest/merge; do not extrapolate to production storage or write costs."
+  ],
+  "limitations": [
+    "Only 70000 synthetic one-sample/ID series, one month, source O1 not production O2, one machine, no replication, no 1/4/8 client throughput or p99",
+    "No fresh-server A/B/B/A for allocator/RSS, no steady-state write/merge CPU, partition fanout may regress under ongoing ingestion",
+    "Result only supports short-window schema-specific gains; cannot claim 14x end-to-end speed"
+  ],
+  "raw_full_report_location": "GitHub Actions uploaded artifact evidence/r15/report.json; includes every 144 query trial, create DDL, ingest and OPTIMIZE wall times, exact physical parts, EXPLAIN text"
+}
