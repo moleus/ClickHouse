@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "question_id": "R07",
+  "claim_id": "R07-time-day-covering-metadata-v1",
+  "status": "SOURCE_PINNED_STALE_SQL_COUNTEREXAMPLE_CONFIRMED_NATIVE",
+  "run_id": 41635230738,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41635230738",
+  "job_id": 125914628243,
+  "workflow_commit": "2d666db04852c625e7151544b6e497ad45ad49ac",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "stock_o1_binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "artifact": {
+    "id": 13229273692,
+    "name": "tslab-r07-semantic-falsifier-41635230738",
+    "sha256": "d283ff9bf03e4ac0226195dc8ed9a666399e044db70e1ec3fda156f60a189ec8",
+    "full_report": "r07-sem/report.json",
+    "retention_days": 45
+  },
+  "method": "Tiny actual stock TimeSeries v11 same binary. INSERT SELECT uses reinterpretAsFloat64(toUInt64(0x7ff0000000000002)) stale marker and a repeated identical timestamp with values1.0 and7.0; OPTIMIZE FINAL done. Native prometheusQueryRange avg by(stage)(avg_over_time(metric[1h])) compared with direct read from physical inner SAMPLES, old raw avg and corrected avgIf using exact stale UInt64 payload. No performance claim or C++ patch.",
+  "input": {
+    "metric": "tslab_r07_semantic",
+    "utc_timestamps": [
+      "2026-08-04T00:01:00Z",
+      "2026-08-04T00:02:00Z"
+    ],
+    "evaluate_at": "2026-08-04T00:03:00Z",
+    "stage_stale": [
+      [
+        60,
+        5
+      ],
+      [
+        120,
+        "stale_NaN_bits_0x7ff0000000000002"
+      ]
+    ],
+    "stage_duplicate": [
+      [
+        60,
+        1
+      ],
+      [
+        60,
+        7
+      ],
+      [
+        120,
+        3
+      ]
+    ]
+  },
+  "observed": {
+    "native": [
+      {
+        "stage": "duplicate",
+        "timestamp": 1785801780,
+        "value": 5
+      },
+      {
+        "stage": "stale",
+        "timestamp": 1785801780,
+        "value": 5
+      }
+    ],
+    "physical": {
+      "duplicate": {
+        "physical_points": 2,
+        "stale_count": 0,
+        "raw_avg_is_nan": false,
+        "bit_filtered_avg": 5
+      },
+      "stale": {
+        "physical_points": 2,
+        "stale_count": 1,
+        "raw_avg_is_nan": true,
+        "bit_filtered_avg": 5
+      }
+    }
+  },
+  "code_evidence": [
+    {
+      "file": "src/Storages/TimeSeries/PrometheusQueryToSQL/fromSelector.cpp",
+      "line_start": 19,
+      "line_end": 84,
+      "note": "Range selectors remove ONLY exact stale marker reinterpretAsUInt64(value)==0x7ff0000000000002 and preserve ordinary NaN"
+    },
+    {
+      "file": "src/Storages/TimeSeries/TimeSeriesSink.cpp",
+      "line_start": 324,
+      "line_end": 395,
+      "note": "Sort duplicate timestamp values; larger finite wins, NaN loses"
+    },
+    {
+      "file": "src/AggregateFunctions/TimeSeries/timeseriesMaxValueForDuplicateTimestamp.h",
+      "line_start": 11,
+      "line_end": 24,
+      "note": "Duplicate arbitration associative/commutative max finite; all-NaN may remain NaN"
+    }
+  ],
+  "decision": "PROVEN counterexample to candidate's general PromQL correctness: unmodified SQL avg on physical SAMPLES with stale payload gives NaN while native returns 5.0. An exact bit-filtered avgIf fixes this specific case. Duplicate timestamp 1,7 was reduced to maximum7 in stored SAMPLES, then avg(7,3)=5.0 matches native. This does not refute finite-sample R01 ABBA results.",
+  "limitations": [
+    "Only one stale-plus-real and one within-row duplicate pair; no ordinary NaN preservation test, stale-only series, cross-insert duplicates, resets, histograms, regex, many native grid points or ACL.",
+    "Raw query speed not measured; adding bit filter may reduce 2x speedup and must be benchmarked again after an eligibility/correctness proof.",
+    "A stale marker must not be filtered by general isNaN; ordinary NaN is retained by native range selectors."
+  ],
+  "next_gate": "Guard SQL fastpath by exact stale NaN bits before AVG; prove source-faithful duplicate arbitration across merge/backfill and ordinary NaN handling, then benchmark cost and exact multi-eval grid parity before considering C++ conditional rewrite."
+}
