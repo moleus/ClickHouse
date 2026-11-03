@@ -1,0 +1,96 @@
+{
+  "experiment_id": "R35-injective-metric-name-drop-v1",
+  "decision": "ACCEPT_FOR_NEXT_GATE",
+  "promotion": "RESEARCH_CANDIDATE_ONLY",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "stock_sha256": "5d629ddfda91919402fdf8475ec3da9fe718d48ef386bc51be677264df6dc9ef",
+  "candidate_sha256": "68d6e8f954a44beeb137acea61b0b77afac32cc705e59404413c233b57e6a06b",
+  "candidate_build": "https://github.com/moleus/ClickHouse/actions/runs/41732238195",
+  "patch_commit": "e6bd561fc000df0fa4c500ecc230e49971dae8ea",
+  "build_contract": "Same source, LLVM22.1.8, Release O2, jemalloc, recorded CMake options byte-identical. Only applyFunctionOverRange.cpp changes. No R32/R34 or JOIN patch.",
+  "host": {
+    "environment": "Local Linux container",
+    "cpu_max": "400000 100000",
+    "memory_max": 4294967296,
+    "server_memory_limit": 2850000000,
+    "query_memory_limit": 1900000000,
+    "max_threads": 2
+  },
+  "fixture": {
+    "series": 1330000,
+    "samples": 1330000,
+    "days": 14,
+    "builds_per_day": 2500,
+    "stages_per_build": 38,
+    "layout": "RAW_UUID TimeSeries v11, same frozen physical tables for all phases",
+    "metric": "ci_duration",
+    "generator": ".github/ts-lab-r35/native.py:create_sparse",
+    "notes": "Synthetic build-coherent fixture, not a production export. One sample per distinct series. Project/branch/job are build-level labels. Range bounds and the first left-boundary sample are handled by the independent oracle."
+  },
+  "query_shape": "avg by(stage)(avg_over_time(ci_duration{selector}[1d])) via native prometheusQueryRange over 14 daily timestamps",
+  "protocol": "stock/candidate/candidate/stock, fresh server per phase, two warmups plus two measured requests per selector per phase. Complete labels/timestamps/values checked on every response against an independent Python fixture oracle, tolerance 1e-10. Exact user part census unchanged. All QueryFinish records captured.",
+  "reporting": "Values are means of the two within-phase medians. RSS is the mean of within-phase medians of sampled request RSS peaks, not a kernel high-water guarantee. The sample count does not establish p95/p99.",
+  "whole_metric": {
+    "stock_wall_ms": 11974.0,
+    "candidate_wall_ms": 7777.25,
+    "wall_reduction_fraction": 0.3504885585,
+    "stock_cpu_ms": 11861.78625,
+    "candidate_cpu_ms": 7644.269,
+    "cpu_reduction_fraction": 0.3555549865,
+    "stock_query_memory_bytes": 1416391850,
+    "candidate_query_memory_bytes": 870315896,
+    "memory_reduction_fraction": 0.3855401696,
+    "stock_sampled_rss_bytes": 1956302848,
+    "candidate_sampled_rss_bytes": 1464402944,
+    "sampled_rss_reduction_fraction": 0.2514436374,
+    "stock_wall_control_drift": 0.0063470854,
+    "candidate_wall_control_drift": 0.0112507634,
+    "read_rows_both": 3990000,
+    "read_bytes_both": 336024252,
+    "output_points": 532,
+    "interpretation": "Native CPU/state reduction with unchanged physical read volume, not an index/selectivity or cache improvement. Read rows count all inner read paths, not just logical samples."
+  },
+  "selective_cases": {
+    "stage": {
+      "stock_wall_ms": 702.25,
+      "candidate_wall_ms": 643.5,
+      "stock_query_memory_bytes": 100352296,
+      "candidate_query_memory_bytes": 72305936,
+      "stock_wall_control_drift": 0.02776789,
+      "candidate_wall_control_drift": 0.17094017,
+      "decision": "Memory reduction observed; latency effect smaller than candidate control drift, so INCONCLUSIVE for latency."
+    },
+    "project": {
+      "stock_wall_ms": 1753.0,
+      "candidate_wall_ms": 1454.5,
+      "stock_query_memory_bytes": 385731036,
+      "candidate_query_memory_bytes": 282660168,
+      "stock_wall_control_drift": 0.13690816,
+      "candidate_wall_control_drift": 0.04056377,
+      "decision": "Memory reduction observed; latency direction favorable but substantial stock drift and few samples require replication."
+    }
+  },
+  "semantic_gate": {
+    "native_cases_passed": 147,
+    "mixed_metric_duplicate_exception_preserved": 768,
+    "positive_plan_aggregations_stock": 3,
+    "positive_plan_aggregations_candidate": 2,
+    "negative_plan_guards_unchanged": ["by(__name__)", "name regex", "without", "subquery", "offset"]
+  },
+  "dense_control": {
+    "series": 8192,
+    "samples_per_series": 256,
+    "sample_interval_seconds": 15,
+    "query": "avg by(stage)(rate(dense_counter[5m]))",
+    "protocol": "Fresh-server stock/candidate/candidate/stock; two warmups plus six measurements per phase; independent analytic slope oracle; all outputs and physical parts equal.",
+    "stock_wall_ms": 179.75,
+    "candidate_wall_ms": 148.5,
+    "stock_cpu_ms": 177.3005,
+    "candidate_cpu_ms": 145.8435,
+    "stock_query_memory_bytes": 87002070,
+    "candidate_query_memory_bytes": 86397086,
+    "notes": "Dense query memory is almost unchanged; do not extrapolate sparse memory savings. RSS varies strongly between phases and is not accepted as a dense RSS win."
+  },
+  "limitations": "No production workload, retention/read-write stress, tenant/ACL gate, distributed path, or optimized VM comparison. No combined R34+R35 claim. Earlier local long commands were killed by the execution harness; recovered logs are preserved as invalid/censored, not OOM or measured speedups. Final large ABBA used detached local execution during the same interactive session and completed all four phases.",
+  "next_experiment": "Two simultaneous broad native requests under the same finite memory cap, retaining failed requests and complete query logs."
+}
