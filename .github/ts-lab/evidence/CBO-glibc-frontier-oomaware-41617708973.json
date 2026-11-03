@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "experiment": "CBO glibc frontier eight-phase OOM-aware replay",
+  "scientific_decision": "ACCEPT_DIAGNOSTIC_NOT_DEFAULT_PERFORMANCE_COMPARISON",
+  "ci": "https://github.com/moleus/ClickHouse/actions/runs/41617708973",
+  "ci_success": true,
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+  "original_artifact_run": 41607288907,
+  "original_artifact_id": 13217618469,
+  "oomaware_artifact_id": 13222420367,
+  "oomaware_artifact_digest": "sha256:f7b321ce81bdb63f3461b9c0b546db6f37a27e1f48f2bcc4cde6904834a3f33f",
+  "reducer_commit": "8c4d522202f28302ed2d5738e29bf995b4c2318d",
+  "unique_query_ids": 101,
+  "expected_without_oom": 104,
+  "omitted_after_early_oom": 3,
+  "default_performance_control_valid": false,
+  "default_oom_phase_indices": [
+    0,
+    7
+  ],
+  "default_oom_query_indices": [
+    9,
+    12
+  ],
+  "candidate_full_7d_14d_success": {
+    "arena4": 2,
+    "arena8": 2,
+    "trim": 2
+  },
+  "candidate_pairs": {
+    "arena4": {
+      "wall_7d_ms": 5500,
+      "cpu_7d_ms": 11438.724,
+      "rss_after12_mib": 1830.045,
+      "rss_repeat_drift": 0.07052
+    },
+    "arena8": {
+      "wall_7d_ms": 5745,
+      "cpu_7d_ms": 11019.306,
+      "rss_after12_mib": 2259.097,
+      "rss_repeat_drift": 0.42998
+    },
+    "trim": {
+      "wall_7d_ms": 5466.5,
+      "cpu_7d_ms": 10662.189,
+      "rss_after12_mib": 2109.508,
+      "rss_repeat_drift": 0.17539
+    }
+  },
+  "conditional_pareto": [
+    "arena4",
+    "trim"
+  ],
+  "limitations": [
+    "Glibc only, not intended production jemalloc allocator",
+    "Default first phase right-censored; no complete matched default CPU/wall comparison",
+    "Candidate means are exploratory; arena8 RSS unstable across phases"
+  ],
+  "next": "Verify existing jemalloc build binary capability and run matched allocator-specific workload; do not launch another compile."
+}
