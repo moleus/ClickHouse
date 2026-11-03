@@ -198,6 +198,7 @@ jobs:
               --manifest evidence/95k-manifest.json \
               --table churn_ts \
               --mode "$mode" \
+              --phase "$phase" \
               --warm-repeats 12 \
               --out "evidence/arena2-paired-phase${phase}-${mode}" | tee "evidence/arena2-paired-phase${phase}-${mode}.log"
             echo "GLIBC_ABBA_PHASE_FINISH phase=$phase mode=$mode"
