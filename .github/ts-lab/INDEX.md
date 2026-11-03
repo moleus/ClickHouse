@@ -16,6 +16,11 @@
 
 **Single write branch:** `lab/ts-cbo-adaptive-20261103`. All agents should commit their research here. Keep one append-only history; do not reset, amend, rebase, or force-push.
 
+## E03 / R30 — TimeRanges membership JOIN multiplicity (2026-11-03)
+
+- [Root R30](claims/roots/R30.json), [pre-registered claim](claims/R30-time-ranges-any-semi-join-v1.json), [source proof and gates](../ts-lab-r30/ALL_VS_ANY_TIME_RANGES_PROOF_20261103.md). Source-pinned TimeRanges `AggregatingMergeTree` writes one range per INSERT and merges by ID in background, but native selector uses `LEFT ALL JOIN` then `id IN` membership. Hypothesis: on unmerged duplicate ranges, `ANY LEFT JOIN` avoids multiplicative repeated ID outputs without changing the *set* of matching IDs. This is **not yet full native parity or performance proof**.
+- [Read-only SQL A/B/B/A probe](../ts-lab-r30/bench_timeranges_any_sql.py) and [CI #41713474075](https://github.com/moleus/ClickHouse/actions/runs/41713474075) started with pinned unchanged O1 binary and 4096 IDs × 16 writes; verify physical repeats, both distinct ID sets and SAMPLES arrays, real JOIN algorithm, paired CPU/wall/RSS. [One-site opt-in C++ patch helper](../ts-lab-r30/apply_any_join_cpp.py) is **dry-run only**; no new compiled binary while [E01 R29 O2 jemalloc](https://github.com/moleus/ClickHouse/actions/runs/41685467438) is in progress. R05/R07/R28 owners unaffected.
+
 ## E03 / R06 native order-aware planner source gate (2026-11-03)
 
 - [Artifact-based factorial reduction](../ts-lab-r06/HISTORICAL_FACTORIAL_REDUCTION_20261103.md): restored BOTH original 41589798782 ZIPs, verified fixture/run, re-computed ~16.6–16.8% fewer rows yet +32.7–36.2% merge wall, factorial interaction +142/+357ms, and identified that four top-level EXPLAINs are identical. [Strict reducer and tests](../ts-lab-r06/reduce_native_factorial.py); no performance gain inferred.
