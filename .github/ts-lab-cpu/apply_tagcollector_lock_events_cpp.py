@@ -43,8 +43,8 @@ declarations = """namespace ProfileEvents
 }
 
 """
-assert c.count("namespace DB\\n{")==1
-c=c.replace("namespace DB\\n{",declarations+"namespace DB\\n{")
+assert c.count("namespace DB\n{")==1
+c=c.replace("namespace DB\n{",declarations+"namespace DB\n{")
 
 marker='    using Group = ContextTimeSeriesTagsCollector::Group;\n'
 assert c.count(marker)==1
