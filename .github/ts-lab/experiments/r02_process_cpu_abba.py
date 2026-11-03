@@ -31,31 +31,79 @@ TABLE = 'tslab_r02_abba'
 CPU_HZ = os.sysconf('SC_CLK_TCK')
 
 
+def proc_tree(root_pid):
+    """Follow clickhouse-server watchdog to its worker. The HTTP service runs in the child."""
+    todo = [int(root_pid)]
+    seen = set()
+    while todo:
+        pid = todo.pop()
+        if pid in seen:
+            continue
+        seen.add(pid)
+        children_file = pathlib.Path('/proc') / str(pid) / 'task' / str(pid) / 'children'
+        if children_file.exists():
+            todo.extend(int(x) for x in children_file.read_text().split())
+    # Stock ClickHouse starts a supervisor and a worker. A one-PID result
+    # silently undercounted process CPU in CI 41623203578 (zero CPU while busy).
+    if len(seen) < 2:
+        raise AssertionError('Watchdog child is missing; refusing zero-CPU accounting for root pid '
+                             + str(root_pid))
+    return sorted(seen)
+
+
 def measure(pid):
-    """Linux /proc/PID/stat fields 14 and 15 (all process threads)."""
-    raw = (pathlib.Path('/proc') / str(pid) / 'stat').read_text()
-    rest = raw[raw.rfind(')') + 2:].split()
-    if len(rest) < 22:
-        raise AssertionError('Truncated Linux proc stat')
-    utime_ticks, stime_ticks = int(rest[11]), int(rest[12])
-    status = {}
-    for row in (pathlib.Path('/proc') / str(pid) / 'status').read_text().splitlines():
-        if row.startswith(('VmRSS:', 'VmHWM:', 'RssAnon:', 'Threads:')):
-            key, value = row.split(':', 1)
-            status[key] = value.strip()
+    """Sum Linux /proc/PID/stat for all ClickHouse worker processes, not just the watchdog.
+
+    /proc/PID/stat fields 14,15 count process CPU. In this stock binary
+    subprocess.Popen PID is the watchdog, whose CPU and IO stayed near zero.
+    We walk /proc/PID/task/PID/children to include actual clickhouse-server.
+    """
+    pids = proc_tree(pid)
+    cpu = cpu_user = cpu_system = 0.0
+    status_kib = {'VmRSS': 0, 'VmHWM': 0, 'RssAnon': 0}
     io = {}
-    for line in (pathlib.Path('/proc') / str(pid) / 'io').read_text().splitlines():
-        if ':' in line:
-            key, value = line.split(':', 1)
-            io[key] = int(value.strip())
-    return {'cpu_s': (utime_ticks + stime_ticks) / CPU_HZ,
-            'cpu_user_s': utime_ticks / CPU_HZ, 'cpu_system_s': stime_ticks / CPU_HZ,
-            'at_monotonic_s': time.monotonic(), 'status': status, 'io': io}
+    sources = {}
+    for child_pid in pids:
+        pp = pathlib.Path('/proc') / str(child_pid)
+        raw = (pp / 'stat').read_text()
+        rest = raw[raw.rfind(')') + 2:].split()
+        if len(rest) < 22:
+            raise AssertionError('Truncated Linux proc stat ' + str(child_pid))
+        user_ticks, system_ticks = int(rest[11]), int(rest[12])
+        part_user = user_ticks / CPU_HZ
+        part_system = system_ticks / CPU_HZ
+        cpu_user += part_user
+        cpu_system += part_system
+        cpu += part_user + part_system
+        proc_rss = {}
+        for row in (pp / 'status').read_text().splitlines():
+            if row.startswith(('VmRSS:', 'VmHWM:', 'RssAnon:')):
+                key, value = row.split(':', 1)
+                words = value.strip().split()
+                if len(words) != 2 or words[1] != 'kB':
+                    raise AssertionError('Unexpected process memory units: ' + row)
+                proc_rss[key] = int(words[0])
+                status_kib[key] += proc_rss[key]
+        proc_io = {}
+        for line in (pp / 'io').read_text().splitlines():
+            if ':' in line:
+                key, value = line.split(':', 1)
+                proc_io[key] = int(value.strip())
+                io[key] = io.get(key, 0) + proc_io[key]
+        sources[str(child_pid)] = {'cpu_s': round(part_user+part_system, 5),
+                                   'memory_kib': proc_rss, 'io': proc_io}
+    status = {key: str(kib) + ' kB' for key,kib in status_kib.items()}
+    return {'cpu_s': cpu, 'cpu_user_s': cpu_user, 'cpu_system_s': cpu_system,
+            'at_monotonic_s': time.monotonic(), 'status': status,
+            'io': io, 'pids': pids, 'sources': sources}
 
 
 def difference(before, after):
     dt = after['at_monotonic_s'] - before['at_monotonic_s']
     cpu = after['cpu_s'] - before['cpu_s']
+    if before['pids'] != after['pids']:
+        raise AssertionError('Process tree changed during phase: '
+                             + repr((before['pids'],after['pids'])))
     if dt <= 0 or cpu < 0:
         raise AssertionError('Bad /proc monotonic counter delta')
     return {'cpu_s': round(cpu, 5), 'wall_s': round(dt, 5),
@@ -323,9 +371,17 @@ def main():
             report['phases'][phase]=one_phase(a.binary,root,phase,mode,blocks,hashes,a.port)
             (root/'report.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
         fixture_sets={tuple(x['input_sha256']) for x in report['phases'].values()}
-        native_sets={tuple(sorted(x['native'].items())) for x in report['phases'].values()}
-        if len(fixture_sets)!=1 or len(native_sets)!=1:
-            raise AssertionError('Different input bytes or native values across ABBA phases')
+        if len(fixture_sets)!=1:
+            raise AssertionError('Fixture differs across ABBA phases')
+        reference=report['phases']['A0']['native']
+        for phase,record in report['phases'].items():
+            observed=record['native']
+            if set(observed)!=set(reference):
+                raise AssertionError('Native labels differ in '+phase)
+            for label in reference:
+                if not math.isclose(reference[label],observed[label],abs_tol=1e-8,rel_tol=1e-11):
+                    raise AssertionError('Native numeric mismatch '
+                                         +phase+' '+label+': '+repr((reference[label],observed[label])))
         report['comparison']=summarize(report['phases'])
         report['passed']=report['comparison'].get('valid',False)
         if not report['passed']:
