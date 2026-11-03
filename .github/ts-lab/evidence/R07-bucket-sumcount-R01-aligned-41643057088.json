@@ -1,0 +1,237 @@
+{
+  "schema_version": 1,
+  "question_id": "R07",
+  "state": "HELD_OUT_ALIGNED_BUCKET_SUMCOUNT_NATIVE_AND_POINT_MATCHED_ABBA_SUCCESS",
+  "run_id": 41643057088,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41643057088",
+  "workflow_commit": "28efccf1ef2170a4a4bc8bd7ad6f9e690c0f45f0",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "artifact": {
+    "id": 13232769797,
+    "name": "tslab-r07-bucket-aligned-41643057088",
+    "digest": "sha256:00ae09edb1138f732957eafba483f2ebcd63e485319af856611a9a0212677331",
+    "bytes": 31240,
+    "contains": "r07-fused-aligned/report.json with 144 queries, 18 native grid oracle checks, per-variant query CPU/marks/read bytes and processor profiling"
+  },
+  "fixture": {
+    "sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+    "original": "R01 400 node slots 24 lifetimes in 3d, aligned starts, no artificial stagger; 15s/60s/300s samples",
+    "series": 28896,
+    "sample_points": 2488320,
+    "physical_sample_buckets": 86688,
+    "stable_full_id": "Tuple(UInt64,UUID)",
+    "three_inner_tables_original": true,
+    "extra_index": false
+  },
+  "method": "Exact stale-filtered per-point SQL (arrayJoin), fused per-bucket arrayFilter+arraySum/count SQL, and stock native PromQL on same physical source, original TAGS; native/point/bucket/bucket/point/native, 2 warmup+4 measured each phase, 4 cases, 96 measured requests, full label/time/value parity, 18 other native grid checks, no physical merges during read-only test; all control drift under25%",
+  "data": {
+    "passed": true,
+    "status": "PASS_FUSED_BUCKET_SQL_ABBA",
+    "errors": [],
+    "grid_checks": 18,
+    "cases": {
+      "pod_broad_1d": {
+        "native_p50_ms": 71.976,
+        "native_p95_ms": 73.493,
+        "native_cpu_ms": 116.34275,
+        "native_marks": 233,
+        "native_read_rows": 103392,
+        "native_read_bytes": 22275464,
+        "native_peak_memory_bytes": 28367953,
+        "point_sql_p50_ms": 36.7385,
+        "point_sql_p95_ms": 38.187,
+        "point_sql_cpu_ms": 44.74725,
+        "point_sql_marks": 233,
+        "point_sql_read_rows": 99520,
+        "point_sql_read_bytes": 15956446,
+        "point_sql_peak_memory_bytes": 12821595,
+        "bucket_sql_p50_ms": 37.814,
+        "bucket_sql_p95_ms": 38.896,
+        "bucket_sql_cpu_ms": 37.14775,
+        "bucket_sql_marks": 233,
+        "bucket_sql_read_rows": 99520,
+        "bucket_sql_read_bytes": 15956446,
+        "bucket_sql_peak_memory_bytes": 12527845,
+        "control_drifts": {
+          "native": 0.0026397688118261326,
+          "point_sql": 0.03127509288620931,
+          "bucket_sql": 0.02459406568995628
+        },
+        "valid_control": true,
+        "native_over_bucket_wall_ratio": 1.9034220130110542,
+        "point_over_bucket_wall_ratio": 0.9715581530650025,
+        "point_over_bucket_cpu_ratio": 1.2045749742581986
+      },
+      "pod_broad_3d": {
+        "native_p50_ms": 94.9285,
+        "native_p95_ms": 96.47800000000001,
+        "native_cpu_ms": 181.54500000000002,
+        "native_marks": 233,
+        "native_read_rows": 103392,
+        "native_read_bytes": 22275464,
+        "native_peak_memory_bytes": 61212859,
+        "point_sql_p50_ms": 47.183499999999995,
+        "point_sql_p95_ms": 50.324,
+        "point_sql_cpu_ms": 63.26475000000001,
+        "point_sql_marks": 233,
+        "point_sql_read_rows": 99520,
+        "point_sql_read_bytes": 15956446,
+        "point_sql_peak_memory_bytes": 17438024,
+        "bucket_sql_p50_ms": 42.4975,
+        "bucket_sql_p95_ms": 46.262,
+        "bucket_sql_cpu_ms": 41.927499999999995,
+        "bucket_sql_marks": 233,
+        "bucket_sql_read_rows": 99520,
+        "bucket_sql_read_bytes": 15956446,
+        "bucket_sql_peak_memory_bytes": 13083180,
+        "control_drifts": {
+          "native": 0.017033872862206714,
+          "point_sql": 0.09708902476501312,
+          "bucket_sql": 0.01913053709041714
+        },
+        "valid_control": true,
+        "native_over_bucket_wall_ratio": 2.233743161362433,
+        "point_over_bucket_wall_ratio": 1.1102653097241013,
+        "point_over_bucket_cpu_ratio": 1.5089082344523288
+      },
+      "node_broad_3d": {
+        "native_p50_ms": 94.2655,
+        "native_p95_ms": 96.6905,
+        "native_cpu_ms": 178.29275,
+        "native_marks": 117,
+        "native_read_rows": 57728,
+        "native_read_bytes": 33814072,
+        "native_peak_memory_bytes": 73976515,
+        "point_sql_p50_ms": 83.112,
+        "point_sql_p95_ms": 88.7655,
+        "point_sql_cpu_ms": 108.22025,
+        "point_sql_marks": 117,
+        "point_sql_read_rows": 61600,
+        "point_sql_read_bytes": 29839742,
+        "point_sql_peak_memory_bytes": 20772706,
+        "bucket_sql_p50_ms": 63.4755,
+        "bucket_sql_p95_ms": 64.003,
+        "bucket_sql_cpu_ms": 63.401,
+        "bucket_sql_marks": 117,
+        "bucket_sql_read_rows": 61600,
+        "bucket_sql_read_bytes": 29839742,
+        "bucket_sql_peak_memory_bytes": 17224836,
+        "control_drifts": {
+          "native": 0.00041372506378262966,
+          "point_sql": 0.04461449610164595,
+          "bucket_sql": 0.011327204984600377
+        },
+        "valid_control": true,
+        "native_over_bucket_wall_ratio": 1.4850690423864328,
+        "point_over_bucket_wall_ratio": 1.3093555781364463,
+        "point_over_bucket_cpu_ratio": 1.7069170833267613
+      },
+      "burst15_1d": {
+        "native_p50_ms": 29.059,
+        "native_p95_ms": 30.2085,
+        "native_cpu_ms": 39.5435,
+        "native_marks": 38,
+        "native_read_rows": 53472,
+        "native_read_bytes": 9174888,
+        "native_peak_memory_bytes": 15820647,
+        "point_sql_p50_ms": 24.096,
+        "point_sql_p95_ms": 25.589,
+        "point_sql_cpu_ms": 24.72225,
+        "point_sql_marks": 87,
+        "point_sql_read_rows": 62144,
+        "point_sql_read_bytes": 3266726,
+        "point_sql_peak_memory_bytes": 8530238,
+        "bucket_sql_p50_ms": 22.7835,
+        "bucket_sql_p95_ms": 25.2605,
+        "bucket_sql_cpu_ms": 21.98525,
+        "bucket_sql_marks": 87,
+        "bucket_sql_read_rows": 62144,
+        "bucket_sql_read_bytes": 3266726,
+        "bucket_sql_peak_memory_bytes": 8542218,
+        "control_drifts": {
+          "native": 0.07102790873739633,
+          "point_sql": 0.016849269588313363,
+          "bucket_sql": 0.10204753439989478
+        },
+        "valid_control": true,
+        "native_over_bucket_wall_ratio": 1.2754405600544254,
+        "point_over_bucket_wall_ratio": 1.0576074790967147,
+        "point_over_bucket_cpu_ratio": 1.1244925575101488
+      }
+    },
+    "physical_before": {
+      "tags": {
+        "name": ".inner_id.tags.74254f40-3c82-4a48-bb47-fc53ee8ec056",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 28896,
+          "marks": 5,
+          "bytes": 1486557
+        }
+      },
+      "timeranges": {
+        "name": ".inner_id.timeranges.74254f40-3c82-4a48-bb47-fc53ee8ec056",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 28896,
+          "marks": 5,
+          "bytes": 634858
+        }
+      },
+      "samples": {
+        "name": ".inner_id.samples.74254f40-3c82-4a48-bb47-fc53ee8ec056",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 86688,
+          "marks": 340,
+          "bytes": 5303391
+        }
+      }
+    },
+    "physical_after": {
+      "tags": {
+        "name": ".inner_id.tags.74254f40-3c82-4a48-bb47-fc53ee8ec056",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 28896,
+          "marks": 5,
+          "bytes": 1486557
+        }
+      },
+      "timeranges": {
+        "name": ".inner_id.timeranges.74254f40-3c82-4a48-bb47-fc53ee8ec056",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 28896,
+          "marks": 5,
+          "bytes": 634858
+        }
+      },
+      "samples": {
+        "name": ".inner_id.samples.74254f40-3c82-4a48-bb47-fc53ee8ec056",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 86688,
+          "marks": 340,
+          "bytes": 5303391
+        }
+      }
+    }
+  },
+  "interpretation": [
+    "Node broad3d per-bucket over per-point wall 83.112→63.4755ms (1.309x) and CPU108.220→63.401ms (1.707x). Same broad node3d 1.317x wall and1.800x CPU occurred on independently staggered layout run41642508119.",
+    "Pod broad3d per-bucket over per-point 47.1835→42.4975ms (1.110x), QueryFinish CPU63.265→41.9275ms (1.509x), native→bucket p501x2.234.",
+    "Pod broad1d per-bucket wall37.814ms vs point36.7385ms (2.9% worse) despite query CPU37.148 vs44.747ms (1.205x less), so no universal wall improvement.",
+    "Burst15 1d bucket22.7835 vs point24.096ms (1.058x), but 10.2% bucket control drift makes the gain uncertain.",
+    "Read_rows, read_bytes and selected marks are identical between safe SQL variants; stage grouping/hash updates shift from per-sample to per-bucket without less physical reading. P/B=2488320/86688=28.7 in aligned case, but CPU still scans all sample values.",
+    "SQL results do not prove native C++ planner integration, or correct histograms, all NaN/duplicate updates, regex scopes or production throughput."
+  ],
+  "next_gate": "Bounded 1/4/8 client matched ABBA on two broad long-window cases native vs stale-safe fused bucket SQL, measure p95/wave throughput, actual QueryFinish CPU and RSS without interrupting other roots or compiling C++; then consider guarded native planner semantics with code review."
+}
