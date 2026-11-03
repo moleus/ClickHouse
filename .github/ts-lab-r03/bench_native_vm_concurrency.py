@@ -32,7 +32,7 @@ from bench_jenkins_querypath import pct
 from bench_filtered_selector_v4_sql import sql_string
 from bench_granularity_v11 import sql,streamed_insert,optimize_table,wait_no_merges,inner
 from bench_native_multiclient_stock_20261103 import (
-    complete_logs,physical,server_status_pid,RSSMonitor,sha256,save
+    complete_logs,physical,server_status_pid,rss_bytes,sha256,save
 )
 from bench_k8s_mixed_native import CASES,DAY,SOURCE_SHA,BINARY_SHA
 from generate_k8s_churn_fixture import expected_counts,BASE,LIFE
@@ -45,7 +45,7 @@ CLIENTS=(1,4,8)
 CASES_TO_RUN=("node_broad","pod_namespace","pod_broad","burst15")
 ABBA=("vm","ch","ch","vm")
 WARMUP_WAVES=2
-MEASURED_WAVES=8
+MEASURED_WAVES=64
 THREADS=2
 RUN=os.getenv("GITHUB_RUN_ID","local")
 
@@ -104,6 +104,22 @@ def proc_cpu_seconds(pid):
     return (int(fields[11])+int(fields[12]))/os.sysconf("SC_CLK_TCK")
 
 
+def cpu_schedstat_snapshot(pid):
+    """All current process threads: nanosecond on-CPU time, not runnable wait."""
+    total=0
+    count=0
+    for path in pathlib.Path(f"/proc/{pid}/task").iterdir():
+        try:
+            parts=(path/"schedstat").read_text().split()
+            if len(parts)!=3:
+                continue
+            total+=int(parts[0])
+            count+=1
+        except (OSError,ValueError):
+            continue
+    return {"run_ns":total,"threads":count}
+
+
 def wave(executor,engine,n,case,start,end,prefix,idx,reference,ticks,expected):
     barrier=threading.Barrier(n+1,timeout=30)
     def runner(i):
@@ -134,20 +150,36 @@ def phase(engine,case,n,index,pids,reference,end):
     rec={"engine":engine,"case":case,"clients":n,
          "phase":index,"pid":pid,
          "expr":query_expr(case),"trials":[],"waves":[]}
-    cpu_start=None
-    cpu_end=None
-    with RSSMonitor(pid) as mon:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=n) as pool:
-            for i in range(WARMUP_WAVES+MEASURED_WAVES):
-                if i==WARMUP_WAVES:cpu_start=proc_cpu_seconds(pid)
-                w=wave(pool,engine,n,case,begin,end,prefix,i,
-                       reference,ticks,expected)
-                rec["waves"].append(w)
-                rec["trials"].extend(w["trials"])
-            cpu_end=proc_cpu_seconds(pid)
-    rec["rss"]=mon.report()
-    if rec["rss"]["observer_overhead_fraction"]>.02:
-        raise AssertionError("RSS observer >2% phase window")
+    cpu_start=cpu_end=None
+    sched_start=sched_end=None
+    rss_before=rss_bytes(pid)
+    # The previous 4Hz RSS observer used >2% of short VM phase windows.
+    # Keep *zero* periodic thread/process polling while timing requests.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=n) as pool:
+        for i in range(WARMUP_WAVES+MEASURED_WAVES):
+            if i==WARMUP_WAVES:
+                cpu_start=proc_cpu_seconds(pid)
+                sched_start=cpu_schedstat_snapshot(pid)
+            w=wave(pool,engine,n,case,begin,end,prefix,i,
+                   reference,ticks,expected)
+            rec["waves"].append(w)
+            rec["trials"].extend(w["trials"])
+        cpu_end=proc_cpu_seconds(pid)
+        sched_end=cpu_schedstat_snapshot(pid)
+    rss_after=rss_bytes(pid)
+    rec["rss"]={
+        "method":"two /proc/PID/status snapshots outside timed workload; "
+                 "VmHWM is cumulative since process start, not phase-local",
+        "before":rss_before,"after":rss_after,
+    }
+    sched_ns=sched_end["run_ns"]-sched_start["run_ns"]
+    if sched_ns<0:
+        raise AssertionError(("schedstat counter decreased; unstable thread lifetime",
+                              sched_start,sched_end))
+    rec["schedstat"]={
+        "start":sched_start,"end":sched_end,
+        "delta_run_ns":sched_ns,
+    }
     timed=[x for x in rec["trials"] if not x["warmup"]]
     spans=[x["duration_s"] for x in rec["waves"] if not x["warmup"]]
     if len(timed)!=MEASURED_WAVES*n:
@@ -159,7 +191,12 @@ def phase(engine,case,n,index,pids,reference,end):
         "requests":len(timed),"measured_waves":MEASURED_WAVES,
         "process_cpu_s":round(cpu_end-cpu_start,3),
         "process_cpu_ms_per_request":round(1000*(cpu_end-cpu_start)/len(timed),3),
-        "rss_observed_peak_bytes":rec["rss"]["rss_observed_max_bytes"]
+        "schedstat_cpu_ms_per_request":round(sched_ns/1e6/len(timed),4),
+        "rss_snapshot_max_bytes":max(
+            rss_before.get("VmRSS") or 0,rss_after.get("VmRSS") or 0
+        ),
+        "process_lifetime_rss_hwm_bytes":rss_after.get("VmHWM"),
+        "rss_sampling":"start/end snapshots, no live observer"
     }
     if engine=="ch":
         ids={x["qid"] for x in rec["trials"]}
@@ -200,19 +237,22 @@ def compare(phases):
     if len(a)!=2 or len(b)!=2:
         raise AssertionError("Incomplete VM/CH/CH/VM comparison")
     mean=lambda ls,k:statistics.mean(z[k] for z in ls)
-    fields=["p50_ms","p95_ms","p99_ms","qps","process_cpu_ms_per_request"]
+    fields=["p50_ms","p95_ms","p99_ms","qps",
+            "process_cpu_ms_per_request","schedstat_cpu_ms_per_request"]
     results={}
     for field in fields:
         vm=mean(a,field)
         ch=mean(b,field)
         control=abs(a[0][field]-a[1][field])/max(abs(vm),1e-9)
+        ch_drift=abs(b[0][field]-b[1][field])/max(abs(ch),1e-9)
         results[field]={"vm":round(vm,4),"ch":round(ch,4),
                         "ch_div_vm":round(ch/vm,5) if vm else None,
-                        "vm_control_drift":round(control,5)}
-    results["valid"]=(
-        results["p50_ms"]["vm_control_drift"]<=.25 and
-        results["qps"]["vm_control_drift"]<=.25 and
-        results["process_cpu_ms_per_request"]["vm_control_drift"]<=.25
+                        "vm_control_drift":round(control,5),
+                        "ch_control_drift":round(ch_drift,5)}
+    results["valid"]=all(
+        results[field][f"{name}_control_drift"]<=.25
+        for field in ("p50_ms","qps","schedstat_cpu_ms_per_request")
+        for name in ("vm","ch")
     )
     return results
 
@@ -299,7 +339,7 @@ def main():
                 if not rec["summary"]["valid"]:
                     report["errors"].append({
                         "case":case,"clients":n,
-                        "reason":"VM same-runner control drift exceeds25%",
+                        "reason":"CH or VM same-runner wall/qps/schedstat CPU control drift exceeds25%",
                         "summary":rec["summary"]
                     })
                 print("R03_COMPARE",json.dumps({
