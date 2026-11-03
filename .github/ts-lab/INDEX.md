@@ -245,3 +245,20 @@ and needs more runs. RSS snapshots do not establish variant advantage.
 A 3h bucket helps compressed footprint/explicit merges but can be
 slower for some broad native 1d reads; no universal default change.
 
+## 2026-11-03: independent OOM-aware glibc eight-phase audit (no new CI)
+
+[Raw artifact #41607288907](https://github.com/moleus/ClickHouse/actions/runs/41607288907)
+and [independent phase-by-phase audit](../ts-lab-cbo/GLIBC_FRONTIER_EIGHT_PHASE_AUDIT_20261103.md):
+expected OOMs occurred in *both* default glibc phases (phase0's 10th 7d
+query; phase7's 14d query). Six arena4/arena8/trim phases each passed
+12 ×7d plus 14d. Exactly **101 recorded unique query IDs**, not 104:
+three default-phase queries were never attempted. Workflow SUCCESS means
+diagnostics were collected, not that all 104 requests succeeded.
+
+A reducer expecting 13 entries in every phase and 104 unique IDs **cannot
+validly reduce this observed censored OOM run**; keep `default` comparison
+INCONCLUSIVE rather than inventing the missing queries. Among completed
+candidate pairs (same runner), arena4/trim are exploratory CPU/RSS Pareto
+choices; arena8 RSS varies **43%** between repeated phases and must not be
+treated as stable. glibc tuning is not a production jemalloc recommendation.
+
