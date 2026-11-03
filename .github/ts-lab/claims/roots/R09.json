@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "question_id": "R09",
+  "primary_claim_id": "R09-upstream-timeseries-delta-v1",
+  "owner": "chatgpt-upstream-source-parity-20261103",
+  "scope": "Cheap source-hash and diff audit between pinned ClickHouse source 52529f0c7 and current upstream master for TimeSeries selector/sink, v11 settings, LowCardinality decoding and UUID cost; no binary build, no performance claim, no master/upstream mutation.",
+  "allowed_support_claims": [],
+  "status": "source_diff_only"
+}
