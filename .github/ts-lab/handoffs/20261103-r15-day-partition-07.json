@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "session_id": "r15-calendar-partition-20261103-07",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "d95eb81bf58d10c4b2162cad4caeb85e60520a2d",
+  "last_verified_utc": "2026-11-03T10:54:39.469Z",
+  "question_id": "R15",
+  "summary": "Reserved independent R15 daily SAMPLES partition hypothesis vs monthly default under id-first random high-churn series. Deterministic mark-positive simulation and 4/4 CI tests verified; no actual ClickHouse mark reads or latency measured.",
+  "completed": [
+    "Pinned source confirms default SAMPLES monthly PARTITION BY toYYYYMM, ORDER BY(id,bucket), granularity 256 and samples_partition_by override.",
+    "Python 14d 95k/day 1330000-series uniform 64bit oracle: one-day query monthly has 5196 positive marks, one-day daily partition only 372; ideal 13.9677x SAMPLES positive mark ratio, NOT native gain.",
+    "Four local tests and independent GitHub Actions CI #41622964101 PASS (decoded logs inspected) on one-sample-per-ID model; granularity=1 counterexample shows no 1d benefit.",
+    "Created isolated 5-minute, path-only non-C++ workflow; no live build canceled; jemalloc run 41607779848 ongoing at last check."
+  ],
+  "negative_results": [
+    "14d full-range daily parts total 5208 marks versus monthly 5196, i.e. 0.9977 monthly/daily ratio; daily isn't universally better.",
+    "Model assumes one merged part per partition, uniform independent 64bit ID, 256 rows/mark; repeated multi-bucket IDs, real MergeTree conditions and insert merge churn not measured.",
+    "Native SQL bucket predicate may not be recognized as toDate partition pruning; this is decisive falsifier.",
+    "Without recent_samples_ttl_seconds=0, native queries may read RECENT SAMPLES and invalidate the A/B comparison."
+  ],
+  "active_run_ids": [
+    41607779848
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "no binary used; later reuse stock O1 SHA f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "fixture_sha256": "deterministic generator seed 20261103, 14 x 95000 synthetic IDs (not archived raw data)",
+  "relevant_paths": [
+    ".github/ts-lab/claims/roots/R15.json",
+    ".github/ts-lab/claims/R15-samples-calendar-partition-pruning-v1.json",
+    ".github/ts-lab/experiments/R15_CALENDAR_PARTITION_FEASIBILITY_20261103.md",
+    ".github/ts-lab/experiments/r15_partition_oracle.py",
+    ".github/ts-lab/experiments/test_r15_partition_oracle.py",
+    ".github/workflows/ts-lab-r15-partition-math-20261103.yml"
+  ],
+  "blocked_by": [
+    "No source-matched native EXPLAIN indexes=1 to confirm day partition pruning.",
+    "Write/merge overhead, workload distribution, broad and narrow native query parity and 14d regression gates not measured."
+  ],
+  "next_action": {
+    "question_id": "R15",
+    "step": "Reuse pinned stock O1 binary without C++ compile, build two fresh synthetic TimeSeries tables with same raw ID and 3600s samples bucket but monthly vs day SAMPLES partition; recent_samples_ttl_seconds=0; validate SHOW CREATE and EXPLAIN partition pruning and real SelectedMarks under 1/3/7/14d, then native output and ABBA read/write/merge tradeoff.",
+    "stop_condition": "If partition DDL fails, planner does not prune day parts, native output parity differs, generated SQL routes RECENT SAMPLES, or write/merge/parts/RSS regress beyond budgets, stop and record negative."
+  }
+}
