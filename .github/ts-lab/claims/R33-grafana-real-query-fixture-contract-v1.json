@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "id": "R33-grafana-real-query-fixture-contract-v1",
-  "owner": "chatgpt-r33-grafana-query-fixture-parity-20261104",
+  "owner": "chatgpt-r33-grafana-real-query-fixture-parity-20261104",
   "state": "claimed",
   "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
   "key_gaps": [
@@ -18,5 +18,19 @@
     "https://grafana.com/docs/grafana/latest/datasources/prometheus/template-variables/",
     "https://prometheus.io/docs/prometheus/latest/querying/api/",
     "https://clickhouse.com/blog/introducing-promql"
+  ],
+  "question": "Do the old Jenkins CI cardinality fixture and SQL-only benchmarks represent the actual Grafana Prometheus HTTP query family, label filter combinations and build-stage data relationships?",
+  "baseline": "Old 95k/day benchmark: each row one unique build, stage=i%38, branch=i%19, project=i%8; only SQL prometheusQueryRange with [1d] and fixed 86400 step.",
+  "candidate": "New 2500 builds/day x38 stage observations with shared build-level job, branch, project labels and real ClickHouse /prometheus/api/v1 query_range/query/labels/series GET requests, tested against same SQL on O2 stock.",
+  "fixture": "SHA-verifiable generated 14d x64 build/day smoke then 14d x2500 build/day = 1.33m stage-series candidate, source-independent from old canonical SHA; never overwrite old fixture.",
+  "single_variable": "First compare HTTP vs SQL transport on IDENTICAL new O2 fixture. Then compare old vs new fixture with pinned O2 and same PromQL/step; keep exact query semantics across data comparisons.",
+  "math_bound": "For 38 stages per build, unique build labels are 1/38 of series count; old source sets build labels unique per stage. Original stage%38 forces branch%19 and project%8 parity, invalidating multi-label independent-selectivity estimates. API range step includes both start and end.",
+  "test_matrix": "8 concrete 1d/6h, exact/regex/multi and negative label matchers, shifted step, instant query; /labels, /label/{name}/values, /series; full normalized HTTP versus native SQL (labels,timestamps,values).",
+  "runner_budget": "One no-compile smoke at 34,048 rows and one 1.33m canonical on stock R29 O2 binary if and only if smoke passes; no overlap with E05 R32 build.",
+  "planned_workflow": ".github/workflows/ts-lab-r33-grafana-api-smoke-20261104.yml",
+  "dependencies": [
+    "R29 verified O2 stock",
+    "E06 full native output oracle",
+    "R30/R31 historical synthetic evidence"
   ]
 }
