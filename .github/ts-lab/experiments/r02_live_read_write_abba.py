@@ -68,18 +68,20 @@ def check_result(body):
     return observed
 
 
-def reader_thread(endpoint,phase,stop,started,records,errors):
+def reader_thread(endpoint,phase,stop,started,records,errors,progress):
     q=query_text()
     count=0
     started.set()
     while not stop.is_set() and count<3000:
         qid=f'r02live_{phase}_{count:04d}'
+        completed_at_start=progress['completed_batches']
         t0=time.monotonic()
         try:
             _,body=base.request(endpoint,q,qid)
             result=check_result(body)
             t1=time.monotonic()
             records.append({'id':qid,'start_monotonic':t0,'end_monotonic':t1,
+                            'completed_batches_at_start':completed_at_start,
                             'wall_ms':round((t1-t0)*1000,4),'native':result})
         except Exception as exc:
             errors.append({'query_id':qid,'error':str(exc)[:1600]})
@@ -132,8 +134,9 @@ def one_phase(binary,root,phase,mode,blocks,digests,port):
         info['query_sha256']=hashlib.sha256(query_text().encode()).hexdigest()
         info['warmups']=len(warmups)
         started=threading.Event()
+        progress={'completed_batches':PREFIX}
         thread=threading.Thread(target=reader_thread,args=(endpoint,phase,stop,started,
-                                     info['reader_samples'],info['reader_errors']),daemon=True)
+                                     info['reader_samples'],info['reader_errors'],progress),daemon=True)
         before=process.measure(proc.pid)
         thread.start()
         if not started.wait(10):
@@ -145,6 +148,7 @@ def one_phase(binary,root,phase,mode,blocks,digests,port):
                 f'INSERT INTO {TABLE}(metric_name,tags,samples) FORMAT JSONEachRow\n'+blocks[i],qid)
             info['insert_records'].append({'batch':i,'query_id':qid,
                                           'wall_ms':round(ms,3),'sha256':digests[i]})
+            progress['completed_batches']=i+1
             if info['reader_errors']:
                 raise RuntimeError('Reader correctness failed during inserts')
         writer_end=time.monotonic()
@@ -176,6 +180,17 @@ def one_phase(binary,root,phase,mode,blocks,digests,port):
             r['peak_query_bytes']=log['memory_usage']
         p95=percentile([r['wall_ms'] for r in valid_reads],.95)
         p99=percentile([r['wall_ms'] for r in valid_reads],.99)
+        # Reader samples are not uniformly distributed across ingestion progress.
+        # Preserve progress-stratified latency for fair comparisons.
+        quarters={}
+        for quarter in range(4):
+            lower=PREFIX+quarter*(BATCHES-PREFIX)/4
+            upper=PREFIX+(quarter+1)*(BATCHES-PREFIX)/4
+            included=[r['wall_ms'] for r in valid_reads if
+                      lower <= r['completed_batches_at_start'] < upper]
+            quarters[str(quarter)]={'count':len(included),
+                'p50_ms':percentile(included,.50),'p95_ms':percentile(included,.95)}
+        info['read_progress_quartiles']=quarters
         info['metrics']['native_read']={
             'count':len(valid_reads),
             'p50_ms':percentile([r['wall_ms'] for r in valid_reads],.50),
