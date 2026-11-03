@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "question_id": "R26",
+  "primary_claim_id": "R26-vm-perday-vs-global-query-index-path-v1",
+  "owner": "chatgpt-e04-vm-perday-index-20261103",
+  "created_utc": "2026-11-03",
+  "scope": "VM1.134 same binary and same physical R01 imported base snapshot; read-only query path -disablePerDayIndex=1 global vs default per-day. Four fresh processes and cloned data in GLOBAL/DAY/DAY/GLOBAL ABBA with TagFilters cache 1 byte in BOTH modes; 1-tick and 3-tick native query_range selectors. No new index writes, no C++ build. Distinct from R25 VM index cache capacity, E03/R06 CH planner, R05 marks, R07 metadata, R21-24 CH cache/labels.",
+  "allowed_support_claims": [],
+  "source_proof": "VM lib/storage/storage.go adjustTimeRange chooses global on disablePerDayIndex, windows >40 days or query covering entire indexDB. index_db.go searchMetricIDs route chooses global or per-date based on selected time range; both global and per-day tag indexes exist after normal import.",
+  "notes": "A source-pinned read-path comparison on existing default-index data; does not measure the ingest/storage cost of enabling per-day index."
+}
