@@ -149,15 +149,36 @@ def main():
     outfile.parent.mkdir(parents=True, exist_ok=True)
     try:
         sql(a.endpoint, f'CREATE TABLE {a.table} ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0')
+        sql(a.endpoint, 'SYSTEM STOP MERGES')
         records = input_bytes().splitlines()
         for batch in (records[:6], records[6:]):
             sql(a.endpoint, f'INSERT INTO {a.table}(metric_name,tags,samples) FORMAT JSONEachRow\n' + '\n'.join(batch) + '\n')
         stored = int(sql(a.endpoint, f'SELECT count() FROM {a.table} FORMAT TSV').strip())
         if stored != len(ROWS):
             raise AssertionError(f'Stored {stored} != {len(ROWS)}')
+        table_uuid = sql(a.endpoint, f"SELECT toString(uuid) FROM system.tables WHERE name={sql_quote(a.table)} AND database='default' FORMAT TSV").strip()
+        if len(table_uuid) != 36:
+            raise AssertionError('Missing source TimeSeries UUID')
+        def parts():
+            result = {}
+            for kind in ('tags', 'samples', 'timeranges'):
+                physical = f'.inner_id.{kind}.{table_uuid}'
+                cmd = (f"SELECT count() AS parts,sum(rows) AS rows FROM system.parts "
+                       f"WHERE database='default' AND active AND table={sql_quote(physical)} FORMAT JSONEachRow")
+                result[kind] = json.loads(sql(a.endpoint, cmd).strip())
+            return result
+        report['parts_before'] = parts()
+        if any(item['parts'] != 2 for item in report['parts_before'].values()):
+            raise AssertionError('Expected 2 physical parts before merge: ' + repr(report['parts_before']))
         for phase in ('before_merge', 'after_merge'):
             if phase == 'after_merge':
-                sql(a.endpoint, f'OPTIMIZE TABLE {a.table} FINAL SETTINGS optimize_throw_if_noop=0')
+                sql(a.endpoint, 'SYSTEM START MERGES')
+                for kind in ('tags', 'samples', 'timeranges'):
+                    physical = f'default.`.inner_id.{kind}.{table_uuid}`'
+                    sql(a.endpoint, f'OPTIMIZE TABLE {physical} FINAL SETTINGS optimize_throw_if_noop=0')
+                report['parts_after'] = parts()
+                if any(item['parts'] != 1 for item in report['parts_after'].values()):
+                    raise AssertionError('Physical merge did not reduce parts to one: ' + repr(report['parts_after']))
             for name, matchers in MATCHERS:
                 expr = expression(matchers)
                 query = (f'SELECT * FROM prometheusQueryRange({a.table},{sql_quote(expr)},'
@@ -183,6 +204,10 @@ def main():
         report['errors'].append(str(e)[:2600])
         report['passed'] = False
     finally:
+        try:
+            sql(a.endpoint, 'SYSTEM START MERGES')
+        except Exception:
+            pass
         outfile.write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
         print('R08_MATCHER_DONE', json.dumps({'passed': report['passed'],
               'cases': len(report['cases']), 'errors': report['errors'][:4],
