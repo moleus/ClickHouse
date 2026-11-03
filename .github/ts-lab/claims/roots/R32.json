@@ -1,15 +1,10 @@
 {
   "schema_version": 1,
   "question_id": "R32",
-  "owner": "chatgpt-r32-grafana-query-fixture-parity-20261104",
-  "scope": "E06+E03 strict realism audit of Jenkins sparse stage metrics: actual Grafana Prometheus HTTP query_range/query and variable endpoints, original vs new synthetic generator and matched O2 native TimeSeries. Does not overwrite R30/R31 evidence or alter master.",
-  "hypothesis": "Prior 95k/day fixture with one unique build per stage and correlated stage/branch/project misrepresents Jenkins stage-series cardinality and Grafana multi-label regex selectivity; 1d step only SQL path misses key query classes and HTTP behavior.",
-  "status": "CLAIMED",
-  "dependencies": [
-    "R29 stock O2 + jemalloc binary",
-    "R30 native ABBA",
-    "E06 oracle"
-  ],
-  "budget": "First smoke 14d x 64 builds/day x38 stages then canonical 14d x2500 builds/day x38 stages, no compilation",
-  "created_utc": "2026-11-04"
+  "primary_claim_id": "R32-grid-single-bucket-finalization-v1",
+  "owner": "chatgpt-e05-r32-single-bucket-finalize-20261104",
+  "scope": "E05: optimize finalization of timeSeries*ToGrid states containing exactly one populated bucket. Remove temporary vector allocation/sort with identical sliding-window results and aggregate-family semantics. No overlap with R20 sum/count rewrite or R30/R31 metadata semijoins, R05/R07 layout, R29 build. No master/production changes.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-04",
+  "reason": "Pinned source's sparse result finalizer allocates/sorts an ordered_buckets vector even for one populated bucket; high-churn series may incur one allocation per aggregate group."
 }

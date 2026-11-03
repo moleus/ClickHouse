@@ -1,0 +1,20 @@
+{
+  "id": "R32-grid-single-bucket-finalization-v1",
+  "question": "Can the one-bucket finalization fastpath reduce native CPU and peak RSS?",
+  "owner": "chatgpt-e05-r32-single-bucket-finalize-20261104",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "R29 O2 jemalloc stock optimized CI 41685467438",
+  "candidate": "One-bucket state finalization bypass vector allocation and sort; preserve existing aggregator",
+  "fixture": "Jenkins 1.33m 14d fixture SHA 8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858; R01 multi-sample negative",
+  "single_variable": "Only one-bucket finalization branch",
+  "math_bound": "At most one ordered-buckets vector allocation/deallocation and O(1) sort per one-bucket state; state hash map and other query costs unchanged",
+  "falsifier": "No effect above drift, native oracle difference, memory regression or multi-bucket regression",
+  "test_matrix": "stage/project/whole, sparse and dense, zero/one/many buckets, all aggregate types, 1/4/8 clients",
+  "runner_budget": "One source-matched O2+jemalloc build lane only when spare, no cancel and cache preservation",
+  "planned_workflow": ".github/workflows/ts-lab-r32-one-bucket-finalization-20261104.yml",
+  "dependencies": [
+    "R08",
+    "R29"
+  ]
+}
