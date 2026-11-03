@@ -3,6 +3,10 @@
 **Depends on:** E06 frozen fixtures; informs E03/E05.
 **Goal:** explain *why* VictoriaMetrics scans/decodes fewer or different bytes/IDs for the same label/time selector, and determine which techniques transfer to ClickHouse TimeSeries without unacceptable ingest and HA costs.
 
+## Progress: physical TSID locality source proof (2026-11-03)
+
+[VM TSID locality source audit](../../ts-lab-e04/E04_VM_TSID_PHYSICAL_LOCALITY_20261103.md) documents VM's **physical sort key** `(MetricGroupID,JobID,InstanceID,MetricID)`: [VM `MetricName.sortTags`](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/storage/metric_name.go#L569-L723) prioritizes `namespace/cluster/job` before `instance/pod/node` when present. This can group a metric's series by namespace and pod *before* full unique MetricID. Default CH v11 orders SAMPLES by `(metric_hash, full_tag_hash, bucket)` and does not similarly group by namespace/pod. R05 owns measuring actual mark locality; R07 owns physical/index variants. **Source proof only; no measured CH gain.**
+
 ## Progress: ClickHouse text-index source parity (2026-11-03)
 
 [Second pinned-source audit](../../ts-lab-e04/E04_CLICKHOUSE_TEXT_INDEX_SOURCE_PARITY_20261103.md): ClickHouse already has per-part **row-ID posting lists**, bitmap intersection/union, exact Map key-value token matching, per-query token-cardinality ordering, and a conditional direct-read path. VM's postings instead contain **stable MetricIDs and optional date prefix**. CH's native `matcherToAST` emits `equals(arrayElement(tags,key),value)`, which the pinned text-index parser can recognize for **nonempty** exact values. Do not build a second generic inverted index or claim ClickHouse lacks posting cardinality estimates. The missing candidate is **time-local metadata / native plan integration**, with E03 responsible for CBO and R07 for a day-covering sidecar. R27 is an independent VM high-churn path experiment; it does not modify E03.
