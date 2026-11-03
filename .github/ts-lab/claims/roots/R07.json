@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "question_id": "R07",
+  "primary_claim_id": "R07-time-day-covering-metadata-v1",
+  "owner": "chatgpt-r07-day-covering-20261103",
+  "scope": "Mathematical and source-backed cost/equivalence gate for opt-in day-partitioned covering series metadata (day, full stable ID, metric name, labels) for high-churn short-lived TimeSeries. Avoid packed/truncated IDs and full TAGS/TimeRanges scans without claiming native query speedup. Evaluate dedup across day boundaries, freshness and write/merge amplification. Does not change SAMPLES partitioning R15 or reuse R05 owned mark pruning.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-03T11:16:53.655Z",
+  "reason": "R15 native observed SAMPLES mark 13.65x reduction but only 1.226x whole query due 140000 unchanged metadata rows. A day covering index could reduce both tag/time metadata and samples reads for short-lived high-churn series."
+}
