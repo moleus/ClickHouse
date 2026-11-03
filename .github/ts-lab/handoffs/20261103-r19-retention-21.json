@@ -3,7 +3,7 @@
   "question_id": "R19",
   "primary_claim_id": "R19-expired-samples-retained-tags-timeranges-v1",
   "owner": "chatgpt-r19-metadata-retention-20261103",
-  "status": "research lane completed initial retention and cleanup candidate gates; no production promotion",
+  "status": "handoff",
   "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
   "stock_binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
   "main_results": [
@@ -67,5 +67,67 @@
   ],
   "next_proven_knowledge": "No simple inner-TAGS DELETE (invisible fresh samples on cache hits) and no blanket TimeRanges-only cleanup performance win. Metadata retention contributes to high-cardinality read cost; current R07 owner is independently testing active ID access paths, so coordinate rather than launch duplicate index experiments. Real production-SLA decision still requires matched optimized ClickHouse vs VictoriaMetrics and realistic 14d/1.33m high churn.",
   "safety_stop": "Do not change master, production, scheduler or TTL defaults. Do not deploy direct metadata deletion without atomic writer/replica-cache coordination, source-level late/backfill/ID correctness, and a net CPU/write cost model. Do not claim any pure jemalloc gain from patched O1 binary (R18 owns the confounded 4992-query capacity gate).",
-  "created_utc": "2026-11-03T13:28:00Z"
+  "created_utc": "2026-11-03T13:28:00Z",
+  "session_id": "r19-retention-20261103-21",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "20c001cc12be74d49c0059c85e3646e7b560af5e",
+  "last_verified_utc": "2026-11-03T14:10:37Z",
+  "summary": "R19 retention cost and safety investigation: 3-runner 17x extra metadata row scans and 42.8% broad native p50 wall cost; actual TTL/resurrection semantic proof; direct TAGS GC unsafe under cache, and TimeRanges-only cleanup failed meaningful CPU/wall gate.",
+  "completed": [
+    {
+      "run": 41635997049,
+      "decision": "REPLICATED_LAB_EFFECT",
+      "summary": "Three-runner: TAGS+TimeRanges 50000 old+live vs clean 2000 active, same SAMPLES 2000; native reads17x rows, 17.38x bytes, broad wall+42.75% CPU+46.2%, project_p0 wall+28.3% CPU+32.5%. Old samples manually dropped in this performance test."
+    },
+    {
+      "run": 41637046443,
+      "decision": "SEMANTIC_LAB_PROOF",
+      "summary": "Actual SAMPLES INNER 30d TTL preserves old TAGS+TimeRanges; late expired sample removed; resuming original ID writes fresh sample and becomes visible with unchanged TAGS count."
+    },
+    {
+      "run": 41637697605,
+      "decision": "NO_MONOTONIC_EMPTY_PART_GROWTH",
+      "summary": "16 repeated expired inserts, real TTL and natural maintenance; zero-row part count cyclic1→2→3→4→1 and bytes1244→4976→1244, no old sample rows; not long-run HA guarantee."
+    },
+    {
+      "run": 41642999590,
+      "decision": "SAFETY_HAZARD_REPRODUCED",
+      "summary": "Direct inner TAGS delete with warm dedup cache: new SAMPLES inserted but no TAGS row, native output invisible; cache-disabled control restores visibility. Table-scoped SYSTEM DROP TIME SERIES CACHES + further INSERT recovers; actual source documents this caveat."
+    },
+    {
+      "run": 41643612916,
+      "decision": "SEMANTIC_LAB_PROOF_ONLY",
+      "summary": "After old SAMPLES TTL, direct cleanup of only obsolete TimeRanges rows preserves exact current native output and old TAGS IDs; fresh old-ID insertion recreates TimeRanges even with cache warm; no races tested."
+    },
+    {
+      "run": 41644188939,
+      "decision": "NO_ROBUST_BROAD_IMPROVEMENT",
+      "summary": "Same 50000 TAGS, 2000 live SAMPLES and source; 50000 vs2000 TimeRanges native ABBA, read_rows102000→54000, compressed read7.894→5.974MB but broad wall p50 -2.0%, CPU-4.8%, exact project wall+3.5% (regression). Cleanup mutation costs not counted; reject standalone optimization."
+    }
+  ],
+  "negative_results": [
+    {
+      "run": 41635086542,
+      "reason": "INFRA_FAIL no server before SQL"
+    },
+    {
+      "run": 41636600724,
+      "reason": "INVALID_METHOD required removal of zero-row expired part itself"
+    },
+    {
+      "run": 41642319169,
+      "reason": "INVALID_METHOD SYSTEM DROP TIME SERIES CACHES missing target table"
+    },
+    {
+      "run": 41642667408,
+      "reason": "INVALID_METHOD ReplacingMergeTree raw physical duplicates mistaken for unique TAGS IDs"
+    }
+  ],
+  "active_run_ids": [],
+  "next_action": {
+    "question_id": "R19",
+    "step": "Keep all R19 evidence immutable. Do not repeat completed tests. Coordinate any active-ID read-path alternatives with R07 owner; require source/semantic proof and safe multi-writer, cache and replica coordination before considering tag cleanup.",
+    "stop_condition": "Do not promote sample TTL metadata GC or direct inner TAGS mutation without full late/backfill, native parity, replica and cache invalidation guarantees."
+  },
+  "blocked_by": []
 }
