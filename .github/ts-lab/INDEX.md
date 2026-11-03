@@ -527,3 +527,24 @@ Evidence chain: same source SHA `52529f0c...`, same stock-O1 binary SHA `f0a2fa1
 | Process write_bytes during ingest | 0.93888 | 0.94050 | 0.93266 | 0.93734 (-6.3%) |
 
 Post-final-merge compressed TAGS+SAMPLES+TimeRanges: LC **6,238,086 bytes** vs RAW **6,026,894 bytes** (-3.4%); 66000 unique series, 68000 bucketed SAMPLES rows, 384000 real sample points, 96 chronological inserts (32 distinct TAGS parts before merge, 96 SAMPLES and TimeRanges parts). LC per-part dictionary overhead plausibly dominates when distinct IDs per part approach physical references. **Real write latency differs by runner; CPU reductions must not be paraphrased as a guaranteed latency reduction.** Absolute CPU seconds also differ greatly across hosts, so only within-host ratios are pooled. This is stock `-O1` glibc and controlled no-merge ingest followed by explicit merges. Next R02 gate is a separate **concurrent native reads + natural background merges** A/B/B/A; retain numeric parity and source SHA. Other agent's R03 read-only CH vs VM benchmark is not duplicated.
+
+## 2026-11-03: R03 full native ClickHouse vs VictoriaMetrics 1/4/8 client comparison — 12/12 valid
+
+[Immutable 12-case machine evidence](evidence/R03-ch-vm-k8s-concurrent-41624246411.json) /
+[CI #41624246411](https://github.com/moleus/ClickHouse/actions/runs/41624246411) **SUCCESS**.
+Cross-engine full nonempty PromQL label/timestamp/value parity on all 4 selectors (max abs value difference `2.50e-16`). Frozen R01 400-node, 3-day synthetic 15s/60s/300s source fixture SHA256 `ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d`: **28,896 series and 2,488,320 original points**. Same runner, same synthetic data, source-pinned stock ClickHouse LLVM22.1.8 **O1 + glibc** binary SHA256 `f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e`, v11 TimeSeries with opt-in RAW_UUID, versus optimized VictoriaMetrics **v1.134.0 single-server** release. VM uses `-search.maxUniqueTimeseries=165000`, no query-response caching; VM index tag-filter cache may remain warm.
+
+Each selector × 1/4/8 clients ran full **VM/CH/CH/VM A/B/B/A**, 2 warmup + **64 measured synchronous waves** per phase; per-request nonempty numeric parity, both-engine p50/QPS/schedstat-CPU control drift <=25%, no OOM, physical CH parts unchanged. CPU uses `/proc/PID/task/TID/schedstat` nanosecond on-CPU deltas; start/end RSS snapshots, **no high-overhead live RSS observer**. Validity covers all 12 comparisons.
+
+| 8 concurrent clients | VM p50 | ClickHouse p50 | CH / VM | VM QPS | CH QPS | VM process CPU/query | CH process CPU/query |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| node_broad | 115.963ms | 591.532ms | 5.10× | 61.40 | 12.46 | 62.04ms | 315.85ms |
+| pod_namespace | 11.150ms | 201.954ms | 18.11× | 529.58 | 36.03 | 5.74ms | 107.87ms |
+| pod_broad | 179.104ms | 603.252ms | 3.37× | 39.64 | 12.04 | 97.10ms | 328.47ms |
+| burst15 | 4.051ms | 135.466ms | 33.44× | 1407.49 | 53.02 | 1.49ms | 72.58ms |
+
+**Interpretation:** VM1.134.0 release is faster/lower process CPU on **all twelve specific matched fixture/config combinations**. It is **not valid** to call this a production-normalized architecture result: ClickHouse is stock **O1/glibc**, while VM is optimized production release; max_threads and allocator differ, memory caps are not identical strict cgroups, both engines shared a runner, VM internal index caches can be warm, aligned node starts are unrealistic and no 14d/1.33m workload was tested. See [protocol and limits](../ts-lab-r03/METHODOLOGY_AND_LIMITS_20261103.md) and [source-backed ID search/read-path contrast](../ts-lab-r03/READ_PATH_SOURCE_DIFFERENCES_20261103.md); do not attribute speedup to a specific index stage without profiles.
+
+**Historical invalid first attempt** [#41623609320](https://github.com/moleus/ClickHouse/actions/runs/41623609320) is preserved as [censored evidence](evidence/R03-first-censored-41623609320.json): VM CPU clock granularity/control drift and high-overhead RSS observer caused failure after 10/12 pairs. Do not combine its timings with the corrected run. [Ledger M41](METHODOLOGY_AND_FAILURES.md).
+
+**Decision:** `ACCEPT_DIAGNOSTIC`, **NO CH-over-VM production recommendation**. Next gate: identical CPU/RSS cgroup and production-optimized O2+jemalloc ClickHouse (preserve ongoing [jemalloc build #41607779848](https://github.com/moleus/ClickHouse/actions/runs/41607779848) without duplicate compilation), 14d/1.33m mixed workload, staggered node starts, VM 165k match cap and source-level TAGS/TimeRanges/SAMPLES CPU attribution. No changes to production, master or upstream.
