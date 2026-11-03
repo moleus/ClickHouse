@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "question_id": "R02-small-batch-raw-lc-write-v1",
+  "decision": "INFRA_FAIL",
+  "ci_status": "failure",
+  "recorded_utc": "2026-11-03T09:44:00Z",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41613225939",
+    "job_id": 125840118166,
+    "artifact_id": 13219498501,
+    "zip_sha256": "09601187e39b851db0781e3b7446ac1c067bb12eaf7c984c3cf8e7e94d292a4d",
+    "workflow_commit": "f5f2fc7793c7b45b6b3fc46a51794d9ca252f54b"
+  },
+  "positive_controls": {
+    "inserts": 24,
+    "explicit_merges": 18,
+    "physical_sample_points_per_table": 48000,
+    "expected_unique_series_per_table": 10000,
+    "full_native_promql_parity": true,
+    "raw_physical_bytes": 877576,
+    "lc_physical_bytes": 939088
+  },
+  "failure": {
+    "stage": "Collect INSERT CPU via system.query_log",
+    "exception": "UNKNOWN_TABLE: system.query_log",
+    "cause": "Isolated server config did not declare system.query_log; sampling logic failed after all writes and query parity completed.",
+    "repair_commit": "07ffec7f35ad18d4707be7c9f0b71cfdc88bcc6c",
+    "corrected_run": "https://github.com/moleus/ClickHouse/actions/runs/41613436491"
+  },
+  "limitation": "No per-insert CPU or merge ProfileEvents can be claimed from this invalid run. Physical bytes and native parity are independent evidence, but superseded by corrected full run.",
+  "next_action": "Use 41613436491 only for physical/write metrics and preserve this failed run as negative method evidence."
+}
