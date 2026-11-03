@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "question_id": "R01-k8s-mixed-v1",
+  "decision": "ACCEPT_FOR_NEXT_GATE",
+  "scientific_scope": "Stock O1 v11 high-churn repeated-ID *synthetic* 400-slot 3-day fixture, single concurrent client; RAW UUID improved two selective controls materially beyond baseline drift; broad query gains less certain.",
+  "status": "verified",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "build_run": "https://github.com/moleus/ClickHouse/actions/runs/41596421285",
+  "compiler": "LLVM 22.1.8 O1 unmodified stock",
+  "fixture": {
+    "generator": ".github/ts-lab-r01/generate_k8s_churn_fixture.py",
+    "sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+    "bytes": 97177010,
+    "days": 3,
+    "active_node_slots": 400,
+    "node_lifetime_seconds": 10800,
+    "node_incarnations": 9600,
+    "series_by_tier": {
+      "node60": 9600,
+      "pod300": 19200,
+      "burst15": 96
+    },
+    "samples_by_tier": {
+      "node60": 1728000,
+      "pod300": 691200,
+      "burst15": 69120
+    },
+    "distinct_series": 28896,
+    "sample_points": 2488320,
+    "samples_bucket_rows": 86688,
+    "note": "One record per logical series with multiple samples. Synthetic fixed 3h lifetimes; not real telemetry, HPA, counter-reset, SLA or tenant access workload."
+  },
+  "run": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41612120162",
+    "workflow_commit": "badba3ce8c790ff03b8d96d516eba20d4d130908",
+    "workflow": ".github/workflows/ts-lab-r01-k8s-mixed-20261103.yml",
+    "runner": "ubuntu-24.04 4 logical CPUs, AMD EPYC 7763, 16GB runner memory, ClickHouse server memory max 4.8e9 bytes",
+    "artifact_id": 13219651718,
+    "artifact_name": "tslab-r01-k8s-mixed-41612120162",
+    "artifact_sha256": "9bc08f92a3f977fe8ec4dc8e3a600a82c41940421a67e980fec1d668a7a4bbd1",
+    "binary_verified": true,
+    "fixture_hash_verified": true,
+    "all_jobs_success": true
+  },
+  "intervention": {
+    "baseline": "TimeSeries v11 stock ID Tuple(UInt64,LowCardinality(UUID)) in TAGS/SAMPLES/TimeRanges",
+    "candidate": "TimeSeries v11 explicit Tuple(UInt64,UUID) in all three inner tables; same id hash, same tags index and sample input",
+    "single_variable": "inner ID type",
+    "layout": "two tables on same stock O1 executable; each inner target one active part after OPTIMIZE FINAL; merges stopped during queries; no recent samples target",
+    "native_expression": "avg by(project or namespace)(avg_over_time(tslab_node_cpu_ratio or tslab_pod_cpu_ratio{matching labels}[1d])) via prometheusQueryRange, 3 daily points per group",
+    "method": "For each of 4 selectors, A/B/B/A LC/RAW/RAW/LC, each phase 2 warmups and 6 measured queries, same process and fixture, full label/timestamp equality + numeric tolerance 1e-10/1e-8, same logical ID digest and exact sample element count",
+    "source_safety_note": "LowCardinality dictionary decode path checks indexes in stock. Unrelated staged C++ fast-path bypass audited but not included."
+  },
+  "correctness": {
+    "passed": true,
+    "same_logical_id_digest_64": 3199471147651922000,
+    "ids_per_schema": 28896,
+    "total_samples_per_schema": 2488320,
+    "samples_bucket_rows_per_schema": 86688,
+    "nonempty_group_timestamp_points": {
+      "node_broad": 24,
+      "pod_namespace": 3,
+      "pod_broad": 48,
+      "burst15": 12
+    },
+    "full_promql_parity": true,
+    "same_physical_part_rows_marks_bytes_before_after": true,
+    "queryfinish_complete": true,
+    "no_oom": true
+  },
+  "storage": {
+    "lc": {
+      "tags_bytes": 1544707,
+      "timeranges_bytes": 693006,
+      "samples_bytes": 5332102,
+      "total_bytes": 7569815
+    },
+    "raw": {
+      "tags_bytes": 1486557,
+      "timeranges_bytes": 634858,
+      "samples_bytes": 5303391,
+      "total_bytes": 7424806
+    },
+    "raw_minus_lc_bytes": -145009,
+    "note": "Compressed on-disk totals for this fixture only; RAW smaller by about 1.92%, not 1.92% improvement in all workloads."
+  },
+  "cases": {
+    "node_broad": {
+      "lc_p50_ms": 242.704,
+      "raw_p50_ms": 218.312,
+      "speedup": 1.1117,
+      "lc_p95_ms": 263.952,
+      "raw_p95_ms": 249.026,
+      "lc_cpu_ms": 455.493,
+      "raw_cpu_ms": 431.298,
+      "control_drift": 0.08661,
+      "read_rows_equal": true,
+      "profile_cpu_samples_lowcard_lc": 22,
+      "profile_cpu_samples_lowcard_raw": 3,
+      "interpretation": "weak: improvement close to baseline drift"
+    },
+    "pod_namespace": {
+      "lc_p50_ms": 75.298,
+      "raw_p50_ms": 66.319,
+      "speedup": 1.1354,
+      "lc_p95_ms": 79.885,
+      "raw_p95_ms": 71.703,
+      "lc_cpu_ms": 126.226,
+      "raw_cpu_ms": 110.23,
+      "control_drift": 0.01501,
+      "read_rows_equal": true,
+      "profile_cpu_samples_lowcard_lc": 14,
+      "profile_cpu_samples_lowcard_raw": 3,
+      "interpretation": "positive narrow evidence; 13.5% improvement vs 1.5% A/A drift"
+    },
+    "pod_broad": {
+      "lc_p50_ms": 212.385,
+      "raw_p50_ms": 194.423,
+      "speedup": 1.0924,
+      "lc_p95_ms": 229.238,
+      "raw_p95_ms": 218.175,
+      "lc_cpu_ms": 396.018,
+      "raw_cpu_ms": 374.091,
+      "control_drift": 0.08575,
+      "read_rows_equal": true,
+      "profile_cpu_samples_lowcard_lc": 29,
+      "profile_cpu_samples_lowcard_raw": 13,
+      "interpretation": "weak: improvement close to baseline drift"
+    },
+    "burst15": {
+      "lc_p50_ms": 54.361,
+      "raw_p50_ms": 46.928,
+      "speedup": 1.1584,
+      "lc_p95_ms": 57.483,
+      "raw_p95_ms": 48.123,
+      "lc_cpu_ms": 89.166,
+      "raw_cpu_ms": 74.189,
+      "control_drift": 0.02596,
+      "read_rows_equal": true,
+      "profile_cpu_samples_lowcard_lc": 15,
+      "profile_cpu_samples_lowcard_raw": 4,
+      "interpretation": "positive narrow evidence; 15.8% improvement vs 2.6% drift"
+    }
+  },
+  "limitations": [
+    "Source trace CPU categories were measured from ONE representative query per variant, not median CPU-share attribution; no mutex contention proved.",
+    "The experimental workload has constant 3h node lifetimes synchronized on UTC boundaries, no HPA, ACL, Kafka, real VictoriaMetrics or mixed tenants. Another agent's fixture handles HPA/streaming, do not replace.",
+    "One concurrent client only; no QPS, p99 capacity, 14d, HPA write amplification or cold-cache distribution proof.",
+    "A/B/B/A controls below the 25% predefined rejection threshold; gains near A/A drift are weak and not promoted.",
+    "RSS is sampled at 4Hz; on subsecond queries observed maxima are not guaranteed true process RSS peak.",
+    "No conclusion on production jemalloc allocator; these experiments used the stock O1 lab binary."
+  ],
+  "invalid_prior_run": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41611838191",
+    "classification": "INVALID_METHOD",
+    "why": "Bench asserted 2,488,320 points equals 86,688 physical SAMPLES bucket rows. C++ v11 stores Array(Tuple(timestamp,value)) per hourly bucket; incorrect assertion, not data bug. Rerun replaces gate with sum(length(samples)).",
+    "retained_artifact": 13219461708
+  },
+  "next_action": "Pre-register controlled 2x3 TimeSeries samples_bucket_step_seconds=900/3600/10800 x LC/RAW factorial with same fixture, exact native parity, new-table ingest/merge costs, physical bucket rows, p50/p95 CPU and memory, matched controls. Only consider after checking live claims/CI. Parallel Kubernetes HPA fixture is complementary.",
+  "stop_condition": "Do not promote a global ID type or production setting until a 14d/HPA/retention/concurrency/write and allocator parity matrix passes. Any broad query OOM/correctness mismatch rejects candidate."
+}
