@@ -1,0 +1,22 @@
+{
+  "id": "R30-time-ranges-any-semi-join-v1",
+  "question": "When many unmerged TimeRanges rows overlap one series, is LEFT ANY metadata membership a semantically exact and faster replacement for LEFT ALL in the native TimeSeries ID-set path?",
+  "owner": "chatgpt-e03-r30-any-time-ranges-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Stock-source O1 LAB JOIN override SHA256 3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221; no new binary.",
+  "candidate": "Isolated SQL rewrite ALL LEFT -> ANY LEFT inside generated native TimeRanges membership subquery; optional later single-line C++ lab patch after full parity. No production default change.",
+  "fixture": "New deterministic same-ID repeated TimeSeries INSERT batches with SYSTEM STOP MERGES, non-matching/boundary cohorts; exact SHA to be emitted by CI. 4096 IDs x 16 batches first.",
+  "single_variable": "JOIN strictness ALL vs ANY on otherwise byte-identical generated native selector SQL and frozen physical data.",
+  "math_bound": "For each left TAGS row t and right filtered rows R(id), ALL emits max(1,|R(id)|) rows but ANY emits exactly 1; after SELECT DISTINCT id and SAMPLES id IN set, both produce identical candidate membership when all right matched flags=1 and unmatched fallback remains unchanged. Max output reduction <= max multiplicity; right-side scan/sort/build cost does not disappear.",
+  "falsifier": "Distinct ID-set differs, returned SAMPLES differ, stateful tag registration differs, unmatched legacy-ID fallback differs, LEFT ANY unsupported in physical JOIN, control drift >25%, query CPU/RSS regress or no reduction with real duplicate rows.",
+  "test_matrix": "Preflight SQL query and EXPLAIN; repeat same IDs over many insert batches with no merges, boundary/negative selector and multiple labels, ALL/ANY/ANY/ALL 3 warmups+4 measured per phase; exact SAMPLES row parity; future full C++ native oracle and mixed/late/merge/ACL tests before code promotion.",
+  "runner_budget": "One isolated ubuntu-24.04 job, no compile, no matrix; approx <=15min; do not cancel/duplicate R29 optimized build.",
+  "planned_workflow": ".github/workflows/ts-lab-r30-timeranges-any-sql-probe-20261103.yml; path-filtered push/manual only, no schedule",
+  "dependencies": [
+    "E03/R06 source proof",
+    "E06",
+    "R08"
+  ],
+  "scope_note": "Different from R05 physical SAMPLES mark-pruning and R07 metadata layout. Does not change JOIN predicates, labels or TimeRanges storage."
+}
