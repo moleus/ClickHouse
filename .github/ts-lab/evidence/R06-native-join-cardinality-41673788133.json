@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "epic": "E03",
+  "question_id": "R06",
+  "primary_claim_id": "R06-native-order-aware-plan-cost-v1",
+  "owner": "chatgpt-e03-order-aware-20261103",
+  "decision": "PASS",
+  "result_kind": "verified_estimate_error_not_speedup",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221",
+  "binary_kind": "O1 experimental JOIN-override, not production-like optimized",
+  "workflow_commit": "e3ba2fd902fee0972ece343190d97c673cac5dd7",
+  "workflow_url": "https://github.com/moleus/ClickHouse/actions/runs/41673788133",
+  "artifact_id": 13248783964,
+  "artifact_name": "tslab-r06-native-nested-plan-evidence",
+  "artifact_zip_sha256": "de2a1b3e7202645564a051d148a492f64218e24a622f4a9ec98156e79114b020",
+  "artifact_bytes": 253843,
+  "fixture": {
+    "kind": "isolated plan parser fixture",
+    "sha256": "df9cdfdf76e32ab95a1fbcfeb2f5f189e60fbce0c5ed3f57573829c8bd2a80cb",
+    "series": 8192,
+    "samples": 32768,
+    "days": 7
+  },
+  "cases": [
+    {
+      "selector": "stage=\"stage-0007\"",
+      "estimated_left_rows_rounded": 1350,
+      "observed_left_tag_rows": 216,
+      "observed_left_distinct_ids": 216,
+      "estimated_right_rows_rounded": 892,
+      "observed_right_timeranges_rows": 8192,
+      "observed_right_distinct_ids": 8192,
+      "left_estimated_div_actual": 6.25,
+      "right_actual_div_estimated": 9.183856502242152,
+      "native_output_points": 7
+    },
+    {
+      "selector": "project=\"project-00\"",
+      "estimated_left_rows_rounded": 1350,
+      "observed_left_tag_rows": 410,
+      "observed_left_distinct_ids": 410,
+      "estimated_right_rows_rounded": 892,
+      "observed_right_timeranges_rows": 8192,
+      "observed_right_distinct_ids": 8192,
+      "left_estimated_div_actual": 3.292682926829268,
+      "right_actual_div_estimated": 9.183856502242152,
+      "native_output_points": 133
+    }
+  ],
+  "variants": [
+    "off_merge",
+    "auto_merge",
+    "off_hash",
+    "auto_hash"
+  ],
+  "native_numeric_parity_max_abs_error": 0,
+  "diagnostic_join_algorithms": {
+    "merge": "FullSortingMergeJoin",
+    "hash": "SpillingHashJoin(HashJoin)"
+  },
+  "physical_projection": "time_by_max considered but not selected; 1 mark on tiny fixture",
+  "notes": [
+    "Logical estimated JOIN input rows in EXPLAIN are rounded; not a safe upper memory bound.",
+    "Direct counts are from filtered input tables on exactly the same frozen fixture; not sampled.",
+    "Standalone EXPLAIN of generated subquery uses matched native settings but may differ from actual IN-subquery runtime plan.",
+    "Zero performance speedup claim, no new compiled binary; no production/master changes.",
+    "Do not extrapolate 8,192 series estimator error ratios to 1.33m/14d, concurrent writes or dense-series workloads."
+  ],
+  "document": ".github/ts-lab-r06/CARDINALITY_ESTIMATE_AUDIT_20261103.md"
+}
