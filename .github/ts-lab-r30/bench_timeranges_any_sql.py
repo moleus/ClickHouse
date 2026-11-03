@@ -18,8 +18,16 @@ import urllib.request
 
 sys.path.insert(0, ".github/ts-lab-r06")
 from probe_nested_selector_plan import (
-    request, quoted, parse_selector_sql, extract_ids_subquery, capture, rows
+    request as source_request, quoted, extract_ids_subquery, capture, rows
 )
+
+def request(query, query_id=None, timeout=180):
+    from urllib.error import HTTPError
+    try:
+        return source_request(query,query_id,timeout)
+    except HTTPError as error:
+        raise RuntimeError(f"ClickHouse HTTP {error.code}: {error.read().decode(errors='replace')[:1200]}") from error
+
 
 METRIC = "r30_cpu_seconds_total"
 END = int(dt.datetime(2026, 10, 20, tzinfo=dt.timezone.utc).timestamp())
@@ -45,6 +53,20 @@ def rewritten(source):
     if "timeSeriesStoreTags(" not in source or "time_ranges_subquery" not in source:
         raise ValueError("Missing ID membership/side-effect context")
     return source.replace(" ALL LEFT JOIN ", " ANY LEFT JOIN ", 1)
+
+
+def explicit_id_alias(ids_source):
+    """The generated IN selector returns an unaliased storeTags() expression.
+
+    Standalone SELECT DISTINCT id FROM (...) requires a named output.
+    Preserve the function and JOIN; alias only its output column.
+    """
+    if not ids_source.startswith("SELECT timeSeriesStoreTags("):
+        raise ValueError("Unexpected native ID SELECT expression")
+    idx=ids_source.find(" FROM ")
+    if idx < 0 or " AS id FROM " in ids_source:
+        raise ValueError("Missing FROM or already aliased")
+    return ids_source[:idx] + " AS id" + ids_source[idx:]
 
 
 def canonical_result(statement, query_id):
@@ -145,13 +167,13 @@ def plans(ids_all, ids_any):
 def checked_pair(ids_all, ids_any, selector_all, selector_any, case, runid):
     # DISTINCT membership is the actual input used by the subsequent SAMPLES id IN set.
     ids = {}
-    for name, statement in (("all", ids_all), ("any", ids_any)):
+    for name, statement in (("all", explicit_id_alias(ids_all)), ("any", explicit_id_alias(ids_any))):
         ids[name] = canonical_result(f"SELECT DISTINCT id FROM ({statement}) ORDER BY id SETTINGS {SETTINGS}",
                                      f"r30_id_{case}_{name}_{runid}")
     if ids["all"] != ids["any"]:
         raise ValueError(f"{case}: membership ID set changed ALL->ANY")
     counts = {}
-    for name, statement in (("all", ids_all), ("any", ids_any)):
+    for name, statement in (("all", explicit_id_alias(ids_all)), ("any", explicit_id_alias(ids_any))):
         counts[name] = rows(f"SELECT count() AS rows,uniqExact(id) AS ids FROM ({statement}) SETTINGS {SETTINGS}")
     if int(counts["all"]["ids"]) != int(counts["any"]["ids"]) or int(counts["all"]["rows"]) <= int(counts["any"]["rows"]):
         raise ValueError(f"{case}: no multiplicity reduction or ID mismatch: {counts}")
@@ -261,8 +283,8 @@ def main():
                 "parity":checked_pair(ids_all,ids_any,generated,selector_any,case,runid)}
             print("R30_PARITY",case,report["results"][case]["parity"]["right_multiplicity_reduction"],flush=True)
             save(path/"report.json",report)
-        report["benchmark"]=abba(report["results"]["project"]["ids_all_sql"],
-                                 report["results"]["project"]["ids_any_sql"],"project",runid)
+        report["benchmark"]=abba(explicit_id_alias(report["results"]["project"]["ids_all_sql"]),
+                                 explicit_id_alias(report["results"]["project"]["ids_any_sql"]),"project",runid)
         report["status"]="PASS" if report["benchmark"]["passed"] else "INCONCLUSIVE"
     except Exception as exc:
         report["errors"].append(str(exc))
