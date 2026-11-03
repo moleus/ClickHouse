@@ -1,0 +1,17 @@
+{
+  "id": "R09-upstream-timeseries-delta-v1",
+  "question": "Since the pinned 52529f0c source, has upstream master already changed TimeSeries selector, sink or LowCardinality code so that lab experiments need retesting or C++ patches are superseded?",
+  "owner": "chatgpt-upstream-source-parity-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "pinned stock C++ tree exact commit 52529f0; old TimeSeries/LC source blob SHA",
+  "candidate": "GitHub upstream ClickHouse/ClickHouse master snapshot a79b6cefb2fafc49d04f357a7edc512e25b93753 at 2026-11-03; compare audited source blobs, no compile",
+  "fixture": "No runtime fixture; exact source blobs and unified source diff. Later numerical tests retain 1.33m high-churn and 400-slot 3d fixture SHAs.",
+  "single_variable": "upstream source commit only; no claim of performance improvement",
+  "math_bound": "Identical blob SHA for StorageTimeSeriesSelector.cpp and TimeSeriesSink.cpp implies no direct source changes in those two implementations, not zero total system performance delta. LowCardinality new bounds checks add O(N) validation; new comparable batch serializer may affect unrelated CPU. No runtime percentage inferred.",
+  "falsifier": "Blob SHA differs on selector/sink from pinned, or current source checkIndexes helper not present, or source diff shows new decoder fastpath semantics. Source audit cannot prove compiled performance and must not justify C++ deployment.",
+  "test_matrix": "Exact SHA/line comparison of StorageTimeSeriesSelector.cpp, TimeSeriesSink.cpp, StorageTimeSeries.cpp, TimeSeriesSettings.cpp, SerializationLowCardinality.cpp, ColumnLowCardinality.cpp/.h. Publish immutable artifact containing commits and blob hashes; no CI.",
+  "runner_budget": "zero C++ builds and zero new CI; public GitHub source reads",
+  "planned_workflow": "none; cheap static source audit only; consider a later latest-master matched build after measuring gain from pinned binaries and any security impact",
+  "dependencies": []
+}
