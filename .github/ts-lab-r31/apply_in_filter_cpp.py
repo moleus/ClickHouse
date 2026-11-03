@@ -60,6 +60,10 @@ def rewrite_cpp(source):
     if join_block.count("JoinStrictness::All")!=1:
         raise ValueError("Expected one left ALL join strictness")
     section=section[:begin]+section[end:]
+    section=section.replace(
+        RIGHT_END,
+        "        /// WHERE ... AND (id IN matching TimeRanges IDs OR outside metric-ID ranges)\\n",
+        1)
     section=section.replace(OLD_CONDITION,NEW_CONDITION)
     if "time_ranges_subquery" in section or "JoinStrictness::All" in section:
         raise ValueError("Residual JOIN alias or strictness in rewritten function")
