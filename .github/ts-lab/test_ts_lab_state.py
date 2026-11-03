@@ -1,5 +1,8 @@
 import unittest
-from ts_lab_state import validate_handoff, validate_claim
+import json
+import tempfile
+from pathlib import Path
+from ts_lab_state import validate_handoff, validate_claim, validate_root_claim, validate_tree
 
 GOOD = dict(
     schema_version=1, session_id='session-20261103-001', status='handoff',
@@ -108,5 +111,44 @@ class TestSnapshotCoverage(unittest.TestCase):
         self.assertFalse(complete)
         self.assertEqual(len(runs), 200)
         self.assertEqual(mocked.call_count, 2)
+
+
+ROOT = dict(schema_version=1, question_id='R01',
+            primary_claim_id='R01-k8s-mixed-v1', owner='other-agent',
+            scope='Mixed-cadence workload', allowed_support_claims=[])
+
+class TestRootCoordination(unittest.TestCase):
+    def test_valid_root(self):
+        self.assertEqual(validate_root_claim(ROOT), [])
+
+    def test_cross_question_support(self):
+        x = dict(ROOT, allowed_support_claims=['R02-other-v1'])
+        self.assertTrue(validate_root_claim(x))
+
+    def test_duplicate_claim_without_support(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            base = root / '.github' / 'ts-lab' / 'claims'
+            (base / 'roots').mkdir(parents=True)
+            x = dict(ROOT)
+            (base / 'roots' / 'R01.json').write_text(json.dumps(x))
+            main = dict(CLAIM, id='R01-k8s-mixed-v1', owner='other-agent')
+            second = dict(CLAIM, id='R01-k8s-extra-v1')
+            (base / (main['id'] + '.json')).write_text(json.dumps(main))
+            (base / (second['id'] + '.json')).write_text(json.dumps(second))
+            issues = validate_tree(root)
+            self.assertTrue(any('Unregistered duplicate' in v for v in issues), issues)
+            x['allowed_support_claims'] = [second['id']]
+            (base / 'roots' / 'R01.json').write_text(json.dumps(x))
+            self.assertEqual(validate_tree(root), [])
+
+    def test_missing_root_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            base = root / '.github' / 'ts-lab' / 'claims'
+            base.mkdir(parents=True)
+            (base / (CLAIM['id'] + '.json')).write_text(json.dumps(CLAIM))
+            self.assertTrue(any('Missing create-only root' in e
+                                for e in validate_tree(root)))
 
 if __name__ == '__main__': unittest.main()
