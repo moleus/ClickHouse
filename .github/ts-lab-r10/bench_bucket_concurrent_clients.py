@@ -39,6 +39,7 @@ from generate_k8s_churn_fixture import BASE, LIFE, expected_counts
 
 HOST="http://127.0.0.1:18191"
 CASES_DEFAULT=("node_broad","pod_namespace","pod_broad")
+STAGGER_SHA="ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a"
 CLIENTS_DEFAULT=(1,4,8)
 WAVES=10
 WARMUP=2
@@ -178,11 +179,15 @@ def main():
     ap.add_argument("--cases",nargs="+",choices=CASES,default=list(CASES_DEFAULT))
     ap.add_argument("--clients",nargs="+",type=int,choices=CLIENTS_DEFAULT,
                     default=list(CLIENTS_DEFAULT))
+    ap.add_argument("--staggered",action="store_true",help="Use the pinned deterministic 3h node-start offset fixture")
     args=ap.parse_args()
+    expected_sha=STAGGER_SHA if args.staggered else FIXTURE_SHA
+    expected_bucket_rows=({3600:113760,10800:57120} if args.staggered
+                          else {3600:86688,10800:28896})
     report={
         "question_id":"R10-bucket-id-factorial-v1",
         "dependent_gate":"native multi-client bucket 3600 vs10800",
-        "fixture_sha256":FIXTURE_SHA,"source_sha":SOURCE_SHA,
+        "fixture_sha256":expected_sha,"staggered":args.staggered,"source_sha":SOURCE_SHA,
         "binary_sha256":BINARY_SHA,"cases":{},"errors":[],
         "read_only":True,"memory_limit_bytes":4800000000,
     }
@@ -191,12 +196,17 @@ def main():
         m=json.loads(pathlib.Path(args.manifest).read_text())
         rows,samples=expected_counts(3,400)
         if (sha256(args.binary)!=BINARY_SHA or
-            sha256(args.fixture)!=FIXTURE_SHA or m.get("sha256")!=FIXTURE_SHA or
+            sha256(args.fixture)!=expected_sha or m.get("sha256")!=expected_sha or
             m.get("series")!=sum(rows.values()) or
             m.get("samples")!=sum(samples.values()) or
             m.get("days")!=3 or m.get("node_slots")!=400 or
             m.get("base")!=BASE):
             raise AssertionError("Pinned R10 binary/fixture/distribution mismatch")
+        if args.staggered:
+            predicted={int(k):int(v) for k,v in m.get("bucket_rows_by_step",{}).items()}
+            if (predicted!={900:368544,3600:113760,10800:57120} or
+                m.get("stagger_policy")!="node start = (slot * 317) % 10800 seconds"):
+                raise AssertionError("Staggered physical bucket/cadence distribution mismatch")
         report["manifest"]=m
         report["table_build"]={}
         for step,name in TABLES.items():
@@ -212,7 +222,7 @@ def main():
         for step,name in TABLES.items():
             report["physical_before"][name]=physical(name)
             audit=physical_audit(
-                name,m["series"],m["samples"],m["series"]*LIFE//step,"raw")
+                name,m["series"],m["samples"],expected_bucket_rows[step],"raw")
             report.setdefault("source_audit",{})[name]=audit
         ids={v["identity"]["digest"] for v in report["source_audit"].values()}
         if len(ids)!=1:raise AssertionError("Two schemas have unequal logical IDs")
