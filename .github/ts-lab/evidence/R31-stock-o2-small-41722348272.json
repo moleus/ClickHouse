@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "question_id": "R31",
+  "decision": "PASS_SQL_STAGE_SMALL_ONLY",
+  "run_id": 41722348272,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41722348272",
+  "workflow_commit": "342dfce92213fb4dc009ebd2c9de3f4e5be27e20",
+  "artifact_id": 13271653754,
+  "artifact_name": "tslab-r31-o2-jemalloc-inset-evidence",
+  "artifact_zip_sha256": "f7f7abad21c2eb14ac763dac7c2d440405619382cced344bc0065b7a5da7d7b2",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "5d629ddfda91919402fdf8475ec3da9fe718d48ef386bc51be677264df6dc9ef",
+  "binary_role": "R29 verified stock ClickHouse -O2 jemalloc source unchanged",
+  "fixture_sha256": "6a81d5b9b218a9e86b3dd4aed4ff68a028458d51f944af0296cf4ebaccb98367",
+  "fixture": {
+    "hot_series": 2048,
+    "extra_before_ids": 256,
+    "extra_after_ids": 256,
+    "levels": [
+      1,
+      16
+    ],
+    "physical_rows": {
+      "k1": 2560,
+      "k16": 33280
+    },
+    "distinct_ids": 2560
+  },
+  "correctness": {
+    "cases": 6,
+    "selectors": [
+      "stage",
+      "project",
+      "whole"
+    ],
+    "exact_distinct_id_set": true,
+    "exact_samples_full_rows_values": true,
+    "source_native_result_nonempty": true
+  },
+  "protocol": {
+    "sequence": [
+      "ALL",
+      "ANY",
+      "IN",
+      "IN",
+      "ANY",
+      "ALL"
+    ],
+    "warmups_per_phase": 3,
+    "measured_per_phase": 4,
+    "single_runner": true,
+    "all_drift_below": 0.25,
+    "same_frozen_physical_data_per_level": true
+  },
+  "measurements": {
+    "k1": {
+      "all": {
+        "wall": 7.75,
+        "cpu": 8.91775,
+        "peak": 8991554,
+        "drift": 0.193548387
+      },
+      "any": {
+        "wall": 7.5,
+        "cpu": 9.4225,
+        "peak": 9103529,
+        "drift": 0.13333333
+      },
+      "in": {
+        "wall": 8.5,
+        "cpu": 9.14625,
+        "peak": 8663081,
+        "drift": 0.11764706
+      }
+    },
+    "k16": {
+      "all": {
+        "wall": 39.25,
+        "cpu": 44.2365,
+        "peak": 13462660.75,
+        "drift": 0.089171975
+      },
+      "any": {
+        "wall": 24.75,
+        "cpu": 30.37525,
+        "peak": 11826209,
+        "drift": 0.141414141
+      },
+      "in": {
+        "wall": 14.25,
+        "cpu": 20.5965,
+        "peak": 8662863,
+        "drift": 0.03508772
+      }
+    }
+  },
+  "derived": {
+    "k16_in_vs_all_wall_reduction_pct": 63.69426751592356,
+    "k16_in_vs_any_wall_reduction_pct": 42.42424242424242,
+    "k16_in_vs_all_cpu_reduction_pct": 53.440032552304096,
+    "k16_in_vs_all_peak_reduction_pct": 35.6526680656348
+  },
+  "warnings": [
+    "At k1 all A/A wall drift 19.35%, small absolute differences should not be promoted.",
+    "Direct generated ID SQL, not compiled changed native C++ or full PromQL latency.",
+    "Large 1.33m 14d O1 data already shows IN severely worse; this optimized small result is not a general threshold.",
+    "Peak bytes from query tracker, not resident process RSS.",
+    "External matched O2 baseline and patched native build not yet compared under same workload."
+  ]
+}
