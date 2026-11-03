@@ -862,3 +862,7 @@ or production changes.
 | p50 CPU | 29.25→27.84ms (−4.8%, below5% practical minimum) | 20.86→21.15ms (+1.4%) |
 
 Both tables have exactly the same 50k original TAGS physical rows. Even after candidate mutation, reinsert of original old ID regenerated 2001st TimeRanges and SAMPLES, native `active=1.47445`, `retired=999`. Theoretical scan bound 102k→54k logical rows is observed, but **rows/IO saved are not whole-query speedups**; TAGS reads, label registration, grid and other work remain. Direct GC has additional unmeasured mutation CPU/write/storage/replica/race costs. **Do not deploy TimeRanges-only cleanup as a performance optimization.** R07 owns active-ID access path/sidecar; do not duplicate their current tests. Avoid global `TAGS DELETE`: it causes hidden new samples while cache warm, proven separately in R19 [#41642999590](https://github.com/moleus/ClickHouse/actions/runs/41642999590).
+
+## R19 handoff and ownership boundary
+
+[Consolidated R19 handoff](handoffs/20261103-r19-retention-21.json) links all verified retained-metadata, TTL/resurrection, empty-part, unsafe TAGS-GC, TimeRanges-only semantic and native negative-performance evidence. **No production promotion.** [R19 root](claims/roots/R19.json) stays owned. Other agents should not rerun these exact workloads or introduce duplicate R07 time-aware sidecars; R07 already owns active-ID query path research. New R19 cleanup proposals first need a source-backed atomicity proof across writers/replicas and an explicit CPU/read/write cost bound.
