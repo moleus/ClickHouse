@@ -101,6 +101,12 @@ jobs:
               r=json.loads(path.read_text())
               print('R06_DIAGNOSTIC_STATUS',r.get('status'),'errors',r.get('errors'),
                     'cases',{k:list(v) for k,v in r.get('cases',{}).items()})
+              for case,variants in r.get('cases',{}).items():
+                  for mode,item in variants.items():
+                      ids=item.get('explain_ids',{})
+                      print('R06_IDS_PLAN',case,mode,'plan_chars',len(ids.get('plan','')),
+                            'pipeline_chars',len(ids.get('pipeline','')),
+                            'plan_error',ids.get('plan_error','')[:200])
           else:
               print('R06_DIAGNOSTIC_NO_REPORT')
           PY
