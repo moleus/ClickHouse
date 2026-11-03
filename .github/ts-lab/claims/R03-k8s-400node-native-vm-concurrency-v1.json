@@ -17,12 +17,7 @@
       "archive_sha256": "cd6e109bae85ff7c138d838b32be9a7fe2a6d7a9b3a387a7cf9234f22991da10"
     }
   },
-  "fixture": {
-    "schema": "R01 400-slot 3d aligned, 60s/300s/15s scrape, three-hour node lives",
-    "sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
-    "series": 28896,
-    "sample_points": 2488320
-  },
+  "fixture": "Deterministic R01 400 node 3d multi-cadence 15/60/300s TimeSeries fixture; SHA256 ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d; exactly 28,896 series and 2,488,320 samples; every sample imported to both engines unchanged.",
   "metric_queries": [
     "node_broad",
     "pod_namespace",
@@ -37,5 +32,14 @@
     "R01-k8s-mixed-v1",
     "R10-bucket-id-factorial-v1"
   ],
-  "owner_boundary": "Do not duplicate R02 live write+merge, R04 TTL, R05 physical mark pruning, R10 bucket tuning, R13 regex rewrite, R14 exact grid rollup or R15 partition."
+  "owner_boundary": "Do not duplicate R02 live write+merge, R04 TTL, R05 physical mark pruning, R10 bucket tuning, R13 regex rewrite, R14 exact grid rollup or R15 partition.",
+  "state": "claimed",
+  "baseline": "ClickHouse 26.10 pinned source 52529f0c711566d696917678bf15e7068772fdde stock LLVM22.1.8 O1 binary SHA256 f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e, opt-in RAW UUID TimeSeries table and 3600s SAMPLES bucket.",
+  "candidate": "VictoriaMetrics v1.134.0 single-node pinned GitHub artifact run 41288854734 SHA256 cd6e109bae85ff7c138d838b32be9a7fe2a6d7a9b3a387a7cf9234f22991da10. The engine, not a ClickHouse patch, is the one tested variable.",
+  "single_variable": "Query engine: full native ClickHouse prometheusQueryRange on opt-in RAW UUID v11 versus VictoriaMetrics 1.134.0 query_range. Same PromQL expression, evaluation timestamps, full source fixture SHA and host; engines configured with their native supported threading/caches, differing allocator and query execution models are declared confounders.",
+  "math_bound": "All records describe the same 28,896 logical series and 2,488,320 points. For any specified selector and daily 1d avg_over_time expression, outputs must match in labels, evaluation timestamps and finite numeric values. Bounded comparison valid only when VM/CH full output parity and A/A same-engine drift <=25% pass; no theoretical speed ranking assumed.",
+  "falsifier": "Different label/time/value results, incomplete VM import, mismatched binary/fixture SHA, engine errors, OOM, VM matching-series cap or baseline A/A drift above 25% invalidate that case and prohibit a performance claim. Independent process RSS and CPU budget limits are declared, not assumed identical.",
+  "test_matrix": "4 selectors node_broad, pod_namespace, pod_broad, burst15; 3 daily evaluation timestamps; simultaneous clients 1/4/8, synchronized barriers, 2 warmup+8 measured waves, VM/CH/CH/VM. Collect p50/p95/p99, completed QPS, process CPU per request, RSS, CH query_log, identical output and stable physical parts.",
+  "runner_budget": "One isolated ubuntu-24.04 runner, 130 min maximum, using already built CH stock O1 and VM1.134.0 binary from GitHub artifacts; no new C++ builds, cache mutations, schedules or cancellation of other runs.",
+  "planned_workflow": ".github/workflows/ts-lab-r03-ch-vm-k8s-concurrent-20261103.yml (self-path-only push trigger, unique run_id concurrency group, cancel-in-progress false)."
 }
