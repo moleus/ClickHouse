@@ -1,0 +1,86 @@
+name: R02 native TimeSeries LC vs raw fresh process whole CPU ABBA
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r02-process-cpu-abba-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ts-lab-r02-process-cpu-abba-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  r02:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 27
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      BINARY_SHA256: f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Source and preflight
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r02cpu
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          python3 -m py_compile .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py
+          python3 .github/ts-lab/experiments/r02_small_batch_write_merge.py --help > evidence/r02cpucpu/help.txt
+          git rev-parse HEAD > evidence/r02cpucpu/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r02_small_batch_write_merge.py > evidence/r02cpucpu/script-sha256.txt
+      - name: Reuse pinned SHA verified O1 binary (no recompilation)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r02cpu-art" "$RUNNER_TEMP/r02cpu-bin"
+          gh run download 41596421285 -R "$REPO" \
+            --pattern 'tslab-stock-clickhouse-o1-binary-*' \
+            -D "$RUNNER_TEMP/r02cpu-art"
+          archive="$(find "$RUNNER_TEMP/r02cpu-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r02cpucpu/archive-verify.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r02cpu-bin"
+          (cd "$RUNNER_TEMP/r02cpu-bin" && sha256sum -c SHA256SUMS) | tee evidence/r02cpucpu/binary-verify.txt
+          test "$(sha256sum "$RUNNER_TEMP/r02cpu-bin/clickhouse" | cut -d' ' -f1)" = "$BINARY_SHA256"
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r02cpu-bin/BUILD_INFO.txt"
+          grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/r02cpu-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/r02cpu-bin/BUILD_INFO.txt" evidence/r02cpucpu/build-info.txt
+          chmod +x "$RUNNER_TEMP/r02cpu-bin/clickhouse"
+          "$RUNNER_TEMP/r02cpu-bin/clickhouse" --version | tee evidence/r02cpucpu/version.txt
+      - name: Repeated fresh-server A B B A with Linux process CPU and merge accounting
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r02_process_cpu_abba.py \
+            --binary "$RUNNER_TEMP/r02cpu-bin/clickhouse" \
+            --outdir evidence/r02cpu --port 18191 | tee evidence/r02cpu/console.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/r02cpu/report.json'))
+          assert d['passed'] and not d['errors'],d['errors']
+          assert len(d['phases'])==4 and len(d['input_sha256'])==12
+          assert d['physical_points_per_phase']==48000
+          assert d['comparison']['valid'] and d['comparison']['decision'] in ('NO_EFFECT','INCONCLUSIVE_REPLICATION_NEEDED')
+          for phase,mode in (('A0','lc'),('B1','raw'),('B2','raw'),('A3','lc')):
+              result=d['phases'][phase]
+              assert result['mode']==mode and result['passed']
+              assert len(result['inserts'])==12 and len(result['merges'])==3
+              assert result['physical_after_merges']['physical_sample_points']==48000
+              assert all(result['physical_after_merges'][k]['parts']==1 for k in ('tags','samples','timeranges'))
+              assert len(result['insert_query_log'])==12 and result['part_log']['available']
+          print('R02_PROCESS_CPU_FINAL',json.dumps({'passed':True,
+            'decision':d['comparison']['decision'],'ratios':d['comparison']['ratios'],
+            'fixture':d['combined_fixture_sha256']}))
+          PY
+      - name: Preserve raw correct and failed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r02-process-cpu-abba-${{ github.run_id }}
+          path: evidence/r02cpucpu/
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
