@@ -1,0 +1,36 @@
+name: TimeSeries shared-branch GitHub Actions concurrency audit
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-shared-ci-audit-20261103.yml']
+permissions:
+  contents: read
+concurrency:
+  group: tslab-shared-ci-audit-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Install parser and compile audit script
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user --disable-pip-version-check pyyaml || (python3 -m pip install --break-system-packages pyyaml)
+          python3 -m py_compile .github/ts-lab/audit_workflows.py
+      - name: Verify no existing workflows can cancel shared-branch research builds
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/audit_workflows.py --output audit/workflows.json
+      - name: Keep the full workflow and cancellation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-shared-ci-audit-${{ github.run_id }}
+          path: audit/
+          retention-days: 30
+          if-no-files-found: warn
