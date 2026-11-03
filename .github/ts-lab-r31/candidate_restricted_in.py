@@ -41,6 +41,22 @@ def top_level_comma_parts(s):
     return parts
 
 
+def diagnostic_alias_with_nested_tags(full_sql):
+    """Alias only the OUTER storeTags expression despite a second TAGS table.
+
+    Unlike the generic R31 alias helper, the restricted candidate contains
+    two separate TAGS FROM clauses. Output ID aliases must not affect either
+    inner id IN predicate or the physical id tuple.
+    """
+    if not full_sql.startswith("SELECT timeSeriesStoreTags("):
+        raise ValueError("Expected native stateful ID expression")
+    marker=" FROM default.`.inner_id.tags."
+    at=full_sql.find(marker)
+    if at<0 or " AS r31_id" in full_sql[:at]:
+        raise ValueError("Missing outer TAGS or already aliased")
+    return full_sql[:at]+" AS r31_id"+full_sql[at:]
+
+
 def restrict_time_ranges_in_to_candidates(full_sql):
     """Rewrite source-generated R31 IN SQL with exact same candidate TAGS predicate."""
     if not full_sql.startswith("SELECT timeSeriesStoreTags("):
