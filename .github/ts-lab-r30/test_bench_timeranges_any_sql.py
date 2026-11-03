@@ -5,9 +5,10 @@ import pathlib
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
-from bench_timeranges_any_sql import rewritten, write_fixture, explicit_id_alias
+from bench_timeranges_any_sql import rewritten, write_fixture, explicit_id_alias, checked_pair
 
 
 class AnyMembershipTests(unittest.TestCase):
@@ -24,6 +25,23 @@ class AnyMembershipTests(unittest.TestCase):
         self.assertEqual(named.count("ALL LEFT JOIN"),1)
         with self.assertRaisesRegex(ValueError,"already aliased"):
             explicit_id_alias(named)
+
+    def test_after_merge_one_row_each_is_expected_negative_control(self):
+        inner="SELECT timeSeriesStoreTags(id, tags) FROM x"
+        with patch("bench_timeranges_any_sql.canonical_result",
+                   return_value={"rows":1,"sha256":"matched"}), \
+             patch("bench_timeranges_any_sql.rows",
+                   side_effect=[{"rows":5,"ids":5},{"rows":5,"ids":5}]):
+            got=checked_pair(inner,inner,"SELECT id FROM s","SELECT id FROM s",
+                             "stage","test",expect_reduction=False)
+            self.assertEqual(got["right_multiplicity_reduction"],1.0)
+        with patch("bench_timeranges_any_sql.canonical_result",
+                   return_value={"rows":1,"sha256":"matched"}), \
+             patch("bench_timeranges_any_sql.rows",
+                   side_effect=[{"rows":5,"ids":5},{"rows":5,"ids":5}]):
+            with self.assertRaisesRegex(ValueError,"unexpected JOIN multiplicity"):
+                checked_pair(inner,inner,"SELECT id FROM s","SELECT id FROM s",
+                             "stage","test",expect_reduction=True)
 
     def test_exact_one_join_rewrite(self):
         out=rewritten(self.generated)
