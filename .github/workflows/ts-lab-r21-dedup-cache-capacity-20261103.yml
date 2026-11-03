@@ -38,6 +38,7 @@ jobs:
           python3 -m py_compile .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py
           python3 .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py --help > evidence/r21/help.txt
           grep -q "system.events global worker-inclusive delta" .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py
+          grep -q "start_cache_events.get(hit_event,0)" .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py
           git rev-parse HEAD > evidence/r21/workflow-head.txt
           sha256sum .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py .github/ts-lab/experiments/r21_tags_cache_capacity_abba.py > evidence/r21/script-sha256.txt
       - name: Reuse pinned SHA verified O1 binary (no recompilation)
