@@ -136,7 +136,7 @@ def inner_target(kind):
     return "default." + chr(96) + actual[0].replace(chr(96), chr(96)*2) + chr(96)
 
 
-def physical_census():
+def physical_census(require_duplicates=True):
     tags, tr = inner_target("tags"), inner_target("timeranges")
     table = {}
     for name, target in (("tags", tags), ("timeranges", tr)):
@@ -147,7 +147,7 @@ def physical_census():
                                   "FROM system.parts WHERE active AND database='default' "
                                   f"AND table={quoted(target.split(chr(96))[1])}")
     factor = table["timeranges"]["physical_rows"] / max(1,table["timeranges"]["ids"])
-    if factor < 2:
+    if require_duplicates and factor < 2:
         raise ValueError(f"No duplicated physical TimeRanges rows; factor={factor}")
     table["timeranges"]["physical_rows_per_id"] = factor
     return table
@@ -164,7 +164,7 @@ def plans(ids_all, ids_any):
     return result
 
 
-def checked_pair(ids_all, ids_any, selector_all, selector_any, case, runid):
+def checked_pair(ids_all, ids_any, selector_all, selector_any, case, runid, expect_reduction=True):
     # DISTINCT membership is the actual input used by the subsequent SAMPLES id IN set.
     ids = {}
     for name, statement in (("all", explicit_id_alias(ids_all)), ("any", explicit_id_alias(ids_any))):
@@ -175,8 +175,11 @@ def checked_pair(ids_all, ids_any, selector_all, selector_any, case, runid):
     counts = {}
     for name, statement in (("all", explicit_id_alias(ids_all)), ("any", explicit_id_alias(ids_any))):
         counts[name] = rows(f"SELECT count() AS rows,uniqExact(r30_id) AS ids FROM ({statement}) SETTINGS {SETTINGS}")
-    if int(counts["all"]["ids"]) != int(counts["any"]["ids"]) or int(counts["all"]["rows"]) <= int(counts["any"]["rows"]):
-        raise ValueError(f"{case}: no multiplicity reduction or ID mismatch: {counts}")
+    if int(counts["all"]["ids"]) != int(counts["any"]["ids"]):
+        raise ValueError(f"{case}: ID counts diverge: {counts}")
+    left,right=int(counts["all"]["rows"]),int(counts["any"]["rows"])
+    if (expect_reduction and left <= right) or (not expect_reduction and left != right):
+        raise ValueError(f"{case}: unexpected JOIN multiplicity: {counts}")
     # Keep complete SAMPLES array values, IDs and timestamps; compare byte-independent sorted JSON.
     samples = {}
     for name, statement in (("all", selector_all), ("any", selector_any)):
@@ -294,7 +297,7 @@ def main():
             request("SYSTEM START MERGES " + target)
             request("OPTIMIZE TABLE " + target + " FINAL")
             request("SYSTEM STOP MERGES " + target)
-            merged={"physical":physical_census(),"cases":{}}
+            merged={"physical":physical_census(require_duplicates=False),"cases":{}}
             right=merged["physical"]["timeranges"]
             if int(right["physical_rows"]) != int(right["ids"]):
                 raise ValueError(f"TimeRanges FINAL failed to collapse duplicates: {right}")
@@ -303,7 +306,7 @@ def main():
                 # Generated source SQL is frozen; same queries on merged right-side parts.
                 outer_all=prior["generated_selector_sql"]
                 outer_any=rewritten(outer_all)
-                result=checked_pair(ids_all,ids_any,outer_all,outer_any,case,runid+"_merged")
+                result=checked_pair(ids_all,ids_any,outer_all,outer_any,case,runid+"_merged",expect_reduction=False)
                 if result["membership"] != prior["parity"]["membership"] or result["samples"] != prior["parity"]["samples"]:
                     raise ValueError(f"{case}: physical merge changed membership or sample values")
                 merged["cases"][case]=result
