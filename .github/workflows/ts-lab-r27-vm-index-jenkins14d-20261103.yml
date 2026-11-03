@@ -1,0 +1,179 @@
+name: R27 VM global vs per-day index on 1.33m high-churn Jenkins series ABBA
+
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r27-vm-index-jenkins14d-20261103.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: tslab-r27-index-path-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Check canonical claim, symlink and Python syntax
+        run: |
+          set -euo pipefail
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | awk '{print $1}')" = 120000
+          python3 -m py_compile \
+            .github/ts-lab-e04/r27_vm_jenkins_index_path.py \
+            .github/ts-lab-e04/r25_vm_index_cache_capacity.py \
+            .github/ts-lab-e04/r27_generate_jenkins_fixture.py \
+            .github/ts-lab-bench/import_95k_churn_to_vm.py
+          mkdir -p evidence/r27
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = json.loads(Path(".github/ts-lab/claims/roots/R27.json").read_text())
+          claim = json.loads(Path(".github/ts-lab/claims/R27-vm-perday-global-jenkins14d-v1.json").read_text())
+          assert root["question_id"] == "R27"
+          assert root["primary_claim_id"] == claim["id"]
+          assert claim["source_sha"] == "eaf7a68c92c8069a67ae02e601e81453a5e002de"
+          assert "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858" in claim["fixture"]
+          print("R27_CLAIM_VERIFIED", claim["id"])
+          PY
+          git rev-parse HEAD > evidence/r27/workflow-commit.txt
+          uname -a > evidence/r27/runner-kernel.txt
+          nproc > evidence/r27/runner-nproc.txt
+          cat /proc/self/cgroup > evidence/r27/runner-cgroup.txt
+          head -n 10 /proc/meminfo > evidence/r27/runner-memory.txt
+
+      - name: Download pinned VM 1.134.0 optimized release artifact
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r27/vm-art" "$RUNNER_TEMP/r27/vm-bin"
+          gh run download 41288854734 -R "$REPO" \
+            -n tslab-victoria-metrics-v1.134.0 \
+            -D "$RUNNER_TEMP/r27/vm-art"
+          (cd "$RUNNER_TEMP/r27/vm-art" && sed 's#  output/#  #' SHA256SUMS | sha256sum -c -) \
+            > evidence/r27/vm-archive-check.txt
+          test "$(sha256sum "$RUNNER_TEMP/r27/vm-art/victoria-metrics-linux-amd64-v1.134.0.tar.gz" | awk '{print $1}')" = \
+            cd6e109bae85ff7c138d838b32be9a7fe2a6d7a9b3a387a7cf9234f22991da10
+          tar -xzf "$RUNNER_TEMP/r27/vm-art/victoria-metrics-linux-amd64-v1.134.0.tar.gz" \
+            -C "$RUNNER_TEMP/r27/vm-bin"
+          chmod +x "$RUNNER_TEMP/r27/vm-bin/victoria-metrics-prod"
+          "$RUNNER_TEMP/r27/vm-bin/victoria-metrics-prod" --version 2>&1 \
+            | head -n 6 | tee evidence/r27/vm-version.txt
+          sha256sum "$RUNNER_TEMP/r27/vm-bin/victoria-metrics-prod" \
+            > evidence/r27/vm-binary-sha256.txt
+
+      - name: Generate frozen 1.33m Jenkins 14-day 95k/day fixture
+        run: |
+          set -euo pipefail
+          python3 -u .github/ts-lab-e04/r27_generate_jenkins_fixture.py \
+            --fixture "$RUNNER_TEMP/r27-fixture.jsonl" \
+            --manifest evidence/r27/fixture-manifest.json \
+            | tee evidence/r27/fixture-generation.log
+          test "$(sha256sum "$RUNNER_TEMP/r27-fixture.jsonl" | awk '{print $1}')" = \
+            ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d
+          sha256sum "$RUNNER_TEMP/r27-fixture.jsonl" > evidence/r27/fixture-sha256.txt
+
+      - name: Import and fully stop identical baseline VM data once
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r27/vm-base"
+          "$RUNNER_TEMP/r27/vm-bin/victoria-metrics-prod" \
+            -storageDataPath="$RUNNER_TEMP/r27/vm-base" \
+            -httpListenAddr=127.0.0.1:8430 \
+            -retentionPeriod=6 \
+            -search.maxUniqueTimeseries=2000000 \
+            -search.disableCache \
+            -memory.allowedBytes=4294967296 \
+            -storage.cacheSizeIndexDBTagFilters=67108864 \
+            >evidence/r27/vm-import-server.log 2>&1 &
+          vm_pid=$!
+          trap 'kill -TERM "$vm_pid" 2>/dev/null || true; wait "$vm_pid" || true' EXIT
+          for i in $(seq 1 120); do
+            if ! kill -0 "$vm_pid" 2>/dev/null; then
+              tail -80 evidence/r27/vm-import-server.log
+              exit 1
+            fi
+            if curl -fsS --max-time 1 http://127.0.0.1:8430/health >/dev/null 2>&1; then
+              break
+            fi
+            sleep 0.5
+          done
+          curl -fsS --max-time 2 http://127.0.0.1:8430/health
+          python3 -u .github/ts-lab-bench/import_95k_churn_to_vm.py \
+            --fixture "$RUNNER_TEMP/r27-fixture.jsonl" \
+            --manifest evidence/r27/fixture-manifest.json \
+            --output evidence/r27/import-report.json \
+            | tee evidence/r27/import.log
+          python3 - <<'PY'
+          import json,urllib.parse,urllib.request,time
+          from pathlib import Path
+          m=json.loads(Path("evidence/r27/fixture-manifest.json").read_text())
+          expected=m["per_day"]
+          end=int(m["end"])
+          start=int(m["base"])+86400
+          q="count(avg_over_time(jenkins_ci_95k_daily[1d]))"
+          params=urllib.parse.urlencode({"query":q,"start":start,"end":end,"step":86400,"nocache":1})
+          url="http://127.0.0.1:8430/api/v1/query_range?"+params
+          for trial in range(80):
+              try:
+                  with urllib.request.urlopen(url,timeout=200) as resp:
+                      obj=json.loads(resp.read())
+                  if obj.get("status")!="success": raise RuntimeError(obj)
+                  rows=obj.get("data",{}).get("result",[])
+                  ticks={int(float(t)):int(round(float(v))) for row in rows for t,v in row.get("values",[])}
+                  if len(ticks)==14 and all(ticks.get(start+i*86400)==expected for i in range(14)):
+                      Path("evidence/r27/visibility.json").write_text(json.dumps({"days":14,"series_per_day":expected,"attempts":trial+1,"all_14_days_visible":True},indent=2)+"\n")
+                      print("R27_ALL_14_DAYS_VISIBLE",trial+1,flush=True)
+                      break
+                  print("R27_NOT_YET_VISIBLE",trial+1,len(ticks),flush=True)
+              except Exception as ex:
+                  print("R27_VISIBILITY_ERROR",trial+1,repr(ex)[:250],flush=True)
+              time.sleep(2)
+          else:
+              raise AssertionError("VM 14-day import not fully visible")
+          PY
+          kill -TERM "$vm_pid"
+          wait "$vm_pid"
+          trap - EXIT
+          du -sb "$RUNNER_TEMP/r27/vm-base" > evidence/r27/storage-base-bytes.txt
+
+      - name: Controlled four-process 1.33m Jenkins VM global/per-day ABBA
+        run: |
+          set -euo pipefail
+          python3 -u .github/ts-lab-e04/r27_vm_jenkins_index_path.py \
+            --binary "$RUNNER_TEMP/r27/vm-bin/victoria-metrics-prod" \
+            --base-data "$RUNNER_TEMP/r27/vm-base" \
+            --manifest evidence/r27/fixture-manifest.json \
+            --workdir "$RUNNER_TEMP/r27/phase-clones" \
+            --output evidence/r27/report.json \
+            | tee evidence/r27/bench.log
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r = json.loads(Path("evidence/r27/report.json").read_text())
+          assert r["decision"] == "ACCEPT_DIAGNOSTIC_JENKINS_INDEX_CROSSOVER",r["decision"]
+          assert r["validity"]["primary_valid"] == r["validity"]["primary_required"]
+          for case, m in r["comparison"].items():
+              print("R27_VALID",case,m["global_div_perday_p50"],m["global_div_perday_cpu"],m["path_verified"])
+          PY
+
+      - name: Preserve report, VM traces, source/fixture hash, and failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r27-vm-index-jenkins14d-${{ github.run_id }}
+          path: evidence/
+          retention-days: 45
+          compression-level: 1
