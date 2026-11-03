@@ -1,4 +1,5 @@
 name: TimeSeries native 14d RSS query order isolation
+# rerun: report is now written inside the evidence directory; earlier attempt failed before queries
 on:
   push:
     branches: [lab/ts-cbo-adaptive-20261103]
