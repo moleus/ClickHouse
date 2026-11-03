@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "question_id": "R01",
+  "primary_claim_id": "R01-k8s-mixed-v1",
+  "owner": "chatgpt-native-mixed-churn-20261103",
+  "scope": "One canonical Kubernetes-like workload family: mixed 15s/60s/300s series, 400-node/three-hour churn, and stock LC vs RAW UUID native read measurements. No competing large R01 benchmark without a new question.",
+  "allowed_support_claims": [
+    "R01-k8s-churn-fixture-v1"
+  ],
+  "support_scope": "The additional R01-k8s-churn-fixture-v1 is restricted to small pure-Python lifecycle and HPA test data, not a second large performance campaign.",
+  "reference_work": "Existing mixed-cadence claim predates second fixture claim; preserve both claims and do not cancel ongoing runs.",
+  "created_utc": "2026-11-03T09:30:00Z"
+}
