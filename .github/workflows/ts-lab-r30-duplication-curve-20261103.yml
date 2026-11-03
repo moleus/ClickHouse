@@ -86,7 +86,7 @@ jobs:
           done
           tail -110 evidence/server.log
           exit 1
-      - name: Freeze five tables, check exact multiplicity and run paired ID-selector SQL
+      - name: Freeze each newly created TimeRanges inner target before first INSERT, then paired SQL
         run: |
           set -euo pipefail
           python3 .github/ts-lab-r30/bench_any_duplication_curve.py \
