@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "question_id": "R22",
+  "primary_claim_id": "R22-tags-cache-expiration-write-amplification-v1",
+  "owner": "chatgpt-r22-expiration-20261103",
+  "scope": "TimeSeries v11 TAGS dedup cache TTL expiration can force repeated TAGS writes even when the cache is large enough for the full stable active-series working set. Isolate cache expiration 1 second versus 3600 seconds with fixed 1MiB cache and deterministic >1s between twelve identical 4096-series inserts, independent exact native oracle and stopped-versus-natural merge observations. Quantify transient TAGS write amplification, process CPU/IO and native query cost, and distinguish ReplacingMergeTree physical duplicates from persistent distinct ID retention. No C++ build, no production or master changes. Distinct from R21 capacity shortfall/order, R19 obsolete series retention, R18 codec, R07 query paths and R20 native aggregation.",
+  "source_proof": "StorageTimeSeries.cpp and TimeSeriesSettings.cpp pinned source 52529f0c711566d696917678bf15e7068772fdde documents default tags_deduplication_cache_expiration_seconds=3600 and dedup cache behavior. TimeSeriesDeduplicationCache.cpp WrittenRow uses steady_clock and isExpired(elapsed seconds>=configured expiration); TimeSeriesSink.cpp re-emits TAGS on cache miss. Inner TAGS is ReplacingMergeTree, so duplicate rows from expiration can merge (do not claim permanent unbounded storage).",
+  "math_bound": "If cache fits all N=4096 stable IDs and each complete batch is separated by >=1.1sec, expiration=1sec should produce N*12=49152 TAGS writes vs expiration=3600sec N=4096. This is 12x transient TAGS rows before merges and exact miss counts, with identical 49152 SAMPLES points, original stable 4096 logical IDs and same TimeRanges. TTL default 3600 sec would cause periodic rewrites on frequently updated stable series at most once per hour per ID before merges; no claim of permanently retained duplicate rows.",
+  "created_utc": "2026-11-03T14:28:00Z",
+  "allowed_support_claims": []
+}
