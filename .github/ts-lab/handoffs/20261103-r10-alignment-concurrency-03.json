@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "session_id": "r10-alignment-concurrency-20261103-03",
+  "status": "waiting_ci",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "d485b12cfc09345024b4a4a1c7c0983e8645b7a8",
+  "last_verified_utc": "2026-11-03T10:40:11.444Z",
+  "question_id": "R10",
+  "summary": "Source-anchored TimeSeries 3600 vs10800s SAMPLES bucket research: negative staggered-start test, successfully confirmed same-runner 2x2 alignment interaction on 512 native PromQL requests with A/B/B/A; frozen source/binary/fixture hashes and 4 client workloads recorded. OOM-aware glibc reducer also validated. One final 4/8-client staggered test is currently running; no master/upstream/production modifications or workflow cancellation.",
+  "completed": [
+    "Run 41617111380 PASS: fresh-process 1/4/8 clients across 3 aligned workloads, all 9 native A/B/B/A; output exact, CPU and QPS contrasts persisted .github/ts-lab/evidence/R10-concurrent-buckets-41617111380.json.",
+    "Run 41617708973 PASS: OOM-aware glibc frontier reducer validates 101 unique IDs, 3 unattempted after early OOM, no complete default speed control, arena4/trim exploratory Pareto; persisted .github/ts-lab/evidence/CBO-glibc-frontier-oomaware-41617708973.json.",
+    "Run 41618267456 PASS: exact deterministic optional per-node start offset (slot*317)%10800, original aligned SHA unchanged, staggered SHA ae85496e..., 28896 series/2488320 samples and predicted 113760/57120 bucket rows.",
+    "Run 41618941657 PASS: actual staggered native full PromQL 3600 vs10800, physical 113760 vs57120 bucket rows, namespace p50 73.726->85.345ms (+15.8%) and CPU135.859->168.388ms (+23.9%) despite fewer read rows; persisted .github/ts-lab/evidence/R10-staggered-native-41618941657.json.",
+    "Run 41619669176 PASS: nested same-runner 2x2 aligned/staggered x3600/10800 with four fresh processes, 512 full native results exact. Namespace candidate/baseline p50 ratio .97046 aligned vs1.25384 stagger, burst1.00882 vs1.23197, pod broad.93209 vs1.06298, node broad1.03086 vs.88253. Two repeated panels each, low effect drift. Immutable evidence .github/ts-lab/evidence/R10-alignment-factorial-41619669176.json.",
+    "Pinned source StorageTimeSeriesSelector.cpp proves bucket bounds filter whole rows, then timeSeriesSliceSortedArray reads/slices physical Array(Tuple) samples; this explains why lower SelectedMarks can coexist with higher CPU without proving per-function fraction. Source memo .github/ts-lab-r10/START_ALIGNMENT_CPU_AUDIT_20261103.md.",
+    "Wrote workload-aware CPU cost break-even rule .github/ts-lab-r10/BUCKET_CPU_BREAK_EVEN_20261103.md; for shifted fixture broad-node vs namespace only, node query count >32.6% needed to reduce CPU with 10800s, ignoring writes and p99.",
+    "Other agent R12 CI41620022189 passed comparison but experimental unsafe LC decoder patch regressed stage p50916->1023ms and CPU1695->1876ms; still unsafe dictionary-index validation, do not promote."
+  ],
+  "negative_results": [
+    "Source-aligned 3-hour lifetime test distorted physical SAMPLES row count; realistic arbitrary start phases invert candidate effect on selective pod queries. Recorded M38 in METHODOLOGY_AND_FAILURES.md.",
+    "Three-hour buckets save compressed disk bytes and sometimes broad query CPU, but worsen namespace and 15s pod queries by 23-25% p50 in repeated staggered panels; no universal default.",
+    "At 8 aligned concurrent clients n8 pod_namespace p99 regressed 300.36->303.74ms, despite p50/CPU improvements. n4 node-broad effect smaller than 21.4% A/A drift.",
+    "R10 fixtures are synthetic, not actual production labels, HPA arrival rate, 14d retention or jemalloc allocator; staggered last-life samples can exceed 3d evaluation horizon.",
+    "R12 decoder candidate fast path still bypasses stock invalid-index bounds checks; compile/normal output pass cannot certify safety."
+  ],
+  "active_run_ids": [
+    41620367659,
+    41621089700,
+    41607779848
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "fixture_sha256": "ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a",
+  "relevant_paths": [
+    ".github/ts-lab/INDEX.md",
+    ".github/ts-lab/claims/roots/R10.json",
+    ".github/ts-lab/evidence/R10-alignment-factorial-41619669176.json",
+    ".github/ts-lab/evidence/R10-staggered-native-41618941657.json",
+    ".github/ts-lab/evidence/R10-concurrent-buckets-41617111380.json",
+    ".github/ts-lab-r10/START_ALIGNMENT_CPU_AUDIT_20261103.md",
+    ".github/ts-lab-r10/BUCKET_CPU_BREAK_EVEN_20261103.md",
+    ".github/ts-lab-r10/bench_bucket_concurrent_clients.py",
+    ".github/workflows/ts-lab-r10-staggered-concurrent-20261103.yml"
+  ],
+  "blocked_by": [
+    "Staggered concurrent run #41620367659 is in progress; do not cancel/relaunch or claim an outcome before completion.",
+    "Another agent owns R12 LC decoder and R13 branch regex comparison; do not start duplicate work.",
+    "Pinned jemalloc compile #41607779848 was still running; do not cancel or duplicate builds. R10 only uses verified glibc O1."
+  ],
+  "next_action": {
+    "question_id": "R10",
+    "step": "First query live run #41620367659 jobs/artifact; if complete, fetch artifact and compact report, verify 4/8 clients x node_broad/pod_namespace/pod_broad/burst15 A/B/B/A full native parity, p50/p95/p99 CPU/QPS A/A drift and OOM; classify failures without suppressing them. Publish immutable evidence/INDEX and final decision for staggered query concurrency. Then evaluate realistic 14d-HPA/allocator bridge using existing R01 support fixture, avoid duplicate R02/R04/R12/R13 CIs.",
+    "stop_condition": "Stop and publish negative result on any native output mismatch, high drift, OOM, corrupt fixture/bin SHA, missing QueryFinish, or new auth request. Never promote 10800 globally based on R10 lab workloads."
+  }
+}
