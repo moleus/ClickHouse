@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "session_id": "e01-r29-stock-o2-jemalloc-20261103",
+  "status": "waiting_ci",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "42a703f08d57c6672c5a8753dd110da553d755f9",
+  "last_verified_utc": "2026-11-03T17:33:57Z",
+  "question_id": "R29",
+  "summary": "Started one unique source-clean optimized ClickHouse baseline build for E01. It targets same pinned ClickHouse commit and LLVM as verified stock O1 but Release -O2, ENABLE_JEMALLOC=ON. Source is identical with no experimental lab C++ patch, and artifact SHA/cmake provenance and smoke are required. No completed build or benchmark gain yet.",
+  "completed": [
+    "R28 six-phase native admission experiment completed PASS 41683302083, immutable evidence, 8-slot OOM in both fresh processes vs fully completed cap2/cap4 controls",
+    "Reserved canonical R29 root and claim; registered E01 owner for stock baseline",
+    "Compared prior O2 patched artifacts, identified no suitable pure-stock O2+jemalloc artifact for E02",
+    "Invalid YAML pilot 41685290429 stopped at parser before any jobs or compile; fixed by safe literal replacements and moving config checks before artifact upload",
+    "GitHub CI 41685467438 accepted and started job 126089918964 from clean pinned stock workflow; preserves existing ccache with no other expensive concurrent jobs"
+  ],
+  "negative_results": [
+    "Previous O2 lab binaries include C++ patches, cannot be used to claim same-source optimized stock performance",
+    "Invalid workflow 41685290429 from JS $' replacement interpolation was no-op to source/build, no artifact; full bad text replaced with validated YAML",
+    "No scientific effect/VM comparison from R29 until executable and artifact SHA verified"
+  ],
+  "active_run_ids": [
+    41685467438
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "not built; record exact SHA only from successful artifact",
+  "fixture_sha256": "not applicable to binary-only build",
+  "relevant_paths": [
+    ".github/ts-lab/claims/roots/R29.json",
+    ".github/ts-lab/claims/R29-stock-o2-jemalloc-source-parity-v1.json",
+    ".github/ts-lab/epics/20261103-release-parity/E01-R29-stock-o2-jemalloc-owner-20261103.json",
+    ".github/workflows/ts-lab-r29-stock-o2-jemalloc-20261103.yml",
+    ".github/ts-lab/evidence/R28-native-query-slot-admission-v1/41683302083.json",
+    ".github/ts-lab/INDEX.md"
+  ],
+  "blocked_by": [
+    "CI 41685467438 must finish source/submodule checkout, LLVM, compile, CMake options, artifact creation and runtime smoke",
+    "E02 engine benchmark cannot use R29 until successful digest-verified clean optimized binary exists"
+  ],
+  "next_action": {
+    "question_id": "R29",
+    "step": "Inspect live CI 41685467438 job steps and logs. If failed, classify exact infra/config/compile error and repair only verified causes; do not duplicate builds or cancel jobs. If successful, fetch complete BUILD_INFO, actual binary/archive SHA and CMake cache checks; register immutable R29 evidence. Then preregister E02 same-fixture VM comparison with native output parity, cgroups and paired A/B/B/A.",
+    "stop_condition": "Incorrect source SHA, unexpected patch, missing jemalloc linkage, incomplete ccache checkout, failed smoke or archive mismatch prohibits production parity claims."
+  }
+}
