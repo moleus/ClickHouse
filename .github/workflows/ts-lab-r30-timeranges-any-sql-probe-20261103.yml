@@ -91,7 +91,7 @@ jobs:
           set -euo pipefail
           python3 .github/ts-lab-r30/bench_timeranges_any_sql.py \
             --out evidence/r30-any --log evidence/r30-server.log \
-            --series 4096 --updates 16 | tee evidence/r30-result.log
+            --series 4096 --updates 16 --postmerge-control | tee evidence/r30-result.log
       - name: Confirm explicit non-shadowing ID alias in probe before reduction
         if: always()
         run: |
@@ -105,8 +105,10 @@ jobs:
           if path.exists():
               r=json.loads(path.read_text())
               print("R30_STATUS",r.get("status"),"errors",r.get("errors"),
-                    "multiplicity", {k:v.get("parity",{}).get("right_multiplicity_reduction")
-                                    for k,v in r.get("results",{}).items()})
+                    "before_multiplicity",{k:v.get("parity",{}).get("right_multiplicity_reduction")
+                                          for k,v in r.get("results",{}).items()},
+                    "after_multiplicity",{k:v.get("right_multiplicity_reduction")
+                                         for k,v in r.get("postmerge",{}).get("cases",{}).items()})
           else:
               print("R30_MISSING_REPORT")
           PY
