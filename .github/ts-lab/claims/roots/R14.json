@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "question_id": "R14",
+  "primary_claim_id": "R14-exact-step-grid-avg-rollup-v1",
+  "owner": "chatgpt-r14-exact-rollup-20261103",
+  "scope": "Mathematically exact bounded-domain step-grid avg by(stage) snapshots for immutable or versioned high-churn TimeSeries queries; prove with deterministic oracle and falsifiers, compare cardinality bounds and correctness risks. Distinct from R11 generic QueryResultCache, R05 sparse mark filtering, R07 physical label-local index, R10 bucket width. No C++ build or production writes.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-03T10:50:00Z",
+  "reason": "Potential order-of-magnitude reduction in per-query working set for repeated restricted grid-aligned aggregations; gated by exact PromQL semantics, label filters and freshness."
+}
