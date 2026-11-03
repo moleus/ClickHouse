@@ -52,8 +52,20 @@ def stage_labels(stage_index):
 def records(total=TOTAL_SERIES,seed=20261104,association='owner_hierarchy'):
     if not (COUNTS["stage"]<=total<=5_000_000):
         raise ValueError("Synthetic R33 census size outside bounds")
-    if association not in ("owner_hierarchy","counterfactual_independent_project"):
+    if association not in ("owner_hierarchy","counterfactual_independent_project",
+                           "counterfactual_shuffled_project"):
         raise ValueError("Unknown R33 label-dependency model")
+    if association=="counterfactual_shuffled_project":
+        if total!=TOTAL_SERIES:
+            raise ValueError("Histogram-preserving shuffle only supports exact VMUI census")
+        base=list(records(total=total,seed=seed,association="owner_hierarchy"))
+        pairs=[(x["tags"]["project"],x["tags"]["jenkins_job"]) for x in base]
+        random.Random(seed+6001).shuffle(pairs)
+        for row,(project,job) in zip(base,pairs):
+            row["tags"]["project"]=project
+            row["tags"]["jenkins_job"]=job
+            yield row
+        return
     rng=random.Random(seed)
     for ordinal in range(total):
         # 1447 coprime to 1448, so every stage occurs exactly once
@@ -127,6 +139,7 @@ def generate(path,total=TOTAL_SERIES,association='owner_hierarchy'):
 
 def validate(path,manifest):
     observed={k:set() for k in COUNTS}
+    frequencies={k:Counter() for k in COUNTS}
     stage_to_owner={}
     stage_project_sets=defaultdict(set)
     cooccurrence=Counter()
@@ -141,7 +154,9 @@ def validate(path,manifest):
             if row["metric_name"]!=METRIC:raise ValueError("Metric identity mismatch")
             tags=row["tags"]
             if set(tags)!=set(COUNTS):raise ValueError("Unexpected label name set")
-            for k in COUNTS:observed[k].add(tags[k])
+            for k in COUNTS:
+                observed[k].add(tags[k])
+                frequencies[k][tags[k]]+=1
             immutable=tuple(tags[k] for k in (
                 ("app","app_name","project","jenkins_job")
                 if manifest.get("association_mode","owner_hierarchy")=="owner_hierarchy"
@@ -172,7 +187,14 @@ def validate(path,manifest):
             "stage_count":stage_counts[stage],
             "intersection":cooccurrence[(stage,nominal_project)]
         })
-    return {"rows":n,"marginals":cardinalities,"distinct_stage_owners":len(stage_to_owner),
+    marginal_frequency_sha256={
+        k:hashlib.sha256(json.dumps(sorted(values.items()),
+              separators=(",",":"),ensure_ascii=True).encode()).hexdigest()
+        for k,values in frequencies.items()
+    }
+    return {"rows":n,"marginals":cardinalities,
+            "marginal_frequency_sha256":marginal_frequency_sha256,
+            "distinct_stage_owners":len(stage_to_owner),
             "distinct_full_label_keys":len(full_keys),"hash":h.hexdigest(),
             "stage_projects_min":min(len(x) for x in stage_project_sets.values()),
             "stage_projects_max":max(len(x) for x in stage_project_sets.values()),
@@ -190,7 +212,8 @@ def main():
     p.add_argument("--manifest",required=True)
     p.add_argument("--series",type=int,default=TOTAL_SERIES)
     p.add_argument("--association",default="owner_hierarchy",
-                   choices=("owner_hierarchy","counterfactual_independent_project"))
+                   choices=("owner_hierarchy","counterfactual_independent_project",
+                            "counterfactual_shuffled_project"))
     args=p.parse_args()
     if args.series!=TOTAL_SERIES:
         raise ValueError("R33 snapshot proxy must use exact observed 53,205 series")
