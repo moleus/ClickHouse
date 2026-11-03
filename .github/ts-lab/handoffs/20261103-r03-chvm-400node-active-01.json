@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "session_id": "r03-400node-vm-vs-ch-concurrent-20261103-01",
+  "status": "active",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "question_id": "R03",
+  "canonical_claim_id": "R03-k8s-400node-native-vm-concurrency-v1",
+  "last_verified_utc": "2026-11-03T11:12:01.572Z",
+  "summary": "Comparing actual complete native PromQL output and resource cost for identical R01 400-node 3d 15/60/300s series in pinned stock ClickHouse O1 RAW UUID vs VM1.134.0, at 1/4/8 concurrent clients. First CI 41623609320 intentionally failed validity gates with 10/12 completed pairs; corrected 64-wave CI 41624246411 still running. No C++ recompile, no running jobs cancelled.",
+  "completed": [
+    "Reserved R03 root (d95eb81) and primary claim; repaired initial missing required fields after validator failure 41623275046, verified contract pass 41623701429.",
+    "Created exact VM Prometheus importer .github/ts-lab-r03/import_k8s_mixed_vm.py: fixture SHA ea9a8d43..., 28,896 series, 2,488,320 actual original points, 139 HTTP POSTs, 552,172,658 Prometheus text bytes; last-day node source sample count 576,000 independently confirmed in VM.",
+    "Created .github/ts-lab-r03/bench_native_vm_concurrency.py, self-path-only new workflow ts-lab-r03-ch-vm-k8s-concurrent-20261103.yml, and methodology/source comparison files; stock O1 binary from run41596421285, VM v1.134 from run41288854734.",
+    "First CI41623609320 confirmed all 4 exact independent cross-engine oracles (nonempty labels/timestamps/values), largest abs difference1.6653345369377348e-16; recorded 10 of12 ABBA pairs, some valid diagnostic VM/CH ratios.",
+    "Failure cause and all 10 raw summaries preserved in .github/ts-lab/evidence/R03-first-censored-41623609320.json. Some VM 8-client QPS control drift27%, 1-client process CPU jiffy drift29%, short phase RSS observer overhead >2%, abort. CI failure is NOT a usable complete ranking.",
+    "Corrected script commit4357002c and workflow commit3beeda9: 64 measured waves (not8), no live RSS poll, begin/end RSS and VmHWM snapshots, per-thread schedstat CPU nanoseconds, both-engine A/A p50/QPS/CPU gates <=25%; run 41624246411 is in progress.",
+    "Source audit: pinned CH StorageTimeSeriesSelector.cpp uses TAGS/TimeRanges then samples ID set; VM1.134 index_db.go uses cached tag filter MetricID lookup and adaptive filter intersection. No direct CPU hotspot or lock attribution claimed; R05 owns mark pruning.",
+    "Appended error methodology M40 invalid primary claim schema and M41 invalid short benchmark method. Recorded R03 methodological scope and limits: CH LLVM O1 glibc vs production VM, no identical RSS cap, one 3d aligned synthetic fixture, potential VM internal index caches."
+  ],
+  "negative_results": [
+    "DO NOT treat first R03 run CI failure as overall success; 10 completed comparisons only and 2 incomplete/invalid controls.",
+    "Do not attribute comparative speedups solely to CH postings or VM index; source-based hypotheses are not measured per-operation CPU.",
+    "Do not call CH O1 vs optimized VM release a production-normalized benchmark, and do not infer 14d/8-client survival from 3d.",
+    "No cancellation or new C++ compilation; jemalloc build 41607779848 was last seen Compile one executable."
+  ],
+  "active_run_ids": [
+    41624246411,
+    41607779848
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "fixture_sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+  "relevant_paths": [
+    ".github/ts-lab/INDEX.md",
+    ".github/ts-lab/claims/roots/R03.json",
+    ".github/ts-lab/claims/R03-k8s-400node-native-vm-concurrency-v1.json",
+    ".github/ts-lab-r03/import_k8s_mixed_vm.py",
+    ".github/ts-lab-r03/bench_native_vm_concurrency.py",
+    ".github/workflows/ts-lab-r03-ch-vm-k8s-concurrent-20261103.yml",
+    ".github/ts-lab/evidence/R03-first-censored-41623609320.json",
+    ".github/ts-lab-r03/METHODOLOGY_AND_LIMITS_20261103.md",
+    ".github/ts-lab-r03/READ_PATH_SOURCE_DIFFERENCES_20261103.md"
+  ],
+  "next_action": {
+    "step": "Inspect CI41624246411 job logs and artifact when completed, parse R03_DONE and each A/B/B/A case. Check all 12 comparisons, exact four oracles, missing errors, both-engine p50/QPS/schedstat CPU A/A drift<=25%, same physical CH parts, VM last-day 576000 visibility, no OOM. If success, create new immutable evidence under .github/ts-lab/evidence/R03-...json and append INDEX, report VM vs CH p50/p95/p99/CPU/QPS for 1/4/8 with O1+glibc confounds. If failed, preserve exact errors and do not infer global gains. Do not modify R05 or R10 owners. Keep jemalloc CI running.",
+    "stop_condition": "No C++ rebuild, no master/production mutations, no overlapping root, no prompt to click GitHub grant until connector really fails. Never cancel ongoing jemalloc or another agent workflow."
+  }
+}
