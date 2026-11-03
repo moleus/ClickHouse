@@ -59,7 +59,7 @@ def type_safe_fingerprint(ids,case,mode,runid):
     return fetch_one(
         "SELECT count() AS rows,uniqExact(r31_id) AS ids,"
         "sum(sipHash64(r31_id)) AS hash_sum,"
-        "sum(cityHash64(toString(r31_id))) AS city_sum "
+        "sum(sipHash64(r31_id, 'r31-independent')) AS hash_sum_alt "
         f"FROM ({named}) SETTINGS {SETTINGS}",
         f"r31large_fp_{case}_{mode}_{runid}"
     )
@@ -176,7 +176,7 @@ def main():
                 rec["first_64_samples"]=sampled_output_digest(selector,case,mode,runid)
                 record["versions"][mode]=rec
                 save(folder/"report.json",report)
-            for field in ("ids","hash_sum","city_sum"):
+            for field in ("ids","hash_sum","hash_sum_alt"):
                 values={mode:x[field] for mode,x in record["versions"].items()}
                 if len(set(str(v) for v in values.values()))!=1:
                     raise ValueError(f"{case} mismatched {field}: {values}")
