@@ -47,7 +47,7 @@ FACTORS={
     "zstd_level_with_alp":("alp_z3","alp_z1"),
     "zstd_level_without_alp":("raw_z3","raw_z1")
 }
-CASES=("pod_namespace","node_broad","burst15")
+CASES_DEFAULT=("pod_namespace","node_broad","burst15")
 SOURCE_SHA="52529f0c711566d696917678bf15e7068772fdde"
 BINARY_SHA="f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e"
 SHA={
@@ -247,7 +247,7 @@ def main():
     p.add_argument("--pattern",choices=tuple(SHA),required=True)
     p.add_argument("--pid-file",required=True)
     p.add_argument("--output",required=True)
-    p.add_argument("--cases",choices=CASES,nargs="+",default=list(CASES))
+    p.add_argument("--cases",choices=CASES_DEFAULT,nargs="+",default=list(CASES_DEFAULT))
     args=p.parse_args()
     global PREFIX
     PREFIX+=args.pattern+"_"
