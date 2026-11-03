@@ -33,6 +33,10 @@ INPUT_TAGS=3+EXTRA_LABELS
 EXPECTED_TAGS=INPUT_TAGS+1  # metric __name__ is added by pinned source
 TABLE='tslab_r23_tag_order'
 METRIC='tslab_r23_tag_order_gauge'
+EXPECTED_CANONICAL_SHA='826f8d12e7051d8b8c0ebc2f79d201c205fdd2ee9d4ae58e69534375963cf458'
+EXPECTED_SORTED_WIRE_SHA='ec128e6c74402d095c59c79f8f352ef4a0f48e0839dce730baa0f6ed7796ff64'
+EXPECTED_SHUFFLED_WIRE_SHA='6c73ffea74efc9d92ea78996a7075e514b83c98b5f2411d7ed9839939480af49'
+EXPECTED_WIRE_BYTES=39980232
 PHASES=(('A0','sorted'),('B1','shuffled'),('B2','shuffled'),('A3','sorted'))
 WARMUP=3
 MEASURED=6
@@ -106,6 +110,11 @@ def fixture():
     if changed<(SERIES*BATCHES)*.95:
         raise AssertionError('Too few JSON rows had a different tag key order')
     wire={v:wire_hasher[v].hexdigest() for v in all_blocks}
+    if semantics['sorted']!=EXPECTED_CANONICAL_SHA or \
+       wire['sorted']!=EXPECTED_SORTED_WIRE_SHA or \
+       wire['shuffled']!=EXPECTED_SHUFFLED_WIRE_SHA or \
+       lengths['sorted']!=EXPECTED_WIRE_BYTES:
+        raise AssertionError('R23 generated fixture differs from independently SHA-pinned source bytes')
     if wire['sorted']==wire['shuffled']:
         raise AssertionError('Map key order did not affect wire byte encoding')
     proof={'canonical_sha256':semantics['sorted'],
@@ -133,7 +142,7 @@ def count_with_stable_id_fingerprint(endpoint,table):
         raise AssertionError('Missing canonical TAGS ID+Map rows in physical table')
     physics['tags']['canonical_id_and_tags_sha256']=hashlib.sha256(normalized.encode()).hexdigest()
     shapes=r21.base.sql(endpoint,
-        'SELECT min(length(tags)),max(length(tags)) FROM '+inner+' FORMAT TSV').strip().split('\t')
+        'SELECT min(length(mapKeys(tags))),max(length(mapKeys(tags))) FROM '+inner+' FORMAT TSV').strip().split('\t')
     if len(shapes)!=2 or [int(x) for x in shapes]!=[EXPECTED_TAGS,EXPECTED_TAGS]:
         raise AssertionError(f'Stored tag count differs from expected {EXPECTED_TAGS}: {shapes}')
     physics['tags']['normalized_map_labels']=EXPECTED_TAGS
