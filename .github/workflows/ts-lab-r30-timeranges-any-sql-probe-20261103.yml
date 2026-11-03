@@ -92,6 +92,10 @@ jobs:
           python3 .github/ts-lab-r30/bench_timeranges_any_sql.py \
             --out evidence/r30-any --log evidence/r30-server.log \
             --series 4096 --updates 16 | tee evidence/r30-result.log
+      - name: Confirm explicit non-shadowing ID alias in probe before reduction
+        if: always()
+        run: |
+          grep -n 'AS r30_id' .github/ts-lab-r30/bench_timeranges_any_sql.py || true
       - name: Record status independently of CI exit code
         if: always()
         run: |
