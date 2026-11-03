@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "question_id": "R24",
+  "primary_claim_id": "R24-equal-wire-bytes-tag-map-cardinality-cost-v1",
+  "owner": "chatgpt-r24-label-count-20261103",
+  "scope": "Measure effect of tags Map key/value PAIR COUNT (8 vs 36 input tags, 9 vs 37 normalized including __name__) on stock TimeSeries v11 ingest process CPU and exact native PromQL, while holding identical 4096 series x24 timestamps/sample values, every JSON row byte length and total payload bytes, stable row order, same 1MiB 3600s cache, same RAW_UUID binary and source. Values in one padding label vary to make equal wire size, so the source-level variable is number/distribution of tag fields at constant bytes, not exclusive std::sort cycles. Save full data correctness, physical compression, TAGS cache hits/misses, read rows/bytes, process CPU and RSS; no extra physical index, no C++ build. Distinct from R23 Map KEY ORDER, R21 cache working set, R22 cache expiry, R19 TAGS retention, R18 SAMPLES codec, R20 native aggregation, R07 active ID sidecar.",
+  "allowed_support_claims": [],
+  "source_proof": "Pinned TimeSeriesSink::fillTagsColumns loops over each incoming Map label, sorts and hashes the normalized tags for every row before cache lookup, so map cardinality may affect ingest cost even when bytes and cache hits remain equal. The test includes JSON parsing/ID hash/storage overhead; does not isolate std::sort exclusive CPU.",
+  "created_utc": "2026-11-03T15:25:00Z"
+}
