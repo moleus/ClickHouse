@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "session_id": "r17-r18-output-codec-20261103-01",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "deb08e68ac3821ce9437f07bfadafc40c3dec1a4",
+  "last_verified_utc": "2026-11-03T12:05:00Z",
+  "question_id": "R18",
+  "summary": "On unified lab branch, completed independent native output-format CPU floor R17 and 3-distribution native SAMPLES Float64 value codec R18. R17 proved tiny JSON output is not dominant CPU, and R18 found strong physical storage codec crossover: ZSTD1 -35.6% repetitive, -16.6% smooth, +2.7% high-entropy vs ALP, with CPU selector-dependent. No global codec promotion or C++ build; two invalid method gates retained; jemalloc build left untouched.",
+  "completed": [
+    "R17 root/primary claim, .github/ts-lab-r17/bench_native_output_floor.py and self-path CI 41628966700 SUCCESS, 416 native JSON/Null A/B/B/A; full exact JSON PromQL parity and same physical rows/marks. Namespace QueryFinish CPU JSON94.337ms vs Null93.260ms and burst67.899ms vs68.010ms. Broad Null slower. Artifact ZIP SHA256 2276b147331c9393dc57652dd907762ad03cd6caf6ef26ec3dd3a50798816892. Full record: .github/ts-lab/evidence/R17-output-format-cpu-41628966700.json. Source report: .github/ts-lab-r17/NATIVE_OUTPUT_CPU_ATTRIBUTION_20261103.md.",
+    "R18 root/claim R18-timeseries-samples-value-codec-v1, script+workflow on same source; valid CI 41630585794 SUCCESS with 320 trial+warmup queries, eight complete native ABBA, one unchanged 400-node 3d fixture, 2,488,320 values and same RAW_UUID ID hash and all physical parts. SAMPLES compressed bytes ALP5,303,391, ZSTD1 3,414,486, LZ4 3,773,263. Namespace CPU ALP36.886->ZSTD1 40.558ms (+10.0% vs 0.80% drift), broad-node CPU115.136->108.109ms (-6.1% vs3.85% drift). Artifact 13228102138 ZIP SHA256 6d2723031f822b3aa9838cef66002b83291c133235f78d08e9ddc24d4f694a89. Full record .github/ts-lab/evidence/R18-samples-value-codec-41630585794.json.",
+    "R18 source-varying Float64 holdout generator and path-only matrix workflow, CI 41631747983 both smooth/entropy jobs SUCCESS with four full-native ABBA selectors per job and same meta shape. Deterministic fixture SHAs smooth fd380b0fb4b60f62ef3d100ffe6e0c865935ce5f71f585202b670439f22ad2b2 and entropy 4b81b190cbcff7af58682e8c023cebfad22e3bb98afb591d8b2d9928eade9d57. SAMPLES smooth ALP4,718,192B vs ZSTD1 3,937,064B (ZSTD1 -16.6%); entropy ALP19,686,139B vs ZSTD1 20,216,284B (ALP -2.6%). Entropy namespace CPU ALP107.805->ZSTD1 99.317ms (-7.9% vs1.60% CPU A/A drift). Smooth artifact13228487441 SHA91390698faf5afa5239ebaa460b371487d15fc0e49d5a59415cb62bd1ebd7cd5, entropy artifact13229225029 SHA00e55c4ea87083f83e41f91e7a171e5e044c8ae69e402f770750305dba56b1e2. Evidence .github/ts-lab/evidence/R18-value-pattern-holdout-41631747983.json and report .github/ts-lab-r18/HELDOUT_VALUE_DISTRIBUTIONS_20261103.md.",
+    "Updated canonical .github/ts-lab/INDEX.md, CPU checkpoint and M42 failure ledger. Actual codec DDL checked via SHOW CREATE for default ALP,ZSTD3 and override ZSTD1/LZ4; timestamp codec Delta(8),T64,ZSTD3. All native parity/physical gates passed. R17 EPYC9V74, R18 first EPYC9V45, R18 heldout EPYC7763; cross-run absolute CPU prohibited.",
+    "R16 earlier VM cap 165000 and R03 engine comparison already completed by other agents. Do not duplicate or claim equal production optimization; VM tuned release vs CH O1 lab is an important confound."
+  ],
+  "negative_results": [
+    "R17 FORMAT Null did not substantially reduce CPU for selective low-result-count TimeSeries queries. Broad Null even increased CPU, so output format change is not pure serialization function profiling. Trace sample categories from one representative query are diagnostic, not critical-path/mutex evidence.",
+    "R18 ZSTD1 has robust +10.0% CPU regression on original repetitive-gauge pod_namespace, despite -35.6% SAMPLES storage. R18 high-entropy input reverses compressed storage sign: ALP smaller by2.7%. No global codec switch.",
+    "R18 first run 41630357537 FAIL due invalid *benchmark parser* expecting unquoted samples.value/Delta, while SHOW CREATE prints quoted backticks and Delta(8). No speed evidence from first CI; corrected 41630585794 PASS and recorded as M42.",
+    "Original jemalloc build 41607779848 remained in progress at Compile one executable during latest check. No binary/artifact evidence yet; no cancellation or rebuild.",
+    "One unpaired ingest+OPTIMIZE per codec only; process-wide CPU includes other tasks and cannot establish natural steady-state write/merge improvements.",
+    "Optimized production ClickHouse + jemalloc versus optimized VictoriaMetrics remains unmeasured in these R17/R18 runs."
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "parent_fixture_sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+  "active_run_ids": [
+    41607779848
+  ],
+  "relevant_paths": [
+    ".github/ts-lab/INDEX.md",
+    ".github/ts-lab/METHODOLOGY_AND_FAILURES.md",
+    ".github/ts-lab-cpu/RESEARCH_CHECKPOINT_20261103.md",
+    ".github/ts-lab/claims/roots/R17.json",
+    ".github/ts-lab/claims/roots/R18.json",
+    ".github/ts-lab/evidence/R17-output-format-cpu-41628966700.json",
+    ".github/ts-lab/evidence/R18-samples-value-codec-41630585794.json",
+    ".github/ts-lab/evidence/R18-value-pattern-holdout-41631747983.json",
+    ".github/ts-lab-r17/NATIVE_OUTPUT_CPU_ATTRIBUTION_20261103.md",
+    ".github/ts-lab-r18/VALUE_CODEC_NATIVE_READ_WRITE_20261103.md",
+    ".github/ts-lab-r18/HELDOUT_VALUE_DISTRIBUTIONS_20261103.md",
+    ".github/workflows/ts-lab-r18-value-pattern-holdout-20261103.yml"
+  ],
+  "blocked_by": [
+    "R18 source test fixtures only reflect aligned synthetic 3-day gauges; need production-like entropy, quantization, NaN/Inf and rate/counter resets before global codec policy.",
+    "No valid steady write/merge/cold-read/multi-client comparison for varying codecs, and existing R02 owns steady write methodology; reuse its helper rather than create duplicate primary question.",
+    "R03 has stock O1 versus optimized VM compiler confound. Separate jemalloc O1 C++ build 41607779848 running; no duplicate compilation or cancellation.",
+    "Other root claims own R05 ID marks, R07 metadata, R10 bucket step, R14 grid rollup, R15 time partitions; do not collide."
+  ],
+  "next_action": {
+    "question_id": "R18",
+    "step": "On next session refresh HEAD, roots and GitHub CI. Scientific answer from R18 is complete for three synthetic Float64 value families. Only continue R18 by collecting source-backed realistic Float64 entropy/staleness/counter/NaN distribution and one matched paired writer/merge plus read-concurrency test on same optimized/allocator binary if capacity is available. Do not globally switch ALP to ZSTD(1) or LZ4. If jemalloc build41607779848 has an artifact, verify SHA and USE_JEMALLOC before using; otherwise do not cancel or restart. Inspect R05/R07/R14/R15 current evidence before choosing a different root.",
+    "stop_condition": "Do not stack unsafe LC decoder patch, edit master/production/old branches, cancel running C++, claim cross-runner speed, infer contention from CPU samples, or launch a duplicate expensive experiment. All outputs must preserve native PromQL parity and ABBA drift gates."
+  }
+}
