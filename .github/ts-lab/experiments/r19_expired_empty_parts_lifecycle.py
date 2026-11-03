@@ -140,6 +140,12 @@ def main():
         if after_opt['old_rows']!=0 or after_opt['live_rows']!=ttl.LIVE:
             raise AssertionError('OPTIMIZE changed live/expired sample validity')
         final_native=assert_native(a.endpoint,'post_optimize')
+        # AggregateTree TimeRanges can have multiple physical rows per ID
+        # until merge. Match semantics with R19 prior resurrection test.
+        for kind in ('tags','timeranges'):
+            ttl.request(a.endpoint,
+                'OPTIMIZE TABLE '+ttl.named(ttl.table_inner(a.endpoint,kind))+
+                ' FINAL SETTINGS optimize_throw_if_noop=0')
         report['checks']['final']={
             'native':final_native,
             'samples_rows':ttl.counts(a.endpoint,'samples'),
