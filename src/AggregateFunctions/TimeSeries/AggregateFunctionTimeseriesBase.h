@@ -445,6 +445,26 @@ protected:
         /// grid point's window reaches it. When most bucket slots are populated (`use_range_scan`) looking each
         /// index up in the hash map is cheaper than sorting; otherwise collect the populated buckets and sort them once.
         /// A map with fewer cells than `bucket_count` wraps the keys into clusters, and looking up an absent key walks one.
+        /// A sparse series often has only one populated bucket. Avoid allocating and
+        /// sorting an ordered-buckets vector for this common case; retain the same
+        /// sliding aggregator and the same per-grid-point result calculation.
+        if (buckets.size() == 1)
+        {
+            const auto & only_bucket = *buckets.begin();
+            bool added = false;
+            for (size_t grid_index = 0; grid_index < grid_size; ++grid_index)
+            {
+                if (!added && only_bucket.getKey() < bucketRangeInWindow(grid_index).second)
+                {
+                    aggregator.add(only_bucket.getMapped(), bucketEnd(only_bucket.getKey()));
+                    added = true;
+                }
+                removeOutOfWindow(aggregator, grid_index);
+                writer.store(grid_index, derived().getGridPointResult(aggregator, place, grid_index));
+            }
+            return;
+        }
+
         const size_t num_cells = buckets.getBufferSizeInBytes() / sizeof(typename std::remove_cvref_t<decltype(buckets)>::cell_type);
         const bool use_range_scan = (buckets.size() != 0) && num_cells >= bucket_count
             && (static_cast<double>(buckets.size()) >= static_cast<double>(bucket_count) * BUCKET_DENSITY_TO_ENABLE_RANGE_SCAN);
