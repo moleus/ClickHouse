@@ -1,0 +1,17 @@
+{
+  "id": "R34-sparse-grid-map-capacity-v1",
+  "question": "Does matching initial grid-state hash capacity to sparse series reduce native CPU and memory without dense-query regressions?",
+  "owner": "chatgpt-e05-r34-sparse-grid-capacity-20261104",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "R29 LLVM 22.1.8 O2 jemalloc stock binary, sha256 5d629ddfda91919402fdf8475ec3da9fe718d48ef386bc51be677264df6dc9ef",
+  "candidate": "Only TimeSeriesBucketsHashTableGrower: initial degree 4 -> 1, reserve starts at 1, maxFill becomes bufSize()/2 + bufSize()/4. No R32 finalizer or other lab patch.",
+  "fixture": "Exact same stored TimeSeries snapshot and generated native PromQL for stock and candidate. Sparse high-cardinality and dense multi-bucket negative controls. Publish generator, query, physical hashes and binary identities.",
+  "single_variable": "Initial bucket-map capacity, with corrected 3/4 fill arithmetic for two-cell maps",
+  "math_bound": "Singleton main-buffer bytes 16*C -> 2*C, where C=sizeof(cell); saves 14*C per live state. Key zero is stored separately, and end-to-end savings must be measured. At capacity>=4, fill threshold is unchanged.",
+  "falsifier": "Any oracle difference, malformed-state acceptance regression, absent-key loop, dense regression beyond drift, OOM, source/flags mismatch, or no useful total CPU/RSS benefit",
+  "test_matrix": "zero/nonzero key; one/many populated buckets; empty/single/overlapping grids; merge/state roundtrip; NaN/Inf and duplicate samples; native sparse stage/project/whole plus dense negative controls; fresh-server ABBA",
+  "runner_budget": "One incremental O2 build with existing ccache, then local 4-vCPU/4-GiB benchmark. No duplicate builds or cancellation.",
+  "planned_workflow": ".github/workflows/ts-lab-r34-sparse-map-o2-20261104.yml",
+  "dependencies": ["R08", "R29"]
+}
