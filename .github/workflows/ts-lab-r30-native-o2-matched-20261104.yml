@@ -66,14 +66,14 @@ jobs:
           chmod +x "$RUNNER_TEMP/r30-any-bin/clickhouse"
           "$RUNNER_TEMP/r30-any-bin/clickhouse" --version | tee evidence/r30-native/any-version.txt
           sha256sum "$RUNNER_TEMP/r30-stock-bin/clickhouse" "$RUNNER_TEMP/r30-any-bin/clickhouse" > evidence/r30-native/binary-comparison-sha256.txt
-      - name: Full native PromQL ABBA preserving Atomic symlinks in each restored snapshot
+      - name: Full native O2 stock ANY cold-merged snapshot ABBA with Atomic symlink parity
         run: |
           set -euo pipefail
           python3 -u .github/ts-lab-r30/bench_native_any_o2_matched.py \
             --stock "$RUNNER_TEMP/r30-stock-bin/clickhouse" \
             --candidate "$RUNNER_TEMP/r30-any-bin/clickhouse" \
             --work "$RUNNER_TEMP/r30-native-work" \
-            --out evidence/r30-native --series 4096 --updates 16 \
+            --out evidence/r30-native --series 4096 --updates 16 --profile merged \
             | tee evidence/r30-native-run.log
       - name: Record scientific conclusion independently of workflow success
         if: always()
