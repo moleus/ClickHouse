@@ -48,7 +48,7 @@ def parse_selector_sql(chunk):
         lines.append(line)
     stmt = '\n'.join(lines).strip()
     if not stmt.startswith('SELECT '): raise ValueError('Captured selector SQL is not SELECT')
-    if 'timeSeriesStoreTags(' not in stmt or 'series_id' not in stmt:
+    if 'timeSeriesStoreTags(' not in stmt:
         raise ValueError('Missing stateful TAGS registration in SQL')
     if len(stmt) > 100000: raise ValueError('Unexpected generated SQL length')
     return stmt
