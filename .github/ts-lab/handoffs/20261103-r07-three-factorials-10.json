@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "session_id": "r07-source-pinned-native-sql-factorials-20261103-10",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "96c6a8d3748327f678e3c8d195a9e4a31d1b9714",
+  "last_verified_utc": "2026-11-03T11:45:24.180Z",
+  "question_id": "R07",
+  "summary": "Three valid same-runner native-vs-SQL and metadata-source-vs-sidecar factorials over 70k/14d stock O1 synthetic gauge prove conditional ~1.55x 14d full-native-to-no-index SQL benefit and selective sidecar effects; global plan or index promotion rejected. All CI and artifacts source/fixture pinned, negative methods preserved.",
+  "completed": [
+    "R15 native day SAMPLES #41625086352 PASS: direct 1d marks273->20, full-native broad1d wall1.23x; TAGS/TimeRanges unchanged ~140k rows.",
+    "R07 day-cover pure Python oracle and source-exact R01 400-slot math #41627103046 12/12 PASS, aligned28896 vs staggered32424 sidecar rows, no native speed claim.",
+    "R07 stock O1 SQL sidecar initial smoke #41628124443 PASS, sidecar 70k rows/14 parts/1.548392MB compressed; four exact native-to-SQL finite-gauge parity cases.",
+    "R07 ABBA native vs daycover SQL #41628618648 PASS, broad14d 2.9715x, broad3d2.3436x, stage1d1.7326x, broad1d neutral; operator/metadata source both changed, cannot attribute all to sidecar.",
+    "R07 ABBA original TAGS SQL vs daycover SQL #41629085028 PASS, stage1d cover1.479x, broad3d cover1.717x, broad1d cover 19% slower, 14d cover4% slower/inconclusive with 18.7% baseline A/A drift.",
+    "R07 ABBA native vs direct SQL on ORIGINAL TAGS (no sidecar) #41629492828 PASS, broad14d native p50 395.89->SQL254.865ms (1.553x), CPU786.50->405.29ms, query peak101.27->38.38MB, same210000 read rows and298 marks. Broad1d no-cover SQL2.53x slower, broad3d1.81x slower; global rewrite rejected.",
+    "All three matched source/ABI/fixture experiments use O1 binary SHA f0a2fa1..., 4 cases x 4 phases x 2 warmup+4 measured, full 38 or1 stage native label/time/float parity, within-runner <=25% A/A drift. Cross-runner absolute values not pooled. Raw artifact ZIP SHA256 captured in immutable evidence.",
+    "Published .github/ts-lab/evidence/R07-sql-sidecar-abba-41628618648.json, R07-tags-vs-cover-sql-41629085028.json and R07-native-vs-tags-no-cover-41629492828.json, plus standalone detailed R07_NATIVE_VS_SQL_FACTORIAL_20261103.md and INDEX.md."
+  ],
+  "negative_results": [
+    "CI 41628463197 ABBA script first failed NameError missing import os; corrected import only commit 94687f8b434fd448a67be82a5cae4db8b051c48f; run retained.",
+    "CI 41626607817 R07 sample-day model initially asserted continuous1.125 vs discrete1.1243056 for minute-cadence 3h; corrected and subsequently CI 41626770898/41627103046 passed.",
+    "R15 broad14d day-partition alone no p50 benefit; exact stage14d ~3.4% slower; do not promote day partitions globally.",
+    "R07 broad1d extra day-cover metadata reduces SQL read_rows150k->30k but worsens p50 31.47->37.42ms and CPU38.03->42.28ms; fewer rows/bytes do not imply faster wall.",
+    "R07 broad14d sidecar same-shape SQL p50 55.09->57.5ms, not a proven advantage and A/A control drift18.7%; 14d direct SQL benefit without sidecar shows a query-path effect, not an index improvement.",
+    "R07 no-sidecar TAGS SQL broad1d regresses 2.53x and broad3d regresses1.81x; cannot deploy unconditional native rewrite.",
+    "Pure finite-float, one sample/series gauge subset only. No actual multi-sample staleness/duplicate/NaN/histogram/regex or production ACL/replication proof, no steady sidecar write/merge cost, no p99 throughput or production jemalloc test."
+  ],
+  "active_run_ids": [
+    41607779848
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "fixture_sha256": "351dff6b4f49986bb7f0f586459b86b918d99fd4d4cbb0b3293b4dfa680a8efb",
+  "relevant_paths": [
+    ".github/ts-lab/claims/roots/R07.json",
+    ".github/ts-lab/claims/R07-time-day-covering-metadata-v1.json",
+    ".github/ts-lab/experiments/R07_TIME_DAY_COVERED_METADATA_20261103.md",
+    ".github/ts-lab/experiments/R07_NATIVE_VS_SQL_FACTORIAL_20261103.md",
+    ".github/ts-lab/experiments/r07_native_cover_sql_smoke.py",
+    ".github/ts-lab/experiments/r07_tags_vs_cover_sql.py",
+    ".github/ts-lab/experiments/r07_native_vs_tags_sql.py",
+    ".github/ts-lab/evidence/R07-sql-sidecar-abba-41628618648.json",
+    ".github/ts-lab/evidence/R07-tags-vs-cover-sql-41629085028.json",
+    ".github/ts-lab/evidence/R07-native-vs-tags-no-cover-41629492828.json",
+    ".github/ts-lab/INDEX.md"
+  ],
+  "blocked_by": [
+    "Native PromQL route remains unmodified: specialized SQL path does not show exact equivalence for multiple samples/series, repeated same timestamps, stale marker NaN and other PromQL functions or many evaluation grid steps.",
+    "Same runner cannot isolate full native vs SQL and sidecar alone across all three experiments combined. Only within-runner A/B/B/A effects are accepted.",
+    "Source-pinned QUERY/processor critical path attribution and explicit COLUMN READ/decoder profiling not done; cannot claim group tag or memory primary cause yet.",
+    "No 1/4/8 client throughput with stable/concurrent writes or production workload. Sidecar revision/ACL safety missing and extra writes/parts may outweigh read benefit."
+  ],
+  "next_action": {
+    "question_id": "R07",
+    "step": "Use the existing R01 400-node staggered mixed multi-sample fixture (15/60/300s series, 2.488m samples), same stock O1 server and no-sidecar SQL only, with native nonempty label/time/value parity across 1/3-day range, boundary and duplicated samples, incremental writes/merges. Capture per-operator CPU and column-read bytes in one same-runner ABBA; only if source and mathematical conditions plus memory and long-window cost model hold consider guarded planner specialization. Do not duplicate R05 or R02 owners.",
+    "stop_condition": "If real multi-sample native parity fails or NaN/stale/duplicate/ACL semantics differ, reject general rewrite and record exact mismatches; reject if broad1d/3d regress or RSS/OOM, don't add new C++ build unless safe selectivity/range admission proven."
+  }
+}
