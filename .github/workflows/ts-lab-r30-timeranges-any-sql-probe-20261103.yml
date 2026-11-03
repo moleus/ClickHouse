@@ -1,0 +1,116 @@
+name: R30 TimeRanges ALL vs ANY membership SQL equivalence
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r30-timeranges-any-sql-probe-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-r30-any-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Validate source symlink and R30 script tests before downloading binary
+        run: |
+          set -euo pipefail
+          test "$(readlink AGENTS.md)" = ".claude/CLAUDE.md"
+          test "$(git ls-files -s AGENTS.md | awk '{print $1}')" = 120000
+          python3 -m py_compile .github/ts-lab-r30/*.py .github/ts-lab-r06/probe_nested_selector_plan.py
+          python3 -m unittest discover -s .github/ts-lab-r30 -p 'test_*.py' -v
+          mkdir -p evidence
+      - name: Download source and SHA verified O1 binary; never compile or alter other builds
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r30-art" "$RUNNER_TEMP/r30-bin"
+          gh run download 41531656434 -R "$REPO" --pattern 'tslab-cbo-join-override-binary-*' -D "$RUNNER_TEMP/r30-art"
+          archive="$(find "$RUNNER_TEMP/r30-art" -name 'clickhouse-cbo-join-override-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/verified-archive.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r30-bin"
+          (cd "$RUNNER_TEMP/r30-bin" && sha256sum -c SHA256SUMS) | tee evidence/verified-binary.txt
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r30-bin/BUILD_INFO.txt"
+          grep -q 'optimization=O1' "$RUNNER_TEMP/r30-bin/BUILD_INFO.txt"
+          echo "3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221  $RUNNER_TEMP/r30-bin/clickhouse" | sha256sum -c
+          cp "$RUNNER_TEMP/r30-bin/BUILD_INFO.txt" evidence/BUILD_INFO.txt
+          chmod +x "$RUNNER_TEMP/r30-bin/clickhouse"
+          "$RUNNER_TEMP/r30-bin/clickhouse" --version | tee evidence/version.txt
+          sha256sum "$RUNNER_TEMP/r30-bin/clickhouse" | tee evidence/binary.sha256
+      - name: Isolated TimeSeries server with debug selector SQL logging
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r30/data" "$RUNNER_TEMP/r30/tmp" "$RUNNER_TEMP/r30/userfiles"
+          cat > "$RUNNER_TEMP/r30-config.xml" <<EOF
+          <clickhouse>
+            <logger><level>debug</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host>
+            <http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/r30/data/</path>
+            <tmp_path>$RUNNER_TEMP/r30/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/r30/userfiles/</user_files_path>
+            <max_server_memory_usage>4000000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default>
+              <allow_experimental_time_series_table>1</allow_experimental_time_series_table>
+              <enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions>
+              <log_queries>1</log_queries>
+              <log_processors_profiles>1</log_processors_profiles>
+              <max_memory_usage>2000000000</max_memory_usage>
+              <max_threads>4</max_threads>
+            </default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <processors_profile_log><database>system</database><table>processors_profile_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></processors_profile_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/r30-bin/clickhouse" server --config-file="$RUNNER_TEMP/r30-config.xml" >evidence/r30-server.log 2>&1 &
+          echo "$!" >evidence/server.pid
+          for trial in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then
+              echo "R30_SERVER_READY"
+              exit 0
+            fi
+            sleep 1
+          done
+          tail -120 evidence/r30-server.log
+          exit 1
+      - name: Repeated-ID semantics proof and matched full ID SQL A/B/B/A
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-r30/bench_timeranges_any_sql.py \
+            --out evidence/r30-any --log evidence/r30-server.log \
+            --series 4096 --updates 16 | tee evidence/r30-result.log
+      - name: Record status independently of CI exit code
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import pathlib,json
+          path=pathlib.Path("evidence/r30-any/report.json")
+          if path.exists():
+              r=json.loads(path.read_text())
+              print("R30_STATUS",r.get("status"),"errors",r.get("errors"),
+                    "multiplicity", {k:v.get("parity",{}).get("right_multiplicity_reduction")
+                                    for k,v in r.get("results",{}).items()})
+          else:
+              print("R30_MISSING_REPORT")
+          PY
+      - name: Preserve all results, including invalid methods and negative outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r30-any-membership-sql-evidence
+          path: evidence/
+          retention-days: 45
+          compression-level: 1
