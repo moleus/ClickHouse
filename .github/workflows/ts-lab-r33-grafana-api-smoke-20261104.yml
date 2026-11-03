@@ -76,6 +76,18 @@ jobs:
               <flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
             <default_profile>default</default_profile>
             <default_database>default</default_database>
+            <!-- Minimal configs do NOT register Prometheus API handlers by default. -->
+            <http_handlers>
+              <rule>
+                <url_prefix>/prometheus/api/v1</url_prefix>
+                <handler>
+                  <type>prometheus_api_v1</type>
+                  <database>default</database>
+                  <table>grafana_r33</table>
+                </handler>
+              </rule>
+              <defaults/>
+            </http_handlers>
           </clickhouse>
           EOF
           cp "$RUNNER_TEMP/r33-config.xml" evidence/r33/server-config.xml
