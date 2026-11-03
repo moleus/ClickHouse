@@ -73,14 +73,16 @@ def main():
     p=argparse.ArgumentParser();p.add_argument("--manifest",required=True)
     p.add_argument("--mode",choices=["fresh14","warm7then14"],required=True)
     p.add_argument("--table",default="churn_ts");p.add_argument("--out",required=True)
-    a=p.parse_args();a.out=str(pathlib.Path(a.out)/"report.json");m=json.loads(pathlib.Path(a.manifest).read_text())
+    p.add_argument("--warm-repeats",type=int,default=4)
+    a=p.parse_args();assert 1 <= a.warm_repeats <= 20
+    a.out=str(pathlib.Path(a.out)/"report.json");m=json.loads(pathlib.Path(a.manifest).read_text())
     assert (m["sha256"],m["series"],m["days"])==(FIXTURE,1330000,14)
     report={"mode":a.mode,"fixture_sha":FIXTURE,"scope":"isolated native full PromQL RSS diagnostic",
             "steps":[],"source":"Same pinned O1 binary and fixture; no speedup claim"}
     save(a.out,report)
     try:
         if a.mode=="warm7then14":
-            for i in range(4):
+            for i in range(a.warm_repeats):
                 one(a.table,m,7,f"warm7_{i}",report);save(a.out,report)
         one(a.table,m,14,"probe14",report)
     except Exception as e:report["error"]=str(e)[:1900]
