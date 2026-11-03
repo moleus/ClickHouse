@@ -137,9 +137,11 @@ def compare(phases):
     rows = {p["metrics"]["read_rows_median"] for p in phases}
     marks = {p["metrics"]["marks_median"] for p in phases}
     bytes_read = {p["metrics"]["compressed_read_bytes_median"] for p in phases}
-    physical_same = len(rows)==len(marks)==len(bytes_read)==1
+    # ReadCompressedBytes is affected by compressed-cache state even with
+    # identical selected parts. Do not turn cache variance into a plan failure.
+    physical_same = len(rows)==len(marks)==1
     if not physical_same:
-        raise AssertionError(("Output format changed query read path",sorted(rows),sorted(marks),sorted(bytes_read)))
+        raise AssertionError(("Output format changed query selected rows/marks",sorted(rows),sorted(marks)))
     return {
         "json_client_p50_ms":round(baseline,3),
         "null_client_p50_ms":round(candidate,3),
@@ -154,7 +156,8 @@ def compare(phases):
         "output_bytes_null":round(mean(b,"response_bytes_median"),1),
         "read_rows":next(iter(rows)),
         "selected_marks":next(iter(marks)),
-        "compressed_bytes":next(iter(bytes_read)),
+        "json_compressed_bytes":round(mean(a,"compressed_read_bytes_median"),2),
+        "null_compressed_bytes":round(mean(b,"compressed_read_bytes_median"),2),
         "baseline_wall_drift":round(wall_drift,5),
         "baseline_cpu_drift":round(cpu_drift,5),
         "valid":wall_drift <= 0.25 and cpu_drift <= 0.25,
