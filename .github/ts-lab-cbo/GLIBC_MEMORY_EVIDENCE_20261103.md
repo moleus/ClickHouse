@@ -68,3 +68,20 @@ Fresh same-runner runs, **do not publish their performance figures until artifac
 The four **independent runner** jobs in 41604969692 retain distinct Github run IDs and their logs were not affected. Their RSS conclusions and per-job query timing remain valid, but timing differences across runners are not causal comparisons.
 
 Other researchers are concurrently running stock O1 native LC versus RAW UUID under client concurrency (run 41605951284); no duplicate build/test should be launched. All ongoing workflows have cancel-in-progress false and no schedules.
+
+## Corrected single-runner default/trim ABBA results — verified
+
+[Run 41606326654](https://github.com/moleus/ClickHouse/actions/runs/41606326654), artifact 13216578105, successful. The fix `--phase 0/1/2/3` made all 52 query IDs unique across restarts. This supersedes the invalid same-runner run 41605644182 for CPU/wall evidence. Exactly one O1 binary, frozen 1.33m fixture, four fresh restarts, twelve 7d requests + a 14d probe each phase.
+
+| Phase | Mode | 7d p50 wall after first two warmups, ms | 7d p50 CPU after first two, ms | RSS after twelve 7d, MiB | 14d result |
+|---|---|---:|---:|---:|---|
+| 0 | default | 2168.0 | 4479.97 | 2498.13 | PASS |
+| 1 | trim | 1935.5 | 4547.77 | 2092.51 | PASS |
+| 2 | trim | 1997.5 | 4720.08 | 1882.53 | PASS |
+| 3 | default | 2216.5 | 4128.91 | 2907.55 | PASS |
+
+Mean of two phase medians: default wall2192.25ms, trim1966.5ms (~10.3% lower latency); default CPU4304.44ms, trim4633.93ms (~7.7% higher total CPU); average RSS after twelve requests default2702.84MiB, trim1987.52MiB (~26.5% lower). Default A/A wall drift2.21%, below the predeclared 30% limit. These are *same-runner* ABBA paired observations, stronger than four independent runners, but not yet replicated over multiple separate runners.
+
+Both default 14d queries passed on this runner, which means a low RSS or OOM *risk* claim is justified by different-runner controls and these retained-RSS results, but an absolute `trim always prevents OOM` claim is not.
+
+Pending corrected default/arena2 ABBA run [41606334340](https://github.com/moleus/ClickHouse/actions/runs/41606334340). Compare performance and RSS before selecting a lab default. The strict reducer is in `.github/ts-lab-cbo/reduce_glibc_abba.py`; its `--phase` uniqueness logic can automatically reject stale query IDs.
