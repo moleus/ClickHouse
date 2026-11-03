@@ -9,6 +9,15 @@ class TestNestedPlan(unittest.TestCase):
                '2026.11.03 00:00:00 [1] <Debug> Other: next')
         self.assertIn('FROM x', parse_selector_sql(log))
         self.assertEqual(parse_selector_sql(log).count('SELECT'), 1)
+    def test_outer_samples_select_does_not_need_series_id_alias(self):
+        log = (ANCHOR + '\nSELECT _CAST(id, \'Tuple(UInt64, UUID)\') AS id '
+               'FROM (SELECT samples FROM x WHERE id IN '
+               '(SELECT timeSeriesStoreTags(id, tags) FROM y))\n'
+               '2026.11.03 00:00:00 [1] <Debug> Next: line')
+        result = parse_selector_sql(log)
+        self.assertIn('timeSeriesStoreTags', result)
+        self.assertNotIn('series_id', result)
+
     def test_no_debug(self):
         with self.assertRaisesRegex(ValueError, 'Missing'): parse_selector_sql('irrelevant')
     def test_stateful_required(self):
