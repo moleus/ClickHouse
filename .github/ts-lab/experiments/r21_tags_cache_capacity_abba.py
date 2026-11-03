@@ -176,7 +176,7 @@ def query_log(endpoint,ids):
     raise AssertionError('Missing QueryFinish '+repr(sorted(set(ids)-set(latest))[:9]))
 
 
-def ddl_for(variant):
+def ddl_for(variant,expiration_seconds=3600):
     bytes_=LARGE_BYTES if variant=='large' else SMALL_BYTES
     raw=base.tables_ddl('unused',TABLE)[1]
     match='SETTINGS recent_samples_ttl_seconds=0'
@@ -184,12 +184,12 @@ def ddl_for(variant):
         raise AssertionError('Pinned source v11 RAW UUID DDL changed')
     raw=raw.replace(match,
         f'SETTINGS recent_samples_ttl_seconds=0, tags_deduplication_cache_size_bytes={bytes_}, '
-        'tags_deduplication_cache_expiration_seconds=3600, '
+        f'tags_deduplication_cache_expiration_seconds={expiration_seconds}, '
         'metric_families_deduplication_cache_size_bytes=104857600')
     return raw,bytes_
 
 
-def one_phase(binary,root,phase,variant,blocks,input_proof,port):
+def one_phase(binary,root,phase,variant,blocks,input_proof,port,expiration_seconds=3600,delay_between_batches_seconds=0.0):
     phase_dir=root/f'{phase}-{variant}'
     phase_dir.mkdir(parents=True,exist_ok=False)
     server,log,endpoint=None,None,None
@@ -198,8 +198,10 @@ def one_phase(binary,root,phase,variant,blocks,input_proof,port):
             'insert_rows':[],'native_samples':[],'stats':{}}
     try:
         server,log,endpoint=proc.boot(binary,phase_dir,port)
-        ddl,cache_bytes=ddl_for(variant)
+        ddl,cache_bytes=ddl_for(variant,expiration_seconds)
         result['cache_bytes']=cache_bytes
+        result['cache_expiration_seconds']=expiration_seconds
+        result['delay_between_batches_seconds']=delay_between_batches_seconds
         result['capacity_entries_nominal']=cache_bytes//NOMINAL_CACHE_ENTRY_BYTES
         result['ddl_sha256']=hashlib.sha256(ddl.encode()).hexdigest()
         base.sql(endpoint,ddl)
@@ -212,6 +214,8 @@ def one_phase(binary,root,phase,variant,blocks,input_proof,port):
         result['stats']['cache_events_start']=start_cache_events
         start=proc.measure(server.pid)
         for batch,block in enumerate(blocks):
+            if batch>0 and delay_between_batches_seconds>0:
+                time.sleep(delay_between_batches_seconds)
             qid=f'r21_{phase}_{batch:02d}'
             qids.append(qid)
             ms,_=base.request(endpoint,
@@ -272,7 +276,7 @@ def one_phase(binary,root,phase,variant,blocks,input_proof,port):
         result['stats']['raw_timeranges_bytes']=physics['timeranges']['bytes']
         # With all metadata merges stopped, TAGS written rows correspond to
         # misses; no-cache has no hit/miss events and always writes all IDs.
-        if variant=='large':
+        if variant=='large' and expiration_seconds==3600:
             if total_hit!=(BATCHES-1)*SERIES or total_miss!=SERIES:
                 raise AssertionError('Large cache did not fit all 4096 stable IDs')
             if physics['tags']['count']!=SERIES:
