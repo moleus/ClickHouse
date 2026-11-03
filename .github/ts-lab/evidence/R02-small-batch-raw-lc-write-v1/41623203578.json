@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "question_id": "R02-small-batch-raw-lc-write-v1",
+  "subexperiment": "first executed whole-process ABBA, invalid instrumentation",
+  "decision": "INVALID_METHOD",
+  "ci_status": "failure",
+  "url": "https://github.com/moleus/ClickHouse/actions/runs/41623203578",
+  "job_id": 125873886209,
+  "artifact_id": 13224582178,
+  "artifact_zip_sha256": "f364efb8ed6a1f109aae1f747712fc162a7606df765592bd2680e1d58149192d",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "fixture": {
+    "per_phase_sample_points": 48000,
+    "phases": [
+      "A0 LC",
+      "B1 RAW",
+      "B2 RAW",
+      "A3 LC"
+    ],
+    "four_native_oracle_checks_passed": true,
+    "exact_fixture_sha_equal_across_phases": true
+  },
+  "method_failures": [
+    "subprocess.Popen pid was the ClickHouse watchdog parent; /proc/PID/stat and /proc/PID/io measured zero CPU/IO during actual inserts. Real worker process appeared as a different child PID (ClickHouse server.log confirms parent and child IDs). Therefore write/merge CPU and IO reported from this experiment are not usable.",
+    "Final cross-phase native output was compared as Python dict floats with exact equality even though full numeric parity passed with abs<=1e-8 per-phase. Observed differences ~1e-13 are ordinary floating point order differences, not semantic mismatches."
+  ],
+  "fix": "e67c65f9f7ccbb26437885a58343c40598b140a7",
+  "next": "Use 41623694970 for valid watchdog+worker CPU and tolerance-aware native results; retain this negative method report."
+}
