@@ -1,0 +1,38 @@
+name: R14 finite-float PromQL AVG step-grid rollup oracle
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths:
+      - '.github/workflows/ts-lab-r14-rollup-math-20261103.yml'
+      - '.github/ts-lab/experiments/r14_rollup_oracle.py'
+      - '.github/ts-lab/experiments/test_r14_rollup_oracle.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ts-lab-r14-math-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  deterministic-python:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: |
+            .github/ts-lab/experiments/r14_rollup_oracle.py
+            .github/ts-lab/experiments/test_r14_rollup_oracle.py
+          sparse-checkout-cone-mode: false
+      - name: Python syntax and oracle contracts
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile .github/ts-lab/experiments/r14_rollup_oracle.py
+          python3 -m unittest discover -s .github/ts-lab/experiments -p 'test_r14_rollup_oracle.py' -v
+      - name: Provenance
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          sha256sum .github/ts-lab/experiments/r14_rollup_oracle.py .github/ts-lab/experiments/test_r14_rollup_oracle.py
