@@ -87,7 +87,8 @@ class Server:
               stdout=self.output,stderr=subprocess.STDOUT,start_new_session=True)
         for attempt in range(120):
             if self.proc.poll() is not None:
-                raise RuntimeError(f"ClickHouse exited immediately {self.binary} with {self.proc.returncode}")
+                recent=pathlib.Path(self.log).read_bytes()[-16000:].decode("utf-8","replace")
+                raise RuntimeError(f"ClickHouse exited immediately {self.binary} with {self.proc.returncode}; server log tail:\\n{recent}")
             try:
                 with urllib.request.urlopen("http://127.0.0.1:18191/ping",timeout=1) as response:
                     if response.read().strip()==b"Ok.":
@@ -210,7 +211,12 @@ def run_phase(mode,index,binary,config,root,reference):
     template=root/"template"
     if data.exists():shutil.rmtree(data)
     shutil.copytree(template,data)
-    server=Server(binary,config,root/f"phase-{index}-{mode}.log")
+    # Explicitly exclude ephemeral ClickHouse lock/status files from each
+    # restored snapshot. Never mutate replicated table data or metadata.
+    for item in ("status","status.tmp"):
+        transient=data/item
+        if transient.exists():transient.unlink()
+    server=Server(binary,config,root/"evidence"/f"phase-{index}-{mode}.log")
     server.start()
     try:
         ranges=inner_target("timeranges")
@@ -291,7 +297,7 @@ def main():
         raise ValueError("Only frozen 4096*16 fixture accepted for this controlled test")
     root=pathlib.Path(args.work)
     root.mkdir(parents=True,exist_ok=True)
-    for name in ("data","tmp","userfiles"):
+    for name in ("data","tmp","userfiles","evidence"):
         (root/name).mkdir(exist_ok=True)
     result=pathlib.Path(args.out)
     result.mkdir(parents=True,exist_ok=True)
@@ -306,7 +312,7 @@ def main():
             "candidate_sha256":cand_sha,"phases":[],"summary":{},"errors":[],
             "full_native_promql":True,"input_frozen_across_phases":True}
     save(result/"report.json",report)
-    init=Server(stock,cfg,root/"init.log")
+    init=Server(stock,cfg,root/"evidence"/"init-server.log")
     try:
         init.start()
         data=result/"fixture.jsonl"
@@ -327,7 +333,16 @@ def main():
     finally:
         init.stop()
     if (root/"template").exists():shutil.rmtree(root/"template")
-    shutil.copytree(root/"data",root/"template")
+    # PID/lock files and cached config are runtime state, not immutable data.
+    # Copying ClickHouse status into a fresh server can preserve a stale lock.
+    source_data=root/"data"
+    report["runtime_files_excluded"]=[]
+    for relative in ("status","status.tmp"):
+        live=source_data/relative
+        if live.exists():
+            report["runtime_files_excluded"].append(relative)
+    shutil.copytree(source_data,root/"template",
+      ignore=shutil.ignore_patterns("status","status.tmp","preprocessed_configs"))
     expected={"parts":report["initial_parts"],"outputs":{}}
     try:
         for i,mode in enumerate(PHASES):
@@ -346,6 +361,10 @@ def main():
         report["errors"].append(str(e))
         report["status"]="CORRECTNESS_FAIL_OR_INVALID_METHOD"
     finally:
+        # Preserve all server diagnostic logs even when the first phase fails.
+        for f in sorted((root/"evidence").glob("*.log")):
+            shutil.copy2(f,result/f.name)
+        shutil.copy2(cfg,result/"server-config.xml")
         save(result/"report.json",report)
         print("R30_NATIVE_DONE",json.dumps({
            "status":report["status"],"errors":report["errors"],
