@@ -210,12 +210,16 @@ def run_phase(mode,index,binary,config,root,reference):
     data=root/"data"
     template=root/"template"
     if data.exists():shutil.rmtree(data)
-    shutil.copytree(template,data)
+    shutil.copytree(template,data,symlinks=True)
     # Explicitly exclude ephemeral ClickHouse lock/status files from each
     # restored snapshot. Never mutate replicated table data or metadata.
     for item in ("status","status.tmp"):
         transient=data/item
         if transient.exists():transient.unlink()
+    # Atomic databases store metadata/data links; copied links must stay links.
+    system_link=data/"data"/"system"/"processors_profile_log"
+    if system_link.exists() and not system_link.is_symlink():
+        raise ValueError("Atomic system data metadata symlink was flattened during copy")
     server=Server(binary,config,root/"evidence"/f"phase-{index}-{mode}.log")
     server.start()
     try:
@@ -341,7 +345,7 @@ def main():
         live=source_data/relative
         if live.exists():
             report["runtime_files_excluded"].append(relative)
-    shutil.copytree(source_data,root/"template",
+    shutil.copytree(source_data,root/"template",symlinks=True,
       ignore=shutil.ignore_patterns("status","status.tmp","preprocessed_configs"))
     expected={"parts":report["initial_parts"],"outputs":{}}
     try:
