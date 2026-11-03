@@ -1,0 +1,38 @@
+name: R15 monthly versus UTC-day SAMPLES mark model
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths:
+      - '.github/workflows/ts-lab-r15-partition-math-20261103.yml'
+      - '.github/ts-lab/experiments/r15_partition_oracle.py'
+      - '.github/ts-lab/experiments/test_r15_partition_oracle.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ts-lab-r15-math-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  math-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: |
+            .github/ts-lab/experiments/r15_partition_oracle.py
+            .github/ts-lab/experiments/test_r15_partition_oracle.py
+          sparse-checkout-cone-mode: false
+      - name: Test mathematical surrogate without ClickHouse
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/ts-lab/experiments/r15_partition_oracle.py
+          python3 -m unittest discover -s .github/ts-lab/experiments -p 'test_r15_partition_oracle.py' -v
+      - name: Emit deterministic full fixture model and source hashes
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r15_partition_oracle.py
+          git rev-parse HEAD
+          sha256sum .github/ts-lab/experiments/r15_partition_oracle.py .github/ts-lab/experiments/test_r15_partition_oracle.py
