@@ -1,0 +1,451 @@
+{
+  "schema_version": 1,
+  "question_id": "R03-k8s-400node-native-vm-concurrency-v1",
+  "scientific_decision": "CENSORED_PARTIAL; NOT A VALID COMPLETE MATRIX",
+  "ci_status": "failure",
+  "run_id": 41623609320,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41623609320",
+  "job_id": 125875286227,
+  "job_commit": "dc5aee52dcd9376b350eb710b5837ae439b1c40a",
+  "artifact_id": 13224099729,
+  "artifact_sha256": "31303254fdd3bbb304a3358f0b0849af0dd5466726b363be1c06b2613532fc28",
+  "fixture_sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+  "pinned_ch_stock_o1_binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "pinned_vm134_archive_sha256": "cd6e109bae85ff7c138d838b32be9a7fe2a6d7a9b3a387a7cf9234f22991da10",
+  "vm_import_status": "All 2,488,320 points loaded and VM last-day node metric count verified (575? see raw artifact; import step passed).",
+  "correctness": {
+    "node_broad": {
+      "points": 24,
+      "max_abs_error": 1.6653345369377348e-16
+    },
+    "pod_namespace": {
+      "points": 3,
+      "max_abs_error": 1.1102230246251565e-16
+    },
+    "pod_broad": {
+      "points": 48,
+      "max_abs_error": 1.1102230246251565e-16
+    },
+    "burst15": {
+      "points": 12,
+      "max_abs_error": 1.1102230246251565e-16
+    }
+  },
+  "full_matrix_expected": 12,
+  "completed_abba_cases": 10,
+  "valid_control_subset": [
+    "node_broad_1",
+    "node_broad_4",
+    "pod_namespace_4",
+    "pod_namespace_8",
+    "pod_broad_1",
+    "pod_broad_4",
+    "pod_broad_8"
+  ],
+  "invalid_control_subset": [
+    "node_broad_8",
+    "pod_namespace_1",
+    "burst15_1"
+  ],
+  "cases": {
+    "node_broad_1": {
+      "p50_ms": {
+        "vm": 16.781,
+        "ch": 103.0605,
+        "ch_div_vm": 6.1415,
+        "vm_control_drift": 0.05935
+      },
+      "p95_ms": {
+        "vm": 17.7055,
+        "ch": 122.6095,
+        "ch_div_vm": 6.92494,
+        "vm_control_drift": 0.08014
+      },
+      "p99_ms": {
+        "vm": 17.742,
+        "ch": 127.078,
+        "ch_div_vm": 7.16255,
+        "vm_control_drift": 0.07789
+      },
+      "qps": {
+        "vm": 59.1303,
+        "ch": 9.3418,
+        "ch_div_vm": 0.15799,
+        "vm_control_drift": 0.06089
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 47.5,
+        "ch": 182.5,
+        "ch_div_vm": 3.84211,
+        "vm_control_drift": 0
+      },
+      "valid": true
+    },
+    "node_broad_4": {
+      "p50_ms": {
+        "vm": 52.694,
+        "ch": 244.847,
+        "ch_div_vm": 4.64658,
+        "vm_control_drift": 0.03583
+      },
+      "p95_ms": {
+        "vm": 55.6075,
+        "ch": 274.924,
+        "ch_div_vm": 4.94401,
+        "vm_control_drift": 0.00415
+      },
+      "p99_ms": {
+        "vm": 58.466,
+        "ch": 283.2195,
+        "ch_div_vm": 4.84417,
+        "vm_control_drift": 0.03079
+      },
+      "qps": {
+        "vm": 73.214,
+        "ch": 15.1805,
+        "ch_div_vm": 0.20734,
+        "vm_control_drift": 0.01205
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 51.094,
+        "ch": 250.781,
+        "ch_div_vm": 4.90823,
+        "vm_control_drift": 0.00611
+      },
+      "valid": true
+    },
+    "node_broad_8": {
+      "p50_ms": {
+        "vm": 108.4595,
+        "ch": 528.0155,
+        "ch_div_vm": 4.86832,
+        "vm_control_drift": 0.23385
+      },
+      "p95_ms": {
+        "vm": 128.474,
+        "ch": 631.1915,
+        "ch_div_vm": 4.91299,
+        "vm_control_drift": 0.37061
+      },
+      "p99_ms": {
+        "vm": 131.1595,
+        "ch": 652.5055,
+        "ch_div_vm": 4.9749,
+        "vm_control_drift": 0.34719
+      },
+      "qps": {
+        "vm": 66.7654,
+        "ch": 13.6954,
+        "ch_div_vm": 0.20513,
+        "vm_control_drift": 0.27343
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 50.625,
+        "ch": 260.3125,
+        "ch_div_vm": 5.14198,
+        "vm_control_drift": 0.00616
+      },
+      "valid": false
+    },
+    "pod_namespace_1": {
+      "p50_ms": {
+        "vm": 2.314,
+        "ch": 45.5755,
+        "ch_div_vm": 19.69555,
+        "vm_control_drift": 0.02593
+      },
+      "p95_ms": {
+        "vm": 2.7165,
+        "ch": 50.415,
+        "ch_div_vm": 18.55881,
+        "vm_control_drift": 0.22713
+      },
+      "p99_ms": {
+        "vm": 2.7475,
+        "ch": 50.962,
+        "ch_div_vm": 18.5485,
+        "vm_control_drift": 0.24277
+      },
+      "qps": {
+        "vm": 413.2532,
+        "ch": 21.6096,
+        "ch_div_vm": 0.05229,
+        "vm_control_drift": 0.06569
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 4.375,
+        "ch": 70.625,
+        "ch_div_vm": 16.14286,
+        "vm_control_drift": 0.28571
+      },
+      "valid": false
+    },
+    "pod_namespace_4": {
+      "p50_ms": {
+        "vm": 6.5775,
+        "ch": 97.996,
+        "ch_div_vm": 14.89867,
+        "vm_control_drift": 0.02204
+      },
+      "p95_ms": {
+        "vm": 11.201,
+        "ch": 130.715,
+        "ch_div_vm": 11.66994,
+        "vm_control_drift": 0.05214
+      },
+      "p99_ms": {
+        "vm": 12.012,
+        "ch": 134.358,
+        "ch_div_vm": 11.18531,
+        "vm_control_drift": 0.08858
+      },
+      "qps": {
+        "vm": 496.9699,
+        "ch": 36.1417,
+        "ch_div_vm": 0.07272,
+        "vm_control_drift": 0.06092
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 4.8435,
+        "ch": 82.6565,
+        "ch_div_vm": 17.06545,
+        "vm_control_drift": 0.06462
+      },
+      "valid": true
+    },
+    "pod_namespace_8": {
+      "p50_ms": {
+        "vm": 10.4085,
+        "ch": 184.8845,
+        "ch_div_vm": 17.76284,
+        "vm_control_drift": 0.04871
+      },
+      "p95_ms": {
+        "vm": 17.5945,
+        "ch": 212.335,
+        "ch_div_vm": 12.06826,
+        "vm_control_drift": 0.14465
+      },
+      "p99_ms": {
+        "vm": 19.0125,
+        "ch": 222.0505,
+        "ch_div_vm": 11.67918,
+        "vm_control_drift": 0.12807
+      },
+      "qps": {
+        "vm": 541.8464,
+        "ch": 39.5645,
+        "ch_div_vm": 0.07302,
+        "vm_control_drift": 0.03283
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 4.5315,
+        "ch": 84.5315,
+        "ch_div_vm": 18.6542,
+        "vm_control_drift": 0.06907
+      },
+      "valid": true
+    },
+    "pod_broad_1": {
+      "p50_ms": {
+        "vm": 32.982,
+        "ch": 109.846,
+        "ch_div_vm": 3.33048,
+        "vm_control_drift": 0.2371
+      },
+      "p95_ms": {
+        "vm": 34.8475,
+        "ch": 120.7155,
+        "ch_div_vm": 3.46411,
+        "vm_control_drift": 0.25554
+      },
+      "p99_ms": {
+        "vm": 34.951,
+        "ch": 123.309,
+        "ch_div_vm": 3.52805,
+        "vm_control_drift": 0.25516
+      },
+      "qps": {
+        "vm": 30.603,
+        "ch": 9.0147,
+        "ch_div_vm": 0.29457,
+        "vm_control_drift": 0.22408
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 68.125,
+        "ch": 196.25,
+        "ch_div_vm": 2.88073,
+        "vm_control_drift": 0.05505
+      },
+      "valid": true
+    },
+    "pod_broad_4": {
+      "p50_ms": {
+        "vm": 78.7165,
+        "ch": 235.197,
+        "ch_div_vm": 2.9879,
+        "vm_control_drift": 0.00253
+      },
+      "p95_ms": {
+        "vm": 86.54,
+        "ch": 280.398,
+        "ch_div_vm": 3.2401,
+        "vm_control_drift": 0.09829
+      },
+      "p99_ms": {
+        "vm": 87.2735,
+        "ch": 289.074,
+        "ch_div_vm": 3.31228,
+        "vm_control_drift": 0.08693
+      },
+      "qps": {
+        "vm": 49.3186,
+        "ch": 15.4779,
+        "ch_div_vm": 0.31383,
+        "vm_control_drift": 0.00399
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 77.3435,
+        "ch": 251.7185,
+        "ch_div_vm": 3.25455,
+        "vm_control_drift": 0.01211
+      },
+      "valid": true
+    },
+    "pod_broad_8": {
+      "p50_ms": {
+        "vm": 150.4955,
+        "ch": 486.083,
+        "ch_div_vm": 3.22988,
+        "vm_control_drift": 0.03217
+      },
+      "p95_ms": {
+        "vm": 173.249,
+        "ch": 642.6425,
+        "ch_div_vm": 3.70936,
+        "vm_control_drift": 0.06348
+      },
+      "p99_ms": {
+        "vm": 176.833,
+        "ch": 663.887,
+        "ch_div_vm": 3.75432,
+        "vm_control_drift": 0.07578
+      },
+      "qps": {
+        "vm": 47.7393,
+        "ch": 14.4684,
+        "ch_div_vm": 0.30307,
+        "vm_control_drift": 0.00007
+      },
+      "process_cpu_ms_per_request": {
+        "vm": 80.1565,
+        "ch": 270.7035,
+        "ch_div_vm": 3.37719,
+        "vm_control_drift": 0.0039
+      },
+      "valid": true
+    },
+    "burst15_1": null
+  },
+  "errors": [
+    {
+      "case": "node_broad",
+      "clients": 8,
+      "reason": "VM same-runner control drift exceeds25%",
+      "summary": {
+        "p50_ms": {
+          "vm": 108.4595,
+          "ch": 528.0155,
+          "ch_div_vm": 4.86832,
+          "vm_control_drift": 0.23385
+        },
+        "p95_ms": {
+          "vm": 128.474,
+          "ch": 631.1915,
+          "ch_div_vm": 4.91299,
+          "vm_control_drift": 0.37061
+        },
+        "p99_ms": {
+          "vm": 131.1595,
+          "ch": 652.5055,
+          "ch_div_vm": 4.9749,
+          "vm_control_drift": 0.34719
+        },
+        "qps": {
+          "vm": 66.7654,
+          "ch": 13.6954,
+          "ch_div_vm": 0.20513,
+          "vm_control_drift": 0.27343
+        },
+        "process_cpu_ms_per_request": {
+          "vm": 50.625,
+          "ch": 260.3125,
+          "ch_div_vm": 5.14198,
+          "vm_control_drift": 0.00616
+        },
+        "valid": false
+      }
+    },
+    {
+      "case": "pod_namespace",
+      "clients": 1,
+      "reason": "VM same-runner control drift exceeds25%",
+      "summary": {
+        "p50_ms": {
+          "vm": 2.314,
+          "ch": 45.5755,
+          "ch_div_vm": 19.69555,
+          "vm_control_drift": 0.02593
+        },
+        "p95_ms": {
+          "vm": 2.7165,
+          "ch": 50.415,
+          "ch_div_vm": 18.55881,
+          "vm_control_drift": 0.22713
+        },
+        "p99_ms": {
+          "vm": 2.7475,
+          "ch": 50.962,
+          "ch_div_vm": 18.5485,
+          "vm_control_drift": 0.24277
+        },
+        "qps": {
+          "vm": 413.2532,
+          "ch": 21.6096,
+          "ch_div_vm": 0.05229,
+          "vm_control_drift": 0.06569
+        },
+        "process_cpu_ms_per_request": {
+          "vm": 4.375,
+          "ch": 70.625,
+          "ch_div_vm": 16.14286,
+          "vm_control_drift": 0.28571
+        },
+        "valid": false
+      }
+    },
+    {
+      "fatal": "RSS observer >2% phase window",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/ClickHouse/ClickHouse/.github/ts-lab-r03/bench_native_vm_concurrency.py\", line 295, in main\n    result=phase(engine,case,n,i,pids,ref,end)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/ClickHouse/ClickHouse/.github/ts-lab-r03/bench_native_vm_concurrency.py\", line 150, in phase\n    raise AssertionError(\"RSS observer >2% phase window\")\nAssertionError: RSS observer >2% phase window\n"
+    }
+  ],
+  "causal_notes": [
+    "All four first cross-engine oracle cases had full matching label/timestamp/value results. Largest recorded absolute discrepancy 1.6653345369377348e-16.",
+    "VM node_broad 8-client QPS A/A drift 27.3%, so that throughput comparison is invalid even though p50 drift 23.4%. p95 drift 37%. No valid 8-client broad-node comparative QPS claim from this run.",
+    "VM pod_namespace 1-client process CPU A/A drift28.6% due too-small ~4.4ms CPU/query observed over only eight measured requests at Linux USER_HZ jiffy granularity. Its p50 comparison alone passed but entire case fails predeclared validity gate.",
+    "The fourth selector burst15 failed before its matrix finished because 4Hz RSS monitor consumed >2% of a very short VM phase wall. Missing phases cannot be inferred from earlier cases.",
+    "VM/CH processes were both alive on one runner; no identical cgroup or production optimization matching, and VM background compaction not yet independently ruled out.",
+    "True experiment outcome is method PARTIAL+FAIL, not production VM/CH ranking. Retain diagnostic valid-case ratios only, and rerun with low-overhead memory snapshots and longer phases."
+  ],
+  "corrected_attempt": {
+    "ci_run_expected": "41624246411",
+    "workflow_commit": "3beeda9385ad5d96a1ef85b5f0dae8b4439308f2",
+    "script_commit": "4357002c25441d4cdec961ffb8979f45fbedfc62",
+    "changes": [
+      "64 instead of 8 measured waves per phase",
+      "No timed periodic RSS observer, begin/end VmRSS and cumulative VmHWM snapshots",
+      "All-thread /proc/PID/task/TID/schedstat CPU nanoseconds before and after measured waves",
+      "A/A p50/QPS/CPU validity gates on both engines, not VM alone"
+    ]
+  }
+}
