@@ -1,0 +1,63 @@
+name: R01 Kubernetes mixed-cadence fixture deterministic validation
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r01-fixture-validate-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tslab-r01-fixture-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify checkout root symlink and Python fixtures
+        run: |
+          set -euo pipefail
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | awk '{print $1}')" = 120000
+          python3 -m py_compile \
+            .github/ts-lab-r01/generate_k8s_churn_fixture.py \
+            .github/ts-lab-r01/test_generate_k8s_churn_fixture.py
+          python3 -m unittest discover -s .github/ts-lab-r01 \
+            -p 'test_generate_k8s_churn_fixture.py' -v | tee /tmp/r01-tests.txt
+      - name: Generate full 400-slot 3-day distribution and verify exact closed-form counts
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python3 -u .github/ts-lab-r01/generate_k8s_churn_fixture.py \
+            --node-slots 400 --days 3 \
+            --fixture "$RUNNER_TEMP/k8s-mixed.jsonl" \
+            --manifest evidence/k8s-mixed-manifest.json \
+            | tee evidence/k8s-mixed-generation.log
+          sha256sum "$RUNNER_TEMP/k8s-mixed.jsonl" | tee evidence/fixture-sha256.txt
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          m=json.loads(pathlib.Path("evidence/k8s-mixed-manifest.json").read_text())
+          assert m["series"]==28896,m
+          assert m["samples"]==2488320,m
+          assert m["rows_by_tier"]=={"node60":9600,"pod300":19200,"burst15":96},m
+          assert m["samples_by_tier"]=={"node60":1728000,"pod300":691200,"burst15":69120},m
+          assert m["rotations"]==24 and m["life_seconds"]==10800,m
+          dig=hashlib.file_digest(open(os.environ["RUNNER_TEMP"]+"/k8s-mixed.jsonl","rb"),"sha256").hexdigest()
+          assert m["sha256"]==dig,(m["sha256"],dig)
+          assert m["fixture_bytes"]==pathlib.Path(os.environ["RUNNER_TEMP"]+"/k8s-mixed.jsonl").stat().st_size
+          print("R01_K8S_DISTRIBUTION_VERIFIED",json.dumps({
+              "rows":m["series"],"samples":m["samples"],"sha256":dig,
+              "bytes":m["fixture_bytes"]
+          }),flush=True)
+          PY
+      - name: Retain fixture distribution and negative test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r01-k8s-fixture-manifest-${{ github.run_id }}
+          path: evidence/
+          retention-days: 45
+          compression-level: 1
