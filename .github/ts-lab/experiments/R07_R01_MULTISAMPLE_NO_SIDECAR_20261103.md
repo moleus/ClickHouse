@@ -48,3 +48,28 @@ These observations make **native bucket-to-grid processing, expression transform
 - **NOT ACCEPTED**: arbitrary PromQL equivalence, stale markers, NaNs, duplicate timestamp arbitration, counter rate/reset, native histogram, regex, query ACL, multiple evaluation-step grids, write/merge workloads or production jemalloc O2.
 - **Do not promote general SQL rewrite**: on the previous 70k one-sample/14d fixture, native broad1d/3d beat original TAGS SQL, with valid ABBA evidence [#41629492828](https://github.com/moleus/ClickHouse/actions/runs/41629492828). The query policy has to be workload-dependent. Different hosted runners cannot be pooled.
 - Next gate: an **independent held-out R01 aligned fixture** (same 28,896 series and 2.49M samples but different sample-time phase). Reuse one stock-O1 binary and same queries with a source-only holdout, not a C++ build. If the effect changes sign or parity fails, record the negative and hold any planner patch. Then test NaN/stale/duplicate samples before any guarded native fastpath.
+
+## 2026-11-03 held-out aligned R01: independent runner verifies effect
+
+[Held-out CI 41634426255](https://github.com/moleus/ClickHouse/actions/runs/41634426255) **SUCCESS**, [permanent compact evidence](../evidence/R07-r01-aligned-heldout-native-tags-41634426255.json), independently downloaded ZIP SHA256 \`f4133a369b4144b823faa79dc3520d6e7479a9215c08a77a72e2e63053de5514\`. Identical full stable ID, tag distribution, Float64 values, cadences, fixture generator, exact native-vs-SQL formulas, test cardinalities and stock binary as staggered R01. **Only node-start time alignment changed**. Source-pinned independent aligned fixture SHA256 \`ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d\`. This changes SAMPLES physical bucket rows to **86,688** (vs113,760 staggered), total sample points still **2,488,320**, TAGS and TimeRanges both **28,896**.
+
+Held-out again has **18/18 multi-tick separate native/SQL parity checks**, six 4-phase A/B/B/A comparisons, 96 measured requests, complete QueryFinish/processor records, A/A drift max 2.33%, zero failures/OOM. **No new index or C++ patch**.
+
+| Case | Staggered run native/SQL p50 ratio | Held-out aligned native/SQL p50 ratio | Held-out native → SQL p50 |
+|---|---:|---:|---:|
+| node1d broad | 1.019x | **1.034x** | 66.626→64.428ms |
+| pod namespace1d | 1.082x | **1.095x** | 34.964→31.923ms |
+| pod1d broad | **1.992x** | **1.994x** | 70.200→35.201ms |
+| pod 15s1d | 1.242x | **1.257x** | 26.166→20.821ms |
+| node3d broad | 1.474x | **1.185x** | 91.917→77.596ms |
+| pod3d broad | **1.932x** | **2.087x** | 90.582→43.398ms |
+
+The **pod1d broad ~2x improvement survives two distinct physical bucket layouts**. For pod1d held-out, native/SQL QueryFinish CPU **114.96→41.30ms** with **identical 233 selected marks**; pod3d **174.01→58.08ms**, also **233→233 marks**. Node1d remains almost neutral; node3d benefit varies by node-start phase (1.185–1.474x). This is not evidence of universal gain and not a true external workload. **Both hosted runners are distinct**: compare paired ratios only, not cross-runner absolute p50.
+
+## Source-based semantic blocker before native planner integration
+
+Pinned [fromSelector.cpp](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/TimeSeries/PrometheusQueryToSQL/fromSelector.cpp) lines19–84 checks exact stale-NaN bit payload \`0x7ff0000000000002\` with \`reinterpretAsUInt64(value)\` and removes only this marker from **range selectors**, not ordinary NaNs. The current R07 SQL benchmark computes \`avg(tupleElement(point,2))\` without this check: **it is a deliberately restricted finite-sample oracle, NOT a generally correct PromQL rewrite**. Removing all \`isNaN()\` values would also be wrong. The SQL candidate must first implement the exact bit-level stale exclusion, then prove parity including stale-only/ordinary NaN cases.
+
+Pinned [TimeSeriesSink.cpp](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/TimeSeries/TimeSeriesSink.cpp) lines324–395 sorts input samples and removes same-timestamp duplicates, choosing the **maximum finite value** (NaN loses to any finite). The shared [timeSeries duplicate merge rule](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/AggregateFunctions/TimeSeries/timeseriesMaxValueForDuplicateTimestamp.h) is associative and commutative. Duplicate semantics depend on the real stored bucket aggregate state, not on the JSONL input point count. An appropriate source-pinned small native semantic falsifier is [r07_stale_duplicate_semantic_oracle.py](r07_stale_duplicate_semantic_oracle.py) and its path-scoped [CI](../../workflows/ts-lab-r07-stale-duplicate-semantics-20261103.yml).
+
+**Next decision gate:** do not port the raw SQL route to C++ until it filters stale markers, preserves correct per-series/per-timestamp arbitration, and passes multiple evaluation-step grid, NaN and concurrency tests. Even after semantic fixes, benchmark the extra per-point bit check and possible TimeRanges skipping against native under fixed O1 and subsequently production-like O2/jemalloc, not just this favorable high-churn fixture. R02/R18 and the long jemalloc build retain their owners.
