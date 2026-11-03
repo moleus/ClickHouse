@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "question_id": "R33",
+  "primary_claim_id": "R33-grafana-http-and-jenkins-fixture-v1",
+  "owner": "chatgpt-r33-grafana-real-query-fixture-parity-20261104",
+  "scope": "E06/E03 Grafana Prometheus HTTP protocol versus SQL; build-coherent stage-series fixture and branch/job/project/result selectors, without touching E05 R32 single-bucket optimization or R30/R31.",
+  "status": "CLAIMED",
+  "created_utc": "2026-11-04",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "evidence_basis": "Real Grafana inspector JSON not attached. Controlled synthetic Jenkins profile, explicit protocol and label cardinality invariants.",
+  "old_fixture_defects": [
+    "95k unique build IDs for 95k stage series/day rather than 2500 builds with ~38 stages each",
+    "stage=i%38 implies branch-feature=i%19 fixed per stage",
+    "project=i%8 forces stage/project matching parity and removes half combinations",
+    "stage/project only single equality tested, no jenkins_job/result/app/branch filters",
+    "fixed UTC midnight query_range and [1d], no shifted step, instant, multi-regex or actual /prometheus/api/v1/query_range HTTP",
+    "large ID-stage SQL parity uses 64 sample rows and 2 aggregate fingerprints, not full native output oracle"
+  ],
+  "planned_controls": [
+    "14d x64 builds/day smoke with 38 stages/build",
+    "14d x2500 builds/day canonical 1.33m full-scale run",
+    "actual ClickHouse Prometheus /query_range, /query, /labels, /label/stage/values, /series",
+    "exact point-level labels/timestamp/value parity against SQL prometheusQueryRange on same O2 stock binary",
+    "A/A repeats and multi-client capacity later"
+  ],
+  "claimed_files": [
+    ".github/ts-lab-r33/generate_grafana_ci_v2.py",
+    ".github/ts-lab-r33/grafana_query_catalog.py",
+    ".github/ts-lab-r33/bench_grafana_http_parity.py",
+    ".github/workflows/ts-lab-r33-grafana-api-smoke-20261104.yml"
+  ],
+  "conflict_resolution": "R32 root is owned by separate E05 agent as of commit 702c946e8dd8. Own Grafana work renamed R33, do not modify R32."
+}
