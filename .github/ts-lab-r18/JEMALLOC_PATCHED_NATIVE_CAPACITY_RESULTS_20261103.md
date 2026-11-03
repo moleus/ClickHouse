@@ -120,9 +120,9 @@ for default ALP+ZSTD3 at 8 clients:
 
 | Selector | Aligned p50 / QueryFinish CPU | Staggered p50 / QueryFinish CPU |
 |---|---:|---:|
-| `node_broad` | 494–550ms / 240–280ms (see artifact) | **823.607ms / 400.075ms** |
-| `pod_namespace` | 180–210ms / 80–110ms (see artifact) | **222.638ms / 105.415ms** |
-| `burst15` | 118–150ms / 59–75ms (see artifact) | **151.569ms / 73.318ms** |
+| `node_broad` | 520.598ms / 250.975ms | 823.607ms / 400.075ms |
+| `pod_namespace` | 186.752ms / 84.022ms | 222.639ms / 105.415ms |
+| `burst15` | 130.259ms / 62.581ms | 151.569ms / 73.318ms |
 
 These descriptive single-binary numbers are not an allocator
 speedup claim. Even the prior stock R18 runner reported
