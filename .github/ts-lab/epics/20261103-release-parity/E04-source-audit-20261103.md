@@ -25,6 +25,19 @@ Source versions: [VM v1.134.0](https://github.com/VictoriaMetrics/VictoriaMetric
 | Physical samples lookup | [VM partSearch](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/storage/part_search.go#L60-L305): TSID/time metaindex, index-block lookup and block-header timestamp checks; [TSID grouping](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/storage/tsid.go#L7-L41) | [CH SAMPLES DDL](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/StorageTimeSeries.cpp#L1277-L1302): `(id,bucket)`, sparse marks 256; [ID set primary-index analysis](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/StorageTimeSeriesSelector.cpp#L1298-L1343) | VM is closer to per-series block seeks; CH works at mark granularity. **No causal CPU conclusion** without real block counters |
 | Index maintenance on ingest | [VM registers per-day indexes](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/storage/index_db.go#L2728-L2793); [duplicate/date caches, next-day prefill](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/storage/storage.go#L2170-L2331) | CH [TimeSeriesSink](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/TimeSeries/TimeSeriesSink.cpp), dedup TAGS cache and TimeRanges on writes | Per-day design is not a free read optimization. Compare full process write and merge CPU, not just query_log INSERT |
 
+## New source finding: VM does not always use the per-day index
+
+[VM storage.go, `adjustTimeRange`](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/storage/storage.go#L1623-L1651) contains a **built-in access-path switch**:
+
+- The `-disablePerDayIndex` flag always selects the global index.
+- Otherwise, the requested interval is intersected with the indexDB time range; when `maxDate-minDate > 40`, it uses the global index.
+- When the effective query range fully covers that indexDB (`tr == idbTR`), it also selects the global index. A partition-wide query need not build a union of all per-day posting lists.
+- For a shorter window inside the partition, the per-day index path is used.
+
+This changes the VM-vs-CH comparison: **VM is not an unconditional per-day-index design at read time.** It implements a rule-based choice between per-day and global access. A ClickHouse adaptive cost model should consider an equivalent **time-window/partition-coverage gate**, but the static VM 40-day cutoff is not a proven optimum for ClickHouse. It is also not an automatic CBO cost estimate.
+
+The exact source condition is on the difference between the extreme day numbers, **not** on a rounded user-facing `range=40d` string. For a 1–14d benchmark, log the actual `indexDB` and selected path from VM querytracer rather than assuming one.
+
 ## Two important source-derived algorithms
 
 ### A. VM learns per-date costs of matchers
