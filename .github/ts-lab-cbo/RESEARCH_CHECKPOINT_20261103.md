@@ -1,5 +1,7 @@
 # TimeSeries CBO research checkpoint 2026-11-03
 
+**Shared research index:** [INDEX.md](../ts-lab/INDEX.md). **Agent rules:** [AGENT_GUIDE.md](../ts-lab/AGENT_GUIDE.md). **Failures and methodology:** [METHODOLOGY_AND_FAILURES.md](../ts-lab/METHODOLOGY_AND_FAILURES.md). The historical CPU/layout/perf branches were merged through PRs #1–#3 with their commits retained. All agents now write only to `lab/ts-cbo-adaptive-20261103`.
+
 Repository moleus/ClickHouse, isolated branch lab/ts-cbo-adaptive-20261103.
 Pinned source 52529f0c711566d696917678bf15e7068772fdde.
 No master or production mutations. Do not cancel other builds or enable scheduled GitHub workflows.
