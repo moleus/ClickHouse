@@ -416,3 +416,38 @@ is isolated, source/binary pinned and does not cancel other agents.
 ## 2026-11-03 R13: independent 200-branch regex plan hypothesis staged
 
 [Atomic root reservation](claims/roots/R13.json) / [immutable claim](claims/R13-large-regex-alternation-in-vs-match-v1.json) / [test script](experiments/r13_native_regex_in_vs_match.py) / [workflow](../workflows/ts-lab-r13-regex-literal-compact-20261103.yml). Pinned source `StorageTimeSeriesSelector::matcherToAST` converts pure regex alternatives to SQL `IN` through `tryGetLiteralAlternatives`, but compact character-class regex goes through anchored `match`. Independent Python oracle proves that `b0000|...|b0199` and `b0[01][0-9][0-9]` select the **same 200 of 1024 distinct branches**, i.e. 6400 of 32768 series, with exact same 16-stage output. Prepared same-runner native A/B/B/A 2 warmups+4 measurements per phase, QueryFinish CPU/IO/memory/drift; **manual-only while R10/R12 live measurement lanes are occupied**. Do not report performance difference until the CI run and physical plan are verified.
+
+## 2026-11-03: R10 staggered 4/8-client concurrent full-native test rejects 10800s
+
+[CI #41620367659](https://github.com/moleus/ClickHouse/actions/runs/41620367659)
+**PASS** with 8 matched native A/B/B/A comparisons:
+4 selectors × 4/8 simultaneous independent clients, query `max_threads=2`,
+four new ClickHouse processes per contrast, 2 warmup+8 measured waves
+per phase. All **1920 query IDs unique**, full nonempty PromQL
+label/time/value parity, complete QueryFinish logs, physical layout
+frozen, no OOM. Source-pinned stock O1 binary `f0a2fa1...`,
+staggered fixture SHA `ae85496e...`. [Immutable evidence](evidence/R10-staggered-concurrent-41620367659.json).
+
+| Staggered selector, 8 clients | p50 3600→10800 ms | CPU/query 3600→10800 ms | QPS 3600→10800 | p50 control drift |
+|---|---|---|---|---|
+| pod_namespace | **331→393 (+18.6%)** | **156→187 (+20.2%)** | **22.40→18.65 (−16.8%)** | 2.78% |
+| burst15 | **218→259 (+18.9%)** | **103→125 (+21.9%)** | **33.65→28.32 (−15.9%)** | 0.38% |
+| pod_broad | 1027→1074 (+4.5%) | 478→502 (+5.1%) | 7.28→6.99 (−4.1%) | 0.07% |
+| node_broad | 1365→1389 (+1.8%) | 644→653 (+1.3%) | 5.56→5.51 (−1.0%) | 0.91% |
+
+At n4 namespace p50 **161→195ms (+21.2%)** and burst15
+**106→130ms (+22.1%)**. Node-broad n4 p50 +4% is **not** robust
+because A/A control drift is 13.2%. Broad-pod n8 p99 slightly improves,
+so do not generalize every tail direction.
+
+**Decision: reject global switch to 10800s** for this measured synthetic
+staggered multi-cadence workload. 10800s compresses ~6.5% smaller but
+degrades selective PromQL CPU/QPS under concurrency; earlier aligned
+4/8-client results are NOT representative of arbitrary node start phases.
+The independent [same-runner 2×2 R10 #41619669176](https://github.com/moleus/ClickHouse/actions/runs/41619669176)
+established the actual alignment interaction rather than comparing
+different hosts. Source evidence: [bucket CPU cost audit](../ts-lab-r10/START_ALIGNMENT_CPU_AUDIT_20261103.md);
+[query-mix break-even model](../ts-lab-r10/BUCKET_CPU_BREAK_EVEN_20261103.md).
+No real 14d/HPA, continuous concurrent writes, or official jemalloc test;
+do not promote based on storage bytes alone.
+
