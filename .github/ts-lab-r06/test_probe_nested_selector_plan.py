@@ -1,6 +1,6 @@
 import pathlib, sys, tempfile, unittest
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
-from probe_nested_selector_plan import parse_selector_sql, fixture, ANCHOR
+from probe_nested_selector_plan import parse_selector_sql, extract_ids_subquery, fixture, ANCHOR
 
 class TestNestedPlan(unittest.TestCase):
     def test_extract(self):
@@ -17,6 +17,21 @@ class TestNestedPlan(unittest.TestCase):
         result = parse_selector_sql(log)
         self.assertIn('timeSeriesStoreTags', result)
         self.assertNotIn('series_id', result)
+
+    def test_extract_nested_in_subquery(self):
+        generated = ("SELECT * FROM samples WHERE in(id, (SELECT "
+                     "timeSeriesStoreTags(id, tags, '__name__', metric_name) "
+                     "FROM tags ALL LEFT JOIN (SELECT id FROM ranges WHERE "
+                     "equals(key, 'a)b')) USING (id))) AND notEmpty(samples)")
+        ids = extract_ids_subquery(generated)
+        self.assertTrue(ids.startswith('SELECT timeSeriesStoreTags('))
+        self.assertIn("equals(key, 'a)b')", ids)
+        self.assertIn('LEFT JOIN', ids)
+        self.assertNotIn('notEmpty(samples)', ids)
+
+    def test_missing_in_source(self):
+        with self.assertRaisesRegex(ValueError, 'No native SAMPLES'):
+            extract_ids_subquery('SELECT id FROM samples')
 
     def test_no_debug(self):
         with self.assertRaisesRegex(ValueError, 'Missing'): parse_selector_sql('irrelevant')
