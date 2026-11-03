@@ -1,0 +1,244 @@
+{
+  "schema_version": 1,
+  "question_id": "R28",
+  "claim_id": "R28-native-query-slot-admission-v1",
+  "scientific_decision": "ACCEPT_FOR_NEXT_GATE",
+  "ci_status": "success",
+  "run_id": 41683302083,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41683302083",
+  "workflow_commit_sha": "1abe270f2b48b7700edd4ec03aabac31afd54938",
+  "completed_utc": "2026-11-03T17:28:00Z",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+  "reference_sha256": "6bb618021e17901757f6285b40d0e07f5ed1a1f56947eb12e65480ab95f8f8d4",
+  "binary_build_run_id": 41596421285,
+  "binary_kind": "stock LLVM22.1.8 O1 glibc, unpatched C++",
+  "workload": {
+    "source_series": 1330000,
+    "fixture_days": 14,
+    "new_series_per_day": 95000,
+    "samples_per_id": 1,
+    "schema": "TimeSeries v11 RAW UUID in all inner targets; original tag hash and text index",
+    "frozen_inner_parts": 1,
+    "promql": "avg by(stage)(avg_over_time(jenkins_ci_95k_daily{project=\"project-00\"}[1d]))",
+    "promql_output": "14 daily evaluation timestamps x 19 stages = 266 points; all successful client results matched the same native reference",
+    "clients": 8,
+    "query_max_threads": 2,
+    "per_query_max_memory_usage_bytes": 1800000000,
+    "max_server_memory_usage_bytes": 4800000000,
+    "runner": "GitHub hosted ubuntu-24.04, 4 vCPU",
+    "warmup_waves_per_phase": 2,
+    "measured_waves_per_phase": 8,
+    "order": [
+      8,
+      2,
+      4,
+      4,
+      2,
+      8
+    ],
+    "fresh_process_per_phase": true,
+    "intervention": "CREATE OR REPLACE WORKLOAD all SETTINGS max_concurrent_queries=k,max_waiting_queries=16; identical frozen table and binary",
+    "admission_timeout_ms": 90000
+  },
+  "artifact": {
+    "id": 13254746843,
+    "name": "tslab-r28-native-admission-41683302083",
+    "size_in_bytes": 54815,
+    "digest": "sha256:b1a61285c1b67b86b044bc77f988d07337e2f3aea609a7ecfb4c8e5f6a741409",
+    "expires_at": "2026-12-18T17:27:46Z",
+    "archive_url": "https://api.github.com/repos/moleus/ClickHouse/actions/artifacts/13254746843/zip"
+  },
+  "comparison": {
+    "2": {
+      "complete_phases": 2,
+      "outcomes": [
+        "COMPLETE",
+        "COMPLETE"
+      ],
+      "p50_ms": 2475.0175,
+      "p50_ms_control_drift": 0.03582,
+      "p95_ms": 4017.8275,
+      "p95_ms_control_drift": 0.03814,
+      "completed_qps": 2.0047,
+      "completed_qps_control_drift": 0.03482,
+      "process_cpu_ms_per_request": 1836.3285,
+      "process_cpu_ms_per_request_control_drift": 0.0268
+    },
+    "4": {
+      "complete_phases": 2,
+      "outcomes": [
+        "COMPLETE",
+        "COMPLETE"
+      ],
+      "p50_ms": 2945.969,
+      "p50_ms_control_drift": 0.02193,
+      "p95_ms": 4090.1345,
+      "p95_ms_control_drift": 0.00526,
+      "completed_qps": 1.9566,
+      "completed_qps_control_drift": 0.0045,
+      "process_cpu_ms_per_request": 2023.5155,
+      "process_cpu_ms_per_request_control_drift": 0.00656
+    },
+    "8": {
+      "complete_phases": 0,
+      "outcomes": [
+        "OOM",
+        "OOM"
+      ]
+    }
+  },
+  "phases": [
+    {
+      "phase": 0,
+      "slots": 8,
+      "outcome": "OOM",
+      "metrics": {
+        "measured_requests": 16,
+        "measured_completed": 12,
+        "measured_errors": 4,
+        "errors_all_waves": 4,
+        "full_valid_window": false,
+        "process_rss_peak_observed_bytes": 4680355840,
+        "process_rss_lifetime_hwm_bytes": 4715843584,
+        "rss_observer_overhead_fraction": 0.000867,
+        "process_cpu_measured_s": 33.76
+      },
+      "error": null
+    },
+    {
+      "phase": 1,
+      "slots": 2,
+      "outcome": "COMPLETE",
+      "metrics": {
+        "measured_requests": 64,
+        "measured_completed": 64,
+        "measured_errors": 0,
+        "errors_all_waves": 0,
+        "full_valid_window": true,
+        "process_rss_peak_observed_bytes": 1818476544,
+        "process_rss_lifetime_hwm_bytes": 1818124288,
+        "rss_observer_overhead_fraction": 0.000896,
+        "process_cpu_measured_s": 115.95,
+        "p50_ms": 2430.685,
+        "p95_ms": 3941.211,
+        "p99_ms": 4009.404,
+        "completed_qps": 2.0396,
+        "query_cpu_mean_ms": 1645.456,
+        "process_cpu_ms_per_request": 1811.719,
+        "peak_query_tracker_bytes": 221141230
+      },
+      "error": null
+    },
+    {
+      "phase": 2,
+      "slots": 4,
+      "outcome": "COMPLETE",
+      "metrics": {
+        "measured_requests": 64,
+        "measured_completed": 64,
+        "measured_errors": 0,
+        "errors_all_waves": 0,
+        "full_valid_window": true,
+        "process_rss_peak_observed_bytes": 2377076736,
+        "process_rss_lifetime_hwm_bytes": 2376830976,
+        "rss_observer_overhead_fraction": 0.000865,
+        "process_cpu_measured_s": 129.08,
+        "p50_ms": 2913.663,
+        "p95_ms": 4079.37,
+        "p99_ms": 4188.619,
+        "completed_qps": 1.961,
+        "query_cpu_mean_ms": 1842.957,
+        "process_cpu_ms_per_request": 2016.875,
+        "peak_query_tracker_bytes": 220753662
+      },
+      "error": null
+    },
+    {
+      "phase": 3,
+      "slots": 4,
+      "outcome": "COMPLETE",
+      "metrics": {
+        "measured_requests": 64,
+        "measured_completed": 64,
+        "measured_errors": 0,
+        "errors_all_waves": 0,
+        "full_valid_window": true,
+        "process_rss_peak_observed_bytes": 2509406208,
+        "process_rss_lifetime_hwm_bytes": 2509074432,
+        "rss_observer_overhead_fraction": 0.000881,
+        "process_cpu_measured_s": 129.93,
+        "p50_ms": 2978.275,
+        "p95_ms": 4100.899,
+        "p99_ms": 4158.484,
+        "completed_qps": 1.9522,
+        "query_cpu_mean_ms": 1853.668,
+        "process_cpu_ms_per_request": 2030.156,
+        "peak_query_tracker_bytes": 220622318
+      },
+      "error": null
+    },
+    {
+      "phase": 4,
+      "slots": 2,
+      "outcome": "COMPLETE",
+      "metrics": {
+        "measured_requests": 64,
+        "measured_completed": 64,
+        "measured_errors": 0,
+        "errors_all_waves": 0,
+        "full_valid_window": true,
+        "process_rss_peak_observed_bytes": 1642938368,
+        "process_rss_lifetime_hwm_bytes": 1642450944,
+        "rss_observer_overhead_fraction": 0.001069,
+        "process_cpu_measured_s": 119.1,
+        "p50_ms": 2519.35,
+        "p95_ms": 4094.444,
+        "p99_ms": 4195.664,
+        "completed_qps": 1.9698,
+        "query_cpu_mean_ms": 1691.381,
+        "process_cpu_ms_per_request": 1860.938,
+        "peak_query_tracker_bytes": 220867766
+      },
+      "error": null
+    },
+    {
+      "phase": 5,
+      "slots": 8,
+      "outcome": "OOM",
+      "metrics": {
+        "measured_requests": 8,
+        "measured_completed": 3,
+        "measured_errors": 5,
+        "errors_all_waves": 5,
+        "full_valid_window": false,
+        "process_rss_peak_observed_bytes": 4718395392,
+        "process_rss_lifetime_hwm_bytes": 4728311808,
+        "rss_observer_overhead_fraction": 0.001081,
+        "process_cpu_measured_s": 17
+      },
+      "error": null
+    }
+  ],
+  "protocol_errors": [],
+  "interpretation": {
+    "established": [
+      "With eight synchronized clients on this stock O1 high-churn project14d fixture, both unrestricted k=8 fresh-process phases failed with Code 241 MEMORY_LIMIT_EXCEEDED after partial measured waves.",
+      "Both k=2 phases and both k=4 phases passed two warmup plus eight measured waves each, with 64/64 measured successful exact native replies per phase; all 256 capped measured requests had exact oracle output.",
+      "The k=2 pair completed 2.0047 QPS mean, p50 2475.0175ms, p95 4017.8275ms, process CPU 1836.3285ms/request; k=4 pair completed 1.9566 QPS mean, p50 2945.969ms, p95 4090.1345ms, CPU 2023.5155ms/request.",
+      "Observed peak process RSS remained below 1.82e9 bytes for k=2 and 2.51e9 for k=4, versus approximately 4.72e9 for the failed k=8 phases (max across each pair).",
+      "Within-cap repeated control drift was <=3.6% on p50 and <=3.5% on QPS; all successful capped phases had full QueryFinish rows."
+    ],
+    "disallowed": [
+      "No valid k=8 completed p50/p95/p99/QPS because both baseline phases failed; do not compute a baseline speedup or latency ratio.",
+      "The result is not a stock optimized release-vs-VictoriaMetrics comparison: the binary is O1/glibc, synthetic 14d sparse fixture, 8-client synchronized closed-loop rather than open-loop offered load.",
+      "Query-slot count is not a process RSS guarantee; longer tests, ingestion, merges, allocator/cgroup parity, fairness and broader selectors remain untested.",
+      "The k=2 versus k=4 p95 difference is small; do not claim a generalized p95 improvement.",
+      "8 measured waves per phase are insufficient to claim production-level p99 reliability."
+    ],
+    "next_gate": "Open-loop fixed offered-QPS, larger repeated workload under optimized O2/O3 and jemalloc, same cgroup and heterogeneous 14d/multisample selectors; preserve source/fixture and full semantics."
+  },
+  "model_doc": ".github/ts-lab-r28/ADMISSION_CAPACITY_MODEL_20261103.md",
+  "full_logs": "gh run download 41683302083 -R moleus/ClickHouse -n tslab-r28-native-admission-41683302083"
+}
