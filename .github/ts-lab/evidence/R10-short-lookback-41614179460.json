@@ -1,0 +1,230 @@
+{
+  "schema_version": 1,
+  "question_id": "R10-bucket-id-factorial-v1",
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41614179460",
+  "decision": "ACCEPT_FOR_NEXT_GATE",
+  "scientific_scope": "Matched same-stock O1 3-way RAW UUID TimeSeries SAMPLES bucket widths 900/3600/10800 on 400-slot 3d synthetic repeated-ID fixture and 6 native one-instant queries with lookbacks 15m/1h/3h, tested 12 A/B/B/A pairs. No global bucket default approved.",
+  "workflow_commit": "7f3e0c7de7c9fc045f2aca9543a34fb00b96f6a1",
+  "artifact_id": 13220137774,
+  "artifact_sha256": "dd805938197fc0e6ecbb571e7daa219eed47332c5ecbe0e71f77078cf9884cf1",
+  "artifact_name": "tslab-r10-short-lookback-41614179460",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "compiler": "LLVM22.1.8 O1 unmodified stock source",
+  "fixture_sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+  "fixture": {
+    "days": 3,
+    "active_node_slots": 400,
+    "node_life_seconds": 10800,
+    "distinct_series": 28896,
+    "samples": 2488320
+  },
+  "method": "Three RAW_UUID v11 tables with SAMPLES bucket step 900/3600/10800, identical ID hash expression and data, same server and CPU. All three inner targets OPTIMIZE FINAL and STOP MERGES. For each lookback/eval-time case, evaluate exact same native avg_over_time() via prometheusQueryRange() at one instant, use 3600s native output as reference (nonempty expected labels/time) and assert values/timestamps/labels at every trial. Compare 3600/candidate/candidate/3600, 2 warmup and 6 measured trials each phase, QueryFinish CPU/read rows/read compressed bytes/memory and 4Hz RSS monitor.",
+  "cases": {
+    "within_hour_15m": {
+      "lookback": "15m",
+      "evaluation_epoch": 1785833400,
+      "comparisons": {
+        "900": {
+          "baseline_step_seconds": 3600,
+          "candidate_step_seconds": 900,
+          "baseline_p50_ms": 28.357,
+          "candidate_p50_ms": 30.959,
+          "baseline_cpu_ms": 38.45,
+          "candidate_cpu_ms": 44.343,
+          "baseline_read_rows": 56544,
+          "candidate_read_rows": 58848,
+          "control_drift": 0.02483,
+          "valid": true
+        },
+        "10800": {
+          "baseline_step_seconds": 3600,
+          "candidate_step_seconds": 10800,
+          "baseline_p50_ms": 27.95,
+          "candidate_p50_ms": 27.88,
+          "baseline_cpu_ms": 38.171,
+          "candidate_cpu_ms": 39.144,
+          "baseline_read_rows": 56544,
+          "candidate_read_rows": 54496,
+          "control_drift": 0.02093,
+          "valid": true
+        }
+      }
+    },
+    "hour_cross_15m": {
+      "lookback": "15m",
+      "evaluation_epoch": 1785830700,
+      "comparisons": {
+        "900": {
+          "baseline_step_seconds": 3600,
+          "candidate_step_seconds": 900,
+          "baseline_p50_ms": 27.854,
+          "candidate_p50_ms": 30.572,
+          "baseline_cpu_ms": 37.993,
+          "candidate_cpu_ms": 43.796,
+          "baseline_read_rows": 56544,
+          "candidate_read_rows": 58848,
+          "control_drift": 0.0159,
+          "valid": true
+        },
+        "10800": {
+          "baseline_step_seconds": 3600,
+          "candidate_step_seconds": 10800,
+          "baseline_p50_ms": 28.196,
+          "candidate_p50_ms": 28.552,
+          "baseline_cpu_ms": 38.582,
+          "candidate_cpu_ms": 39.993,
+          "baseline_read_rows": 56544,
+          "candidate_read_rows": 54496,
+          "control_drift": 0.06253,
+          "valid": true
+        }
+      }
+    },
+    "life_cross_15m": {
+      "lookback": "15m",
+      "evaluation_epoch": 1785834300,
+      "comparisons": {
+        "900": {
+          "baseline_step_seconds": 3600,
+          "candidate_step_seconds": 900,
+          "baseline_p50_ms": 32.333,
+          "candidate_p50_ms": 34.673,
+          "baseline_cpu_ms": 46.816,
+          "candidate_cpu_ms": 52.993,
+          "baseline_read_rows": 64224,
+          "candidate_read_rows": 70112,
+          "control_drift": 0.07831,
+          "valid": true
+        },
+        "10800": {
+          "baseline_step_seconds": 3600,
+          "candidate_step_seconds": 10800,
+          "baseline_p50_ms": 31.256,
+          "candidate_p50_ms": 31.416,
+          "baseline_cpu_ms": 45.072,
+          "candidate_cpu_ms": 47.214,
+          "baseline_read_rows": 64224,
+          "candidate_read_rows": 59104,
+          "control_drift": 0.05074,
+          "valid": true
+        }
+      }
+    },
+    "namespace_1h": {
+      "lookback": "1h",
+      "evaluation_epoch": 1785832800,
+      "comparisons": {
+        "900": {
+          "baseline_step_seconds": 3600,
+          "candidate_step_seconds": 900,
+          "baseline_p50_ms": 29.708,
+          "candidate_p50_ms": 32.115,
+          "baseline_cpu_ms": 40.537,
+          "candidate_cpu_ms": 45.649,
+          "baseline_read_rows": 56544,
+          "candidate_read_rows": 58848,
+          "control_drift": 0.00404,
+          "valid": true
+        },
+        "10800": {
+          "baseline_step_seconds": 3600,
+          "candidate_step_seconds": 10800,
+          "baseline_p50_ms": 29.013,
+          "candidate_p50_ms": 28.671,
+          "baseline_cpu_ms": 39.377,
+          "candidate_cpu_ms": 40.085,
+          "baseline_read_rows": 56544,
+          "candidate_read_rows": 54496,
+          "control_drift": 0.01399,
+          "valid": true
+        }
+      }
+    },
+    "namespace_3h": {
+      "lookback": "3h",
+      "evaluation_epoch": 1785832800,
+      "comparisons": {
+        "900": {
+          "baseline_step_seconds": 3600,
+          "candidate_step_seconds": 900,
+          "baseline_p50_ms": 32.965,
+          "candidate_p50_ms": 36.331,
+          "baseline_cpu_ms": 48.074,
+          "candidate_cpu_ms": 54.387,
+          "baseline_read_rows": 66784,
+          "candidate_read_rows": 70624,
+          "control_drift": 0.12892,
+          "valid": true
+        },
+        "10800": {
+          "baseline_step_seconds": 3600,
+          "candidate_step_seconds": 10800,
+          "baseline_p50_ms": 36.965,
+          "candidate_p50_ms": 33.951,
+          "baseline_cpu_ms": 51.053,
+          "candidate_cpu_ms": 50.279,
+          "baseline_read_rows": 66784,
+          "candidate_read_rows": 59360,
+          "control_drift": 0.00325,
+          "valid": true
+        }
+      }
+    },
+    "nodes_15m": {
+      "lookback": "15m",
+      "evaluation_epoch": 1785830700,
+      "comparisons": {
+        "900": {
+          "baseline_step_seconds": 3600,
+          "candidate_step_seconds": 900,
+          "baseline_p50_ms": 47.201,
+          "candidate_p50_ms": 48.026,
+          "baseline_cpu_ms": 80.766,
+          "candidate_cpu_ms": 82.164,
+          "baseline_read_rows": 56704,
+          "candidate_read_rows": 101344,
+          "control_drift": 0.04462,
+          "valid": true
+        },
+        "10800": {
+          "baseline_step_seconds": 3600,
+          "candidate_step_seconds": 10800,
+          "baseline_p50_ms": 44.416,
+          "candidate_p50_ms": 40.123,
+          "baseline_cpu_ms": 78.407,
+          "candidate_cpu_ms": 62.346,
+          "baseline_read_rows": 56704,
+          "candidate_read_rows": 38592,
+          "control_drift": 0.01069,
+          "valid": true
+        }
+      }
+    }
+  },
+  "validity": {
+    "all_12_comparisons_passed": true,
+    "full_native_output_equal": true,
+    "all_control_drift_within_25_percent": true,
+    "same_physical_parts_before_after": true,
+    "same_sample_point_count_per_table": true,
+    "no_oom": true
+  },
+  "highlights": [
+    "RAW_UUID 900s vs3600s, 15m namespace within hour: p50 28.357->30.959ms (+9.18%), CPU38.450->44.343ms (+15.3%), drift2.483%. Close but distinct.",
+    "RAW_UUID 900s vs3600s, 1h namespace: p50 29.708->32.115ms (+8.10%), CPU40.537->45.649ms (+12.61%), drift0.404%.",
+    "RAW_UUID 10800s vs3600s, 15m broad nodes across hour edge: p50 44.416->40.123ms (-9.67%), CPU78.407->62.346ms (-20.48%), read_rows56704->38592, drift1.069%.",
+    "RAW_UUID 10800s vs3600s, 3h namespace: p50 36.965->33.951ms (-8.15%), CPU51.053->50.279ms (-1.52%), read_rows66784->59360, drift0.325%.",
+    "RAW_UUID 10800s not universally fastest; in prior paired 1d native node_broad it was 4.2% slower than3600s. Narrow 15m namespace change ~0%.",
+    "A longer bucket reduces bucket-row overhead on this multi-point-per-series fixture. The expected penalty for reading extra samples inside a 3h bucket did not dominate observed CPU for these selectors."
+  ],
+  "limits": [
+    "The oracle tests cross-schema/cross-bucket native equivalence against a one-hour ClickHouse query, not independent Prometheus numerical correctness.",
+    "3-day synthetic 400-slot synchronized life, not observed production counters or HPA.",
+    "Single client and warm server; no 14d, 8-client memory capacity or write/merge steady-state",
+    "Small query latencies on 4-core shared runner; control drift is measured and some small changes are inconclusive (life_cross15m and nodes900).",
+    "O1 glibc lab stock binary, not confirmed production jemalloc allocator.",
+    "Do not infer from query read_rows alone that primary-key bucket pruning is selective; processor CPU and marks are required for call-site attribution."
+  ],
+  "next_action": "Use source-level pipeline/microprofiler attribution for broad-node 1d vs15m cross-over at 3600/10800s, collect CPU/operator work+profile in matched native A/B/B/A with 1/3/7/14d datasets and actual HPA/staleness; only promote bucket setting after write/merge and concurrency cost gates."
+}
