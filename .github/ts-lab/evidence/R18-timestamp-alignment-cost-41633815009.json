@@ -1,0 +1,423 @@
+{
+  "schema_version": 1,
+  "question_id": "R18-timeseries-samples-value-codec-v1",
+  "source_run": "https://github.com/moleus/ClickHouse/actions/runs/41633815009",
+  "workflow_head_sha": "d755456f46061c76279eb9462432eb2d0729b5e5",
+  "artifact_id": 13230495191,
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "status": "COMPLETE_VALID_READ_ONLY",
+  "method": "Derived programmatically from all 144 complete QueryFinish phase summaries in CI job log. Restrict to stock ALP+ZSTD3 tables; values and labels exactly equal across two SHA-verified fixtures but timestamps shifted by (slot*317)%10800 seconds. For each selector/concurrency setting, compute mean of four independent A0+A3 phase medians from two outer aligned/stagger/stagger/aligned panels. Report within-alignment repeat p50 drift; query results are validated only within alignment, not across different source timestamps.",
+  "shape": {
+    "fixtures": {
+      "aligned": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+      "stagger": "ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a"
+    },
+    "physical": {
+      "tslab_r18_aligned_alp": {
+        "name": ".inner_id.samples.b41dcb3c-8953-4f48-bd6a-629802117368",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 86688,
+          "marks": 340,
+          "bytes": 5303391
+        }
+      },
+      "tslab_r18_aligned_zstd1": {
+        "name": ".inner_id.samples.ab320f89-2821-4d45-ba01-c72e8a36c977",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 86688,
+          "marks": 340,
+          "bytes": 3414486
+        }
+      },
+      "tslab_r18_stagger_alp": {
+        "name": ".inner_id.samples.8d2ed124-5285-42aa-8d75-7417c570060c",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 113760,
+          "marks": 446,
+          "bytes": 5952971
+        }
+      },
+      "tslab_r18_stagger_zstd1": {
+        "name": ".inner_id.samples.f392d2c7-df0a-4c8d-a38d-8a32a3ef10c2",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 113760,
+          "marks": 446,
+          "bytes": 4126572
+        }
+      }
+    },
+    "identity_audit": {
+      "logical_series": 28896,
+      "sample_points": 2488320,
+      "timestamps_shifted": 2464992,
+      "identical_label_value_digest": "2c185986f50c585b2262c40c53bec57c6e106d090c9177dc42500dce3cf7caba"
+    }
+  },
+  "read_only": true,
+  "measured_requests_total": 3744,
+  "all_144_phases_complete": true,
+  "all_36_panels_valid": true,
+  "all_9_repeat_interactions_valid": true,
+  "metrics": {
+    "node_broad": {
+      "1": {
+        "aligned": {
+          "p50_ms": 104.829,
+          "p95_ms": 115.818,
+          "p99_ms": 117.833,
+          "cpu_queryfinish_mean_ms": 162.011,
+          "read_rows_p50": 57728,
+          "selected_marks_p50": 117,
+          "read_compressed_bytes_p50": 4128455.5,
+          "qps": 9.414,
+          "query_memory_max_bytes": 68210366.5,
+          "outer_repeat_p50_drift": 0.06364
+        },
+        "stagger": {
+          "p50_ms": 173.236,
+          "p95_ms": 183.159,
+          "p99_ms": 184.675,
+          "cpu_queryfinish_mean_ms": 298.195,
+          "read_rows_p50": 67136,
+          "selected_marks_p50": 154,
+          "read_compressed_bytes_p50": 4504981.875,
+          "qps": 5.701,
+          "query_memory_max_bytes": 72690039.75,
+          "outer_repeat_p50_drift": 0.00074
+        },
+        "ratio_stagger_over_aligned": {
+          "p50_ms": 1.65256,
+          "p95_ms": 1.58144,
+          "p99_ms": 1.56726,
+          "cpu_queryfinish_mean_ms": 1.84058,
+          "read_rows_p50": 1.16297,
+          "selected_marks_p50": 1.31624,
+          "read_compressed_bytes_p50": 1.0912,
+          "qps": 0.60559,
+          "query_memory_max_bytes": 1.06567
+        }
+      },
+      "4": {
+        "aligned": {
+          "p50_ms": 244.273,
+          "p95_ms": 268.268,
+          "p99_ms": 275.072,
+          "cpu_queryfinish_mean_ms": 229.961,
+          "read_rows_p50": 57728,
+          "selected_marks_p50": 117,
+          "read_compressed_bytes_p50": 4182874.5,
+          "qps": 15.438,
+          "query_memory_max_bytes": 75845825,
+          "outer_repeat_p50_drift": 0.00735
+        },
+        "stagger": {
+          "p50_ms": 397.933,
+          "p95_ms": 428.832,
+          "p99_ms": 436.401,
+          "cpu_queryfinish_mean_ms": 377.838,
+          "read_rows_p50": 67136,
+          "selected_marks_p50": 154,
+          "read_compressed_bytes_p50": 4620565.875,
+          "qps": 9.556,
+          "query_memory_max_bytes": 78694950.5,
+          "outer_repeat_p50_drift": 0.00294
+        },
+        "ratio_stagger_over_aligned": {
+          "p50_ms": 1.62905,
+          "p95_ms": 1.59852,
+          "p99_ms": 1.5865,
+          "cpu_queryfinish_mean_ms": 1.64305,
+          "read_rows_p50": 1.16297,
+          "selected_marks_p50": 1.31624,
+          "read_compressed_bytes_p50": 1.10464,
+          "qps": 0.61899,
+          "query_memory_max_bytes": 1.03756
+        }
+      },
+      "8": {
+        "aligned": {
+          "p50_ms": 492.074,
+          "p95_ms": 557.353,
+          "p99_ms": 566.569,
+          "cpu_queryfinish_mean_ms": 235.002,
+          "read_rows_p50": 57728,
+          "selected_marks_p50": 117,
+          "read_compressed_bytes_p50": 4148830.75,
+          "qps": 15.227,
+          "query_memory_max_bytes": 77609968,
+          "outer_repeat_p50_drift": 0.0151
+        },
+        "stagger": {
+          "p50_ms": 781.375,
+          "p95_ms": 852.924,
+          "p99_ms": 860.645,
+          "cpu_queryfinish_mean_ms": 381.293,
+          "read_rows_p50": 67136,
+          "selected_marks_p50": 154,
+          "read_compressed_bytes_p50": 4525549,
+          "qps": 9.601,
+          "query_memory_max_bytes": 79123913.75,
+          "outer_repeat_p50_drift": 0.0137
+        },
+        "ratio_stagger_over_aligned": {
+          "p50_ms": 1.58792,
+          "p95_ms": 1.53031,
+          "p99_ms": 1.51905,
+          "cpu_queryfinish_mean_ms": 1.62251,
+          "read_rows_p50": 1.16297,
+          "selected_marks_p50": 1.31624,
+          "read_compressed_bytes_p50": 1.0908,
+          "qps": 0.63052,
+          "query_memory_max_bytes": 1.01951
+        }
+      }
+    },
+    "pod_namespace": {
+      "1": {
+        "aligned": {
+          "p50_ms": 40.362,
+          "p95_ms": 44.921,
+          "p99_ms": 45.463,
+          "cpu_queryfinish_mean_ms": 56.77,
+          "read_rows_p50": 102368,
+          "selected_marks_p50": 229,
+          "read_compressed_bytes_p50": 4286519.5,
+          "qps": 24.221,
+          "query_memory_max_bytes": 15825525,
+          "outer_repeat_p50_drift": 0.01733
+        },
+        "stagger": {
+          "p50_ms": 45.983,
+          "p95_ms": 49.812,
+          "p99_ms": 50.143,
+          "cpu_queryfinish_mean_ms": 67.912,
+          "read_rows_p50": 119008,
+          "selected_marks_p50": 294,
+          "read_compressed_bytes_p50": 4812135.375,
+          "qps": 21.369,
+          "query_memory_max_bytes": 15825479,
+          "outer_repeat_p50_drift": 0.03573
+        },
+        "ratio_stagger_over_aligned": {
+          "p50_ms": 1.13926,
+          "p95_ms": 1.10888,
+          "p99_ms": 1.10294,
+          "cpu_queryfinish_mean_ms": 1.19627,
+          "read_rows_p50": 1.16255,
+          "selected_marks_p50": 1.28384,
+          "read_compressed_bytes_p50": 1.12262,
+          "qps": 0.88225,
+          "query_memory_max_bytes": 1
+        }
+      },
+      "4": {
+        "aligned": {
+          "p50_ms": 90.841,
+          "p95_ms": 106.033,
+          "p99_ms": 108.518,
+          "cpu_queryfinish_mean_ms": 77.219,
+          "read_rows_p50": 102368,
+          "selected_marks_p50": 229,
+          "read_compressed_bytes_p50": 4431556.625,
+          "qps": 41.49,
+          "query_memory_max_bytes": 16299337,
+          "outer_repeat_p50_drift": 0.2333
+        },
+        "stagger": {
+          "p50_ms": 105.823,
+          "p95_ms": 121.725,
+          "p99_ms": 124.861,
+          "cpu_queryfinish_mean_ms": 93.938,
+          "read_rows_p50": 119008,
+          "selected_marks_p50": 294,
+          "read_compressed_bytes_p50": 5092233.75,
+          "qps": 35.702,
+          "query_memory_max_bytes": 16298381,
+          "outer_repeat_p50_drift": 0.13283
+        },
+        "ratio_stagger_over_aligned": {
+          "p50_ms": 1.16493,
+          "p95_ms": 1.14799,
+          "p99_ms": 1.1506,
+          "cpu_queryfinish_mean_ms": 1.21651,
+          "read_rows_p50": 1.16255,
+          "selected_marks_p50": 1.28384,
+          "read_compressed_bytes_p50": 1.14908,
+          "qps": 0.8605,
+          "query_memory_max_bytes": 0.99994
+        }
+      },
+      "8": {
+        "aligned": {
+          "p50_ms": 174.078,
+          "p95_ms": 207.352,
+          "p99_ms": 210.554,
+          "cpu_queryfinish_mean_ms": 78.631,
+          "read_rows_p50": 102368,
+          "selected_marks_p50": 229,
+          "read_compressed_bytes_p50": 4374942.375,
+          "qps": 41.718,
+          "query_memory_max_bytes": 17058258.5,
+          "outer_repeat_p50_drift": 0.15971
+        },
+        "stagger": {
+          "p50_ms": 209.069,
+          "p95_ms": 237.171,
+          "p99_ms": 243.342,
+          "cpu_queryfinish_mean_ms": 98.481,
+          "read_rows_p50": 119008,
+          "selected_marks_p50": 294,
+          "read_compressed_bytes_p50": 4974787,
+          "qps": 35.569,
+          "query_memory_max_bytes": 17120958.5,
+          "outer_repeat_p50_drift": 0.0823
+        },
+        "ratio_stagger_over_aligned": {
+          "p50_ms": 1.20101,
+          "p95_ms": 1.14381,
+          "p99_ms": 1.15572,
+          "cpu_queryfinish_mean_ms": 1.25244,
+          "read_rows_p50": 1.16255,
+          "selected_marks_p50": 1.28384,
+          "read_compressed_bytes_p50": 1.13711,
+          "qps": 0.85261,
+          "query_memory_max_bytes": 1.00368
+        }
+      }
+    },
+    "burst15": {
+      "1": {
+        "aligned": {
+          "p50_ms": 31.08,
+          "p95_ms": 33.408,
+          "p99_ms": 33.62,
+          "cpu_queryfinish_mean_ms": 40.5,
+          "read_rows_p50": 66016,
+          "selected_marks_p50": 87,
+          "read_compressed_bytes_p50": 3774322,
+          "qps": 31.588,
+          "query_memory_max_bytes": 15819263,
+          "outer_repeat_p50_drift": 0.01279
+        },
+        "stagger": {
+          "p50_ms": 36.088,
+          "p95_ms": 39.065,
+          "p99_ms": 39.185,
+          "cpu_queryfinish_mean_ms": 48.957,
+          "read_rows_p50": 66272,
+          "selected_marks_p50": 88,
+          "read_compressed_bytes_p50": 4397453,
+          "qps": 27.715,
+          "query_memory_max_bytes": 15819255,
+          "outer_repeat_p50_drift": 0.11423
+        },
+        "ratio_stagger_over_aligned": {
+          "p50_ms": 1.16113,
+          "p95_ms": 1.16933,
+          "p99_ms": 1.16553,
+          "cpu_queryfinish_mean_ms": 1.20881,
+          "read_rows_p50": 1.00388,
+          "selected_marks_p50": 1.01149,
+          "read_compressed_bytes_p50": 1.1651,
+          "qps": 0.87739,
+          "query_memory_max_bytes": 1
+        }
+      },
+      "4": {
+        "aligned": {
+          "p50_ms": 57.814,
+          "p95_ms": 61.064,
+          "p99_ms": 61.703,
+          "cpu_queryfinish_mean_ms": 53.297,
+          "read_rows_p50": 66016,
+          "selected_marks_p50": 87,
+          "read_compressed_bytes_p50": 3837944.875,
+          "qps": 66.11,
+          "query_memory_max_bytes": 16293239,
+          "outer_repeat_p50_drift": 0.00746
+        },
+        "stagger": {
+          "p50_ms": 65.877,
+          "p95_ms": 71.679,
+          "p99_ms": 72.137,
+          "cpu_queryfinish_mean_ms": 61.804,
+          "read_rows_p50": 66272,
+          "selected_marks_p50": 88,
+          "read_compressed_bytes_p50": 4457539.375,
+          "qps": 57.042,
+          "query_memory_max_bytes": 16292663,
+          "outer_repeat_p50_drift": 0.00754
+        },
+        "ratio_stagger_over_aligned": {
+          "p50_ms": 1.13946,
+          "p95_ms": 1.17383,
+          "p99_ms": 1.1691,
+          "cpu_queryfinish_mean_ms": 1.15961,
+          "read_rows_p50": 1.00388,
+          "selected_marks_p50": 1.01149,
+          "read_compressed_bytes_p50": 1.16144,
+          "qps": 0.86283,
+          "query_memory_max_bytes": 0.99996
+        }
+      },
+      "8": {
+        "aligned": {
+          "p50_ms": 116.242,
+          "p95_ms": 136.203,
+          "p99_ms": 141.503,
+          "cpu_queryfinish_mean_ms": 55.749,
+          "read_rows_p50": 66016,
+          "selected_marks_p50": 87,
+          "read_compressed_bytes_p50": 3838000.25,
+          "qps": 62.545,
+          "query_memory_max_bytes": 17289182,
+          "outer_repeat_p50_drift": 0.01479
+        },
+        "stagger": {
+          "p50_ms": 132.351,
+          "p95_ms": 155.377,
+          "p99_ms": 159.819,
+          "cpu_queryfinish_mean_ms": 63.544,
+          "read_rows_p50": 66272,
+          "selected_marks_p50": 88,
+          "read_compressed_bytes_p50": 4443000.625,
+          "qps": 54.712,
+          "query_memory_max_bytes": 17504234.25,
+          "outer_repeat_p50_drift": 0.00991
+        },
+        "ratio_stagger_over_aligned": {
+          "p50_ms": 1.13858,
+          "p95_ms": 1.14078,
+          "p99_ms": 1.12944,
+          "cpu_queryfinish_mean_ms": 1.13982,
+          "read_rows_p50": 1.00388,
+          "selected_marks_p50": 1.01149,
+          "read_compressed_bytes_p50": 1.15763,
+          "qps": 0.87476,
+          "query_memory_max_bytes": 1.01244
+        }
+      }
+    }
+  },
+  "conclusions": [
+    "At 8 clients for node_broad, timestamp offset raises ALP native p50 492.074->781.375ms (+58.8%), QueryFinish CPU 235.002->381.293ms (+62.25%), while read_rows 57,728->67,136 (+16.3%) and compressed read bytes 4,148,831->4,525,549 (+9.08%); throughput drops 15.227->9.601 rps. Two outer-panel baseline p50 repeat drifts ~1.5% aligned and1.4% stagger, much smaller than the effect.",
+    "At 8 clients burst15, ALP read_rows 66,016->66,272 (+0.4%), selected marks87->88, yet native CPU55.749->63.544ms (+14.0%) and compressed bytes3.838->4.443MB (+15.8%): read_rows alone does not predict CPU.",
+    "At 8 clients namespace, ALP CPU78.631->98.481ms (+25.2%), read_rows102,368->119,008 (+16.25%), marks229->294 (+28.4%), p50 174.078->209.069ms (+20.1%).",
+    "The same 400-node start alignment offset changes which sample timestamps lie inside query lookback and horizon, so increased CPU cannot be attributed exclusively to compressed codec, bucket marks or array deserialization. This is a controlled workload-level timestamp sensitivity, not a single-function root cause."
+  ],
+  "limitations": [
+    "This synthetic R10 fixture shifts timestamps and does not represent constant active 400 nodes at the first/final lifecycle boundary. Native results are different across alignment by design, so do not call it a storage-only intervention.",
+    "Stock O1 glibc executor, not optimized jemalloc production parity. No concurrent writer or naturally merging parts, no long 14d memory gate.",
+    "No standalone per-function CPU profiler in this R18C experiment; QueryFinish CPU and rows/marks/bytes do not prove exactly which operators dominate.",
+    "Performance ratios are within one runner and reused process across many panels. Baseline repeated alignment phases are measured; some n4 namespace baseline repeat drifts >13%, so avoid generalizing small n4 differences."
+  ]
+}
