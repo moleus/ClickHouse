@@ -660,3 +660,15 @@ PROMOTION**. First [R18 #41630357537](https://github.com/moleus/ClickHouse/actio
 was invalid DDL formatting guard, corrected and recorded as M42;
 no C++ build, master, old-branch or production changes.
 
+
+## 2026-11-03 R02: fixed open-loop native read/write + natural merges — replicated CPU and p95 benefit, stock-O1 only
+
+[Immutable scientific reduction](evidence/R02-small-batch-raw-lc-write-v1/41634795775.json) / [SHA-checked reducer #41634795775](https://github.com/moleus/ClickHouse/actions/runs/41634795775) **PASS, REPLICATED_LAB_EFFECT**, with [two independent hosts #41634084470](https://github.com/moleus/ClickHouse/actions/runs/41634084470). Same pinned stock O1 + fixture SHA `dd2dd55ee8fc...`; 4 fresh processes per host (LC/RAW/RAW/LC), exactly **84 time-fixed INSERTs** every 200ms and **40 complete native PromQL requests** every 400ms per phase (offset100ms). Physical sample points=384000; all native labels/timestamps/float values checked; natural background merges ON. No request-count/QPS bias or schedule lateness >75ms; no optimizer or binary change.
+
+| Within-host RAW/LC | Runner one | Runner two | Geometric mean |
+|---|---:|---:|---:|
+| Native p95 | 0.65677 | 0.68626 | **0.67135 (−32.9%)** |
+| Whole-server process CPU during fixed offered load | 0.77509 | 0.80339 | **0.78911 (−21.1%)** |
+| Total fixed schedule wall | 0.99948 | 0.99957 | 0.99952 (by design) |
+
+The initial [fixed-arrival CI #41633619697](https://github.com/moleus/ClickHouse/actions/runs/41633619697) passed individual semantic/scheduling checks but failed **26.30% LC p95 A/A drift >25%**. It remains explicitly **INVALID_METHOD** [negative evidence](evidence/R02-small-batch-raw-lc-write-v1/41633619697.json), excluded from all aggregation. Valid independent runner LC p95 A/A drift **11.30%,5.14%**, CPU drift **6.08%,2.51%**; every p95 and CPU improvement exceeds the local controls. Distinguish this **fixed-rate 2.5 queries/s** experiment from earlier closed-loop variable-QPS [#41627431408](https://github.com/moleus/ClickHouse/actions/runs/41627431408), which gave a different p95 effect because each candidate executed a different number of queries. **Not a production SLA or claim about optimized jemalloc / 14d 1.33m series**. Next gate is optimized allocator+binary, heldout long-window/client concurrency and resource caps; do not launch competing build.
