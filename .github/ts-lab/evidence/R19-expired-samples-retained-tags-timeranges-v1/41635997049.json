@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "question_id": "R19-expired-samples-retained-tags-timeranges-v1",
+  "experiment": "Three independent runner SHA-verified native read cost with old TAGS and TimeRanges retained after historical SAMPLES partition drop",
+  "decision": "REPLICATED_LAB_EFFECT",
+  "ci_status": "success",
+  "verified_utc": "2026-11-03T12:30:00Z",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary": {
+    "build_run_id": 41596421285,
+    "sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "llvm": "22.1.8",
+    "optimization": "O1 stock, glibc, no C++ patch"
+  },
+  "fixture": {
+    "retired_ids": 48000,
+    "active_ids": 2000,
+    "live_input_sha256": "df80189979bdc9ae0ba3ec0c4103f42444d703ef5948cfa5929989ae28b115d6",
+    "retired_input_sha256": "fc6ff8bf4ee1842b2f31e787d8cb336801bc59601c98ff249bdb0f6d16232267",
+    "old_time": "2026-08-10T12:00:00Z",
+    "live_time": "2026-10-20T12:00:00Z",
+    "removed_samples_partition": "202608",
+    "remaining_partition": "202610",
+    "historical_samples_removed_by": "explicit DROP PARTITION, an exact physical retention model; not an actual asynchronous TTL event",
+    "main_native_query": "avg by(project)(avg_over_time(tslab_r19_retention[1d]))",
+    "narrow_native_query": "avg by(project)(avg_over_time(tslab_r19_retention{project=\"p0\"}[1d]))",
+    "full_native_queries_per_runner": 104
+  },
+  "physical_control": {
+    "clean": {
+      "tags_rows": 2000,
+      "timeranges_rows": 2000,
+      "samples_rows": 2000,
+      "samples_bytes": 42310
+    },
+    "retained": {
+      "tags_rows": 50000,
+      "timeranges_rows": 50000,
+      "samples_rows": 2000,
+      "samples_bytes": 42310
+    },
+    "same_active_sample_bytes": true,
+    "old_sample_partition_absent": true,
+    "retired_tagranges_preserved": true
+  },
+  "protocol": "Same stock-O1 binary/schema for clean 2k active-only and aged 2k identical active+48k retired ID tables. Historical SAMPLES partition dropped only from aged. Same native full label/time/numeric oracle for both. For each broad and p0 selector, 4 phases clean/aged/aged/clean with 3 warmups +10 measured per phase, QueryFinish CPU/read_rows/read_bytes/memory, 25% A/A p50 wall/CPU drift bound. All three GitHub runner jobs use same script hashes, binary and fixture.",
+  "replications": [
+    {
+      "run_id": 41635340660,
+      "job_id": 125915003608,
+      "artifact_id": 13230143375,
+      "official_digest": "e70253bd7ca544bdc8629fc3d7426d26b21bdc267c425d0ee59b6d58a7fabdb5",
+      "broad_wall_retained_over_clean": 1.412635,
+      "broad_cpu_retained_over_clean": 1.446173,
+      "broad_wall_control_drift": 0.15368,
+      "broad_cpu_control_drift": 0.17402,
+      "p0_wall_retained_over_clean": 1.262378,
+      "p0_cpu_retained_over_clean": 1.305378
+    },
+    {
+      "run_id": 41635691926,
+      "job_id": 125916177175,
+      "artifact_id": 13229669489,
+      "official_digest": "0dc79e5cd226c8316e48654b69a844dfe148e31390724c6514abbe4d77453db8",
+      "broad_wall_retained_over_clean": 1.46519,
+      "broad_cpu_retained_over_clean": 1.49697,
+      "broad_wall_control_drift": 0.02635,
+      "broad_cpu_control_drift": 0.05314,
+      "p0_wall_retained_over_clean": 1.278637,
+      "p0_cpu_retained_over_clean": 1.325259
+    },
+    {
+      "run_id": 41635691926,
+      "job_id": 125916176713,
+      "artifact_id": 13230372100,
+      "official_digest": "921e4a6f67d640ef9ef7a66f1f45450e4c1a9b3188bd5b98c57f6256fd7ffa1c",
+      "broad_wall_retained_over_clean": 1.405444,
+      "broad_cpu_retained_over_clean": 1.443552,
+      "broad_wall_control_drift": 0.09974,
+      "broad_cpu_control_drift": 0.11868,
+      "p0_wall_retained_over_clean": 1.308643,
+      "p0_cpu_retained_over_clean": 1.345068
+    }
+  ],
+  "geometric_means": {
+    "broad": {
+      "wall_retained_over_clean": 1.42751,
+      "cpu_retained_over_clean": 1.46203,
+      "read_rows_retained_over_clean": 17,
+      "read_bytes_retained_over_clean": 17.38384
+    },
+    "project_p0": {
+      "wall_retained_over_clean": 1.28308,
+      "cpu_retained_over_clean": 1.32514,
+      "read_rows_retained_over_clean": 17,
+      "read_bytes_retained_over_clean": 17.41724
+    }
+  },
+  "validity": {
+    "all_three_compiled_binary_sha_manifests_checked": true,
+    "script_sha_same": true,
+    "all_312_full_native_queries_nonempty_and_numerically_equal": true,
+    "all_physical_samples_exact": true,
+    "all_old_sample_partition_dropped": true,
+    "all_Tags_and_TimeRanges_persisted": true,
+    "all_wall_cpu_effects_exceed_local_AA_drift": true,
+    "all_control_drifts_under_25pct": true,
+    "query_result_cache_off": true
+  },
+  "reducer": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41635997049",
+    "job_id": 125917226430,
+    "artifact_id": 13230741309,
+    "artifact_zip_sha256": "e72e62615f027e93c2176e1eac8dfbfefa1be30fd50eaa6e74e24844e4581641",
+    "script": ".github/ts-lab/experiments/r19_reduce_retention.py",
+    "workflow": ".github/workflows/ts-lab-r19-reduce-three-runners-20261103.yml",
+    "workflow_commit": "12dc8868d0ea871144b7f27abbb4731f873228f4",
+    "note": "Official GitHub ZIP digests checked independently before repacking ZIPs for parser; reducer report keeps local repacked hashes."
+  },
+  "known_negative": {
+    "run_id": 41635086542,
+    "decision": "INFRA_FAIL",
+    "reason": "No ClickHouse server start step, refused TCP; no metric or correctness measurement",
+    "evidence": ".github/ts-lab/evidence/R19-expired-samples-retained-tags-timeranges-v1/41635086542.json"
+  },
+  "source_proof": "src/Storages/StorageTimeSeries.cpp ## Retention explicitly says TAGS has no TTL by default even when all samples are deleted. tags_deduplication_cache_expiration_seconds is an in-memory cache setting, not a disk retention rule.",
+  "math_bound": "For K=400 three-hour node slots, new IDs/day=400*24/3=3200 per metric; 15d live=48000, 365d historical=1168000 if no expiry. Synthetic 25x ID ratio (50k total/2k live) yields a measured 17x native read_rows and +42.8% broad p50, but extrapolation to 1.16m IDs is unsafe without heldout fixture and production-like cache/part layout.",
+  "limitations": [
+    "Old SAMPLES were manually removed using DROP PARTITION; this proof does not exercise the actual TTL background scheduler or whether it purges TAGS automatically (source documents that it does not by default).",
+    "One metric, finite gauges, two query shapes, unique one-point per ID; not full 14d or 1.33m live high-cardinality production workload.",
+    "No concurrent inserts while querying; TAGS/TimeRanges static after OPTIMIZE FINAL. Retired record lifecycle and late-arrival semantics unresolved.",
+    "Only unmodified stock O1/glibc ClickHouse, no optimized jemalloc release or comparison with VictoriaMetrics.",
+    "A persistent TAGS row is not itself incorrect and should not be deleted automatically without semantics/provenance. The observed cost is workload-specific."
+  ],
+  "next_action": {
+    "question_id": "R19",
+    "step": "Build a tiny actual TTL-triggered deletion semantic test with a source-defined SAMPLES INNER TTL and utc-partitioned 30d retention, plus late/resumed series after TTL and read-only/tenant correctness; measure no performance yet. If TTL preserves old metadata as documented, evaluate a safe bounded metadata maintenance or query-time pruning mechanism after source and mathematical proof. Avoid R07 owner's sidecar fastpath scope.",
+    "stop_condition": "Never apply cleanup to prod or assert safe automatic TAGS TTL until late/backfill, source-ID continuity, TimeRanges consistency and native output correctness gates pass."
+  }
+}
