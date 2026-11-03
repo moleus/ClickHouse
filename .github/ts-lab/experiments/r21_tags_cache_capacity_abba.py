@@ -256,11 +256,12 @@ def one_phase(binary,root,phase,variant,blocks,input_proof,port):
         result['stats']['querylog_tag_cache_misses']=total_miss
         hit_event='TimeSeriesTagsDeduplicationCacheHits'
         miss_event='TimeSeriesTagsDeduplicationCacheMisses'
-        if hit_event not in start_cache_events or miss_event not in start_cache_events or \
-           hit_event not in end_cache_events or miss_event not in end_cache_events:
-            raise AssertionError('TimeSeries global cache ProfileEvents are missing')
-        total_hit=end_cache_events[hit_event]-start_cache_events[hit_event]
-        total_miss=end_cache_events[miss_event]-start_cache_events[miss_event]
+        # system.events reports only counters that have been incremented.
+        # Fresh servers legitimately omit BOTH keys before the first INSERT.
+        if hit_event not in end_cache_events or miss_event not in end_cache_events:
+            raise AssertionError('TimeSeries global cache ProfileEvents missing after inserts')
+        total_hit=end_cache_events[hit_event]-start_cache_events.get(hit_event,0)
+        total_miss=end_cache_events[miss_event]-start_cache_events.get(miss_event,0)
         result['stats']['total_cache_hits']=total_hit
         result['stats']['total_cache_misses']=total_miss
         result['stats']['cache_events_method']='system.events global worker-inclusive delta'
