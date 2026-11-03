@@ -1,0 +1,42 @@
+{
+  "owner": "chatgpt-e05-r35-injective-metric-drop-20261104",
+  "question_id": "R35",
+  "state": "VALIDATED_RESEARCH_CANDIDATE",
+  "entrypoint": ".github/ts-lab-r35/README.md",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "candidate_build_run": 41732238195,
+  "candidate_artifact_id": 13277891526,
+  "candidate_sha256": "68d6e8f954a44beeb137acea61b0b77afac32cc705e59404413c233b57e6a06b",
+  "completed": [
+    "Same-source LLVM22.1.8/O2/jemalloc candidate build; one C++ file changed",
+    "147 native compatibility cases including duplicate-series exception and five negative plan guards",
+    "Independent-oracle full native 1.33m/14d stock/candidate/candidate/stock, fresh processes",
+    "Dense native rate ABBA with analytic oracle",
+    "Two-client memory ABBA with all24 attempted requests and terminal logs preserved",
+    "R34 sparse-map independent candidate measured; not included in R35",
+    "R32 finalizer-only native result recorded as NO_EFFECT",
+    "Shared INDEX updated with completed evidence"
+  ],
+  "evidence": [
+    ".github/ts-lab/evidence/R35-native-1330k-local-20261104.json",
+    ".github/ts-lab/evidence/R35-two-client-capacity-local-20261104.json",
+    ".github/ts-lab/evidence/R34-sparse-map-local-20261104.json",
+    ".github/ts-lab/evidence/R32-local-native-133k-20261104.json"
+  ],
+  "raw_evidence_delivery": {
+    "conversation_attachment": "clickhouse-timeseries-r35-evidence-20261104.zip",
+    "sha256": "4940fce90d031ae2b671a1c983ad6ee9d3975b391180d06456deed7971c4c5e0",
+    "contents": "76 manifested files plus manifest: complete local trials, native outputs, semantic results, original and portable harnesses, exact patches, build identities and post-run physical file hashes",
+    "availability": "Attached to the originating chat. Summary evidence and reproducible native harness are committed in this public fork; the raw ZIP is not a GitHub Actions artifact."
+  },
+  "do_not_claim": [
+    "Production readiness or superiority over optimized VictoriaMetrics",
+    "p95/p99 from the short pilot",
+    "R34 kernel memory percentage as full-query savings",
+    "Multiplication of R34 and R35 gains",
+    "Selective stage latency gain larger than its control drift",
+    "Censored harness-timeout attempts as successful measurements or kernel OOMs"
+  ],
+  "next_dependent_experiment": "Sustained open-loop mixed-selector read/write/merge load under the same finite resource budget, with tenant/ACL and retention gates. Keep R34/R35 cumulative integration separate and source-matched.",
+  "production_master_upstream_changed": false
+}
