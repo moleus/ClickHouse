@@ -47,6 +47,27 @@ class VMCensusFixtureTests(unittest.TestCase):
             blob=path.read_bytes()
             self.assertNotIn(b'"metric_name":"jenkins_ci_95k_daily"',blob[:1000])
 
+    def test_same_marginals_can_have_opposite_joint_stage_project_selectivity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            owner_path=pathlib.Path(tmp)/"owner.jsonl"
+            independent_path=pathlib.Path(tmp)/"independent.jsonl"
+            owner=generate(owner_path,association="owner_hierarchy")
+            independent=generate(independent_path,association="counterfactual_independent_project")
+            proof_a=validate(owner_path,owner)
+            proof_b=validate(independent_path,independent)
+            self.assertEqual(proof_a["marginals"],proof_b["marginals"])
+            self.assertEqual(owner["series"],independent["series"])
+            self.assertNotEqual(owner["sha256"],independent["sha256"])
+            self.assertEqual(proof_a["stage_projects_min"],1)
+            self.assertEqual(proof_a["stage_projects_max"],1)
+            self.assertGreater(proof_b["stage_projects_avg"],15)
+            self.assertEqual(
+                proof_a["first_68_nominal_stage_project_intersections"]["pair_rows_total"],
+                proof_a["first_68_nominal_stage_project_intersections"]["stage_rows_total"])
+            self.assertLess(
+                proof_b["first_68_nominal_stage_project_intersections"]["pair_rows_total"],
+                proof_a["first_68_nominal_stage_project_intersections"]["pair_rows_total"]//10)
+
     def test_rejects_corrupted_labels(self):
         with tempfile.TemporaryDirectory() as tmp:
             path=pathlib.Path(tmp)/"census.jsonl"
