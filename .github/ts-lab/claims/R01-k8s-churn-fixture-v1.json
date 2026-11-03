@@ -1,0 +1,17 @@
+{
+  "id": "R01-k8s-churn-fixture-v1",
+  "question": "Can we construct a deterministic public synthetic Kubernetes metric workload with explicit 3-hour node turnover, pod churn, HPA changes, realistic label selectors and distinct stable-versus-churning series for later native ClickHouse/VM tests?",
+  "owner": "chatgpt-web-r01-fixture-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Existing canonical 1.33m Jenkins fixture and native R03 stock O1 comparison; this phase does not claim a performance baseline",
+  "candidate": "New deterministic streaming Kubernetes workload generator plus pure-Python oracle and small CI smoke; no C++ patch or expensive ClickHouse build",
+  "fixture": "Public synthetic node/pod/service metric families; user-configurable count and scrape/node lifetimes; fixed seed; emit SHA256 for entire fixture; no private telemetry",
+  "single_variable": "Workload distribution and churn (fixture design); no query performance intervention in this phase",
+  "math_bound": "At n stable node slots, scrape period s, duration T, one node incarnation every L seconds per slot: node incarnations ≈ n*T/L, sample events O(n*T/s*(node-label-series + active pod-label-series)); deterministic bounded-size smoke before full load",
+  "falsifier": "Generator not reproducible; nonmonotone counters within one series, invalid reset, duplicate metric+tag+timestamp keys, incorrect HPA pod reuse, unbounded peak RAM for a streaming generator, or no independently verifiable sample/series counts",
+  "test_matrix": "Pure Python tests: deterministic bytes and manifest SHA; node rotation with stagger, pod HPA extra replica ID changes, stable service series, monotonically increasing counters per series; sample count and output shape; small CI 16 slots 6h, no ClickHouse binary",
+  "runner_budget": "One low-cost GitHub Actions smoke job, python3 only, <5 minutes; no expensive builds; full 400-node 14d generation deferred",
+  "planned_workflow": ".github/workflows/ts-lab-r01-kubernetes-fixture.yml; unique path-scoped push; no schedule, no cancellation",
+  "dependencies": []
+}
