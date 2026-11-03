@@ -1,0 +1,35 @@
+# Measured results: invalid approaches and methodological failures
+
+An experiment that fails a gate still provides useful negative evidence. Do not silently relabel such a run as a successful optimization.
+
+| ID | Classification | Observed issue | Required remedy |
+|---|---|---|---|
+| M01 | Wrong time range | Initial CBO 6k test queried after the last sample; empty vectors made the query look fast ([41530696837](https://github.com/moleus/ClickHouse/actions/runs/41530696837)). | Assert nonempty expected timestamps, series and cardinality before timing. |
+| M02 | Instrumentation pollution | Diagnostic 1.33m JOIN SQL included `sipHash64(id)` checksum, which consumed a large share of CPU ([41532393067](https://github.com/moleus/ClickHouse/actions/runs/41532393067)). | Check identity separately; use count-only or real PromQL for measured path. |
+| M03 | Non-paired benchmarks | CBO dedicated-stage-column initial test used different order and cached states ([41533707123](https://github.com/moleus/ClickHouse/actions/runs/41533707123)). | Use warm A/B/B/A, same query text and physical parts; publish rejected drift. |
+| M04 | Floating-point equality | Hash of exact JSON bits falsely failed numerically equal time-series aggregates ([41531500328](https://github.com/moleus/ClickHouse/actions/runs/41531500328)). | Strict labels/timestamps; numeric tolerance and NaN/Inf handling. |
+| M05 | Memory accounting | Whole 14d JOIN/native query OOM around 4.66GiB server RSS although per-query log memory much smaller ([41587498126](https://github.com/moleus/ClickHouse/actions/runs/41587498126)). | Monitor process RSS, jemalloc, background allocations and query-level tracking separately. |
+| M06 | Assumed index pruning | A minmax index appeared in EXPLAIN but retained all marks ([41587537130](https://github.com/moleus/ClickHouse/actions/runs/41587537130)). | Validate `granules_after`, `SelectedMarks`, rows and CPU. |
+| M07 | v11 DDL incompatibility | `id_type` setting rejected by v11 with `INVALID_SETTING_VALUE` ([41589662769](https://github.com/moleus/ClickHouse/actions/runs/41589662769)). | Declare the matching `id` column type on TAGS/SAMPLES/TimeRanges via `INNER COLUMNS`; preserve generator/index. |
+| M08 | Wrong physical intervention | `INSERT SETTINGS low_cardinality_max_dictionary_size` produced byte-identical Wide parts even before merge ([41591296942](https://github.com/moleus/ClickHouse/actions/runs/41591296942)). | Confirm writer settings source and actual data-file SHA before profiling. |
+| M09 | Drift gate tripped | `stage` block-size 1024 A/B/B/A drift 28.47% ([41588920790](https://github.com/moleus/ClickHouse/actions/runs/41588920790)). | Reject that variant, repeat under stable load; other seven jobs passed. |
+| M10 | CPU vs latency conflation | One thread used less CPU than four but >2x wall time for stage14d ([41588920790](https://github.com/moleus/ClickHouse/actions/runs/41588920790)). | Report CPU/core cost, wall latency, runqueue and p95 separately. |
+| M11 | Diagnostic vs native | SQL JOIN can be rewritten by optimizer; real TimeSeries selector also populates label collector and sample ID sets. | Require final native `prometheusQueryRange` parity and performance to claim end-to-end gains. |
+| M12 | Overlapping processor time | Sum of `processors_profile_log.elapsed_us` across parallel processors overstates wall time; `input_wait_elapsed_us` is not automatically lock time. | Match query ID and operator, measure per-thread intervals/off-CPU and separate physical wall time. |
+| M13 | Default source/schema generalization | v11 default `LowCardinality(UUID)` harms high-churn 1.33m series, but long-lived/dense or mixed fixtures can behave differently ([41590057398](https://github.com/moleus/ClickHouse/actions/runs/41590057398)). | Benchmark actual distinct IDs per part, samples/ID, merge cadence, compression and realistic query mixes; do not delete LC globally without evidence. |
+| M14 | Build confounder | Comparing O1 patched and O2 stock binaries falsely attributes compiler optimization differences to source changes. | Same source commit, same compiler and flags for baseline and candidate; inspect `BUILD_INFO`. |
+| M15 | Attribution confounder | `trace_log` CPU sampling is statistical and can underrepresent short critical sections, while pthread futex sleeps include intentional idle queue waiting. | Require off-CPU samples or per-thread scheduling telemetry, owner-aware lock tracing and collector overhead control. |
+| M16 | Event-loop work contamination | Variable client-side JSON serialization or checksum can dominate microbenchmarks. | Use `FORMAT Null` for physical CPU microprobes; keep native JSON for real query end-to-end checks. |
+
+## Open source-level gotchas
+
+1. **High-cardinality dictionary decode:** source `SerializationLowCardinality.cpp` can call `ColumnLowCardinality::insertRangeFromDictionaryEncodedColumn` followed by `ColumnUnique::uniqueInsertRangeFrom` and `ReverseIndex::buildIndex`; a lab shortcut requires malformed/duplicate/nullable/continuous-read safety tests.
+2. **Writer settings:** `MergedBlockOutputStream` creates writer settings from `data_part->storage.getContext()->getSettingsRef()`, not necessarily the current `INSERT` query context; `Compact` writer hardcodes `low_cardinality_max_dictionary_size=0`.
+3. **Statistics:** `UniqV2` on a `LowCardinality` dictionary may count the unused default key. A staged source patch addresses this; prove NDV correctness, update cost, and optimizer impact before stacking.
+4. **Index selection:** time-sorted projections on AggregatingMergeTree require incremental update/merge parity; `force_optimize_projection` can select a plan that a cost mode correctly rejects. TimeRanges metadata is not unconditionally removable.
+5. **Lock tracing:** a sampled `futex_wait` without owner/call stack is only a possible lock or condition-variable wait, not proof of a contended mutex.
+6. **Concurrency:** group name based solely on branch may serialize jobs or evict pending runs even with `cancel-in-progress: false`; use workflow-specific run ID.
+
+## Rules for corrections
+
+Append new findings with actual CI URL, pinned binary and fixture SHA, error string, invalid assumptions and a reproducible fix. When retracting a previous claim, preserve it and add a dated correction; never rewrite negative evidence as success.
