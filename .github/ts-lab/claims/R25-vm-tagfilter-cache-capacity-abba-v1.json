@@ -4,25 +4,39 @@
   "owner": "chatgpt-e04-vm-index-cache-20261103",
   "state": "claimed",
   "source_sha": "eaf7a68c92c8069a67ae02e601e81453a5e002de",
-  "baseline": {
+  "baseline": "VictoriaMetrics v1.134.0 release SHA cd6e109bae85ff7c138d838b32be9a7fe2a6d7a9b3a387a7cf9234f22991da10, storage.cacheSizeIndexDBTagFilters=1 byte",
+  "candidate": "Identical VM v1.134.0 executable with storage.cacheSizeIndexDBTagFilters=67108864 bytes (64MiB), no other changed flags",
+  "fixture": "Frozen R01 400-node-slot 3d fixture sha256 ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d, 28896 series /2488320 points",
+  "single_variable": "VM -storage.cacheSizeIndexDBTagFilters, 1 byte vs 64 MiB, fresh VM process per phase on identical cleanly stopped cloned imported storage",
+  "math_bound": "Cache can save tagFilter->MetricIDs index searches, but not time-series sample reads or rollup cost. If index CPU fraction f, max whole-query speedup 1/(1-f); measure miss-rate and CPU instead of guessing f.",
+  "falsifier": "Matching query output differs; high-cache misses not lower than low; background cache resets; A/A control drift over 25%; VM process OOM; physical fixture/hash differs; same run insufficient CPU stability.",
+  "test_matrix": "Read-only VM fresh process cloned data, low/high/high/low, 8 warmups+48 measured single-client native PromQL requests per selector (node broad, pod namespace, pod broad, burst), source/fixture/binary parity and cache counter drift gates",
+  "runner_budget": "single Ubuntu 24.04 GitHub Actions runner, no ClickHouse build, timeout 65 minutes, self-path push trigger, no scheduled workflows",
+  "planned_workflow": ".github/workflows/ts-lab-r25-vm-cache-capacity-20261103.yml",
+  "dependencies": [
+    "E04 source audit",
+    "R01 frozen fixture",
+    "R03 VM release/import helper",
+    "R08 parity invariants"
+  ],
+  "ownership_boundaries": "No overlap with R06/E03 planner, R05 marks, R07 metadata, or R21-24 CH dedup cache. This is VictoriaMetrics read-only index cache, not ClickHouse write cache.",
+  "created_utc": "2026-11-03",
+  "baseline_details": {
     "engine": "VictoriaMetrics v1.134.0",
     "release_sha256": "cd6e109bae85ff7c138d838b32be9a7fe2a6d7a9b3a387a7cf9234f22991da10",
     "cache_size_bytes": 1
   },
-  "candidate": {
+  "candidate_details": {
     "engine": "same VictoriaMetrics v1.134.0 binary",
     "cache_size_bytes": 67108864
   },
-  "fixture": {
+  "fixture_details": {
     "generator": ".github/ts-lab-r01/generate_k8s_churn_fixture.py --days 3 --node-slots 400",
     "sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
     "series": 28896,
     "samples": 2488320
   },
-  "single_variable": "VM -storage.cacheSizeIndexDBTagFilters, 1 byte vs 64 MiB, fresh VM process per phase on identical cleanly stopped cloned imported storage",
-  "math_bound": "Cache can save tagFilter->MetricIDs index searches, but not time-series sample reads or rollup cost. If index CPU fraction f, max whole-query speedup 1/(1-f); measure miss-rate and CPU instead of guessing f.",
-  "falsifier": "Matching query output differs; high-cache misses not lower than low; background cache resets; A/A control drift over 25%; VM process OOM; physical fixture/hash differs; same run insufficient CPU stability.",
-  "test_matrix": {
+  "test_matrix_details": {
     "selectors": [
       "node_broad",
       "pod_namespace",
@@ -40,15 +54,5 @@
     "client_concurrency": 1,
     "caches": "HTTP response cache off for both, VM tag filter cache capacity ON/OFF as sole factor",
     "measure": "native p50/p95, process CPU, VM tagfilter cache request/miss/reset counters, whole response oracle"
-  },
-  "runner_budget": "single Ubuntu 24.04 GitHub Actions runner, no ClickHouse build, timeout 65 minutes, self-path push trigger, no scheduled workflows",
-  "planned_workflow": ".github/workflows/ts-lab-r25-vm-cache-capacity-20261103.yml",
-  "dependencies": [
-    "E04 source audit",
-    "R01 frozen fixture",
-    "R03 VM release/import helper",
-    "R08 parity invariants"
-  ],
-  "ownership_boundaries": "No overlap with R06/E03 planner, R05 marks, R07 metadata, or R21-24 CH dedup cache. This is VictoriaMetrics read-only index cache, not ClickHouse write cache.",
-  "created_utc": "2026-11-03"
+  }
 }
