@@ -1,0 +1,402 @@
+{
+  "schema_version": 1,
+  "question_id": "R10-bucket-id-factorial-v1",
+  "scientific_decision": "ACCEPT_FOR_NEXT_GATE",
+  "ci_status": "success",
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41617111380",
+  "workflow_commit": "2a9ee0bb2474869b37bb87401a91040882b4d8de",
+  "workflow": ".github/workflows/ts-lab-r10-concurrent-buckets-20261103.yml",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "stock_O1_binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "fixture_sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+  "fixture_series": 28896,
+  "fixture_samples": 2488320,
+  "artifact_id": 13221383807,
+  "artifact_zip_digest": "sha256:801d33b953e8f0149ab75a50a266f1d742f96961661eb2be293522b239df8459",
+  "method": "Same source and binary (stock LLVM22.1.8 O1), two RAW_UUID TimeSeries tables with 3600/10800-second SAMPLES buckets, same fixture and pinned logical IDs. Each selector/client combination uses 4 newly started ClickHouse processes ordered 3600/10800/10800/3600. Each phase 2 warmup and 8 measured concurrent waves, 1/4/8 independent clients, max_threads=2 per query. Full native prometheusQueryRange equality in labels, timestamps, values, physical part identity and sample-element counts; query logs CPU/read marks/bytes, RSS observer every 250ms. Source trace and query scheduling distinct.",
+  "checks": {
+    "success": true,
+    "all_nine_native_ABBA": true,
+    "all_9_control_p50_drift_under_25percent": true,
+    "all_query_outputs_nonempty_and_equal": true,
+    "no_oom": true,
+    "all_physical_parts_unchanged": true
+  },
+  "measurements": [
+    {
+      "selector": "node_broad",
+      "clients": 1,
+      "baseline_bucket_seconds": 3600,
+      "candidate_bucket_seconds": 10800,
+      "client_p50_ms": [
+        256.759,
+        247.717
+      ],
+      "client_p95_ms": [
+        270.834,
+        270.1655
+      ],
+      "client_p99_ms": [
+        274.786,
+        274.4445
+      ],
+      "cpu_ms_per_request": [
+        405.0815,
+        384.372
+      ],
+      "throughput_requests_per_second": [
+        3.9112,
+        3.9914
+      ],
+      "baseline_p50_drift": 0.16899,
+      "read_rows": [
+        57728,
+        38592
+      ],
+      "selected_marks": [
+        117,
+        53
+      ],
+      "observed_process_rss_bytes": [
+        472608768,
+        481323008
+      ],
+      "passed": true
+    },
+    {
+      "selector": "node_broad",
+      "clients": 4,
+      "baseline_bucket_seconds": 3600,
+      "candidate_bucket_seconds": 10800,
+      "client_p50_ms": [
+        537.7305,
+        466.9405
+      ],
+      "client_p95_ms": [
+        609.4255,
+        525.5115
+      ],
+      "client_p99_ms": [
+        618.634,
+        535.7205
+      ],
+      "cpu_ms_per_request": [
+        458.841,
+        438.8345
+      ],
+      "throughput_requests_per_second": [
+        7.0007,
+        7.9451
+      ],
+      "baseline_p50_drift": 0.21391,
+      "read_rows": [
+        57728,
+        38592
+      ],
+      "selected_marks": [
+        117,
+        53
+      ],
+      "observed_process_rss_bytes": [
+        932952064,
+        908314624
+      ],
+      "passed": true
+    },
+    {
+      "selector": "node_broad",
+      "clients": 8,
+      "baseline_bucket_seconds": 3600,
+      "candidate_bucket_seconds": 10800,
+      "client_p50_ms": [
+        980.1615,
+        941.3355
+      ],
+      "client_p95_ms": [
+        1076.681,
+        1037.6035
+      ],
+      "client_p99_ms": [
+        1097.1605,
+        1062.9975
+      ],
+      "cpu_ms_per_request": [
+        466.3235,
+        448.0515
+      ],
+      "throughput_requests_per_second": [
+        7.6562,
+        7.9314
+      ],
+      "baseline_p50_drift": 0.01351,
+      "read_rows": [
+        57728,
+        38592
+      ],
+      "selected_marks": [
+        117,
+        53
+      ],
+      "observed_process_rss_bytes": [
+        1384679424,
+        1340168192
+      ],
+      "passed": true
+    },
+    {
+      "selector": "pod_namespace",
+      "clients": 1,
+      "baseline_bucket_seconds": 3600,
+      "candidate_bucket_seconds": 10800,
+      "client_p50_ms": [
+        66.1355,
+        68.113
+      ],
+      "client_p95_ms": [
+        70.7255,
+        72.549
+      ],
+      "client_p99_ms": [
+        70.937,
+        72.8325
+      ],
+      "cpu_ms_per_request": [
+        94.762,
+        97.621
+      ],
+      "throughput_requests_per_second": [
+        14.8495,
+        14.4936
+      ],
+      "baseline_p50_drift": 0.0064,
+      "read_rows": [
+        102368,
+        64736
+      ],
+      "selected_marks": [
+        229,
+        82
+      ],
+      "observed_process_rss_bytes": [
+        407906304,
+        325750784
+      ],
+      "passed": true
+    },
+    {
+      "selector": "pod_namespace",
+      "clients": 4,
+      "baseline_bucket_seconds": 3600,
+      "candidate_bucket_seconds": 10800,
+      "client_p50_ms": [
+        127.031,
+        118.3745
+      ],
+      "client_p95_ms": [
+        160.7225,
+        137.1515
+      ],
+      "client_p99_ms": [
+        163.85,
+        143.9115
+      ],
+      "cpu_ms_per_request": [
+        118.906,
+        109.696
+      ],
+      "throughput_requests_per_second": [
+        28.7078,
+        31.5059
+      ],
+      "baseline_p50_drift": 0.01433,
+      "read_rows": [
+        102368,
+        64736
+      ],
+      "selected_marks": [
+        229,
+        82
+      ],
+      "observed_process_rss_bytes": [
+        518004736,
+        539467776
+      ],
+      "passed": true
+    },
+    {
+      "selector": "pod_namespace",
+      "clients": 8,
+      "baseline_bucket_seconds": 3600,
+      "candidate_bucket_seconds": 10800,
+      "client_p50_ms": [
+        253.9195,
+        236.716
+      ],
+      "client_p95_ms": [
+        291.9695,
+        289.1965
+      ],
+      "client_p99_ms": [
+        300.3555,
+        303.7415
+      ],
+      "cpu_ms_per_request": [
+        121.429,
+        113.249
+      ],
+      "throughput_requests_per_second": [
+        28.7752,
+        30.5953
+      ],
+      "baseline_p50_drift": 0.01954,
+      "read_rows": [
+        102368,
+        64736
+      ],
+      "selected_marks": [
+        229,
+        82
+      ],
+      "observed_process_rss_bytes": [
+        689403904,
+        681299968
+      ],
+      "passed": true
+    },
+    {
+      "selector": "pod_broad",
+      "clients": 1,
+      "baseline_bucket_seconds": 3600,
+      "candidate_bucket_seconds": 10800,
+      "client_p50_ms": [
+        220.3235,
+        207.9965
+      ],
+      "client_p95_ms": [
+        235.8065,
+        216.0815
+      ],
+      "client_p99_ms": [
+        237.6875,
+        217.7615
+      ],
+      "cpu_ms_per_request": [
+        348.4965,
+        321.731
+      ],
+      "throughput_requests_per_second": [
+        4.4943,
+        4.8072
+      ],
+      "baseline_p50_drift": 0.00937,
+      "read_rows": [
+        103392,
+        64736
+      ],
+      "selected_marks": [
+        233,
+        82
+      ],
+      "observed_process_rss_bytes": [
+        459194368,
+        475320320
+      ],
+      "passed": true
+    },
+    {
+      "selector": "pod_broad",
+      "clients": 4,
+      "baseline_bucket_seconds": 3600,
+      "candidate_bucket_seconds": 10800,
+      "client_p50_ms": [
+        444.591,
+        421.3315
+      ],
+      "client_p95_ms": [
+        523.3005,
+        476.389
+      ],
+      "client_p99_ms": [
+        526.0405,
+        486.135
+      ],
+      "cpu_ms_per_request": [
+        414.3775,
+        384.269
+      ],
+      "throughput_requests_per_second": [
+        8.2969,
+        8.917
+      ],
+      "baseline_p50_drift": 0.01815,
+      "read_rows": [
+        103392,
+        64736
+      ],
+      "selected_marks": [
+        233,
+        82
+      ],
+      "observed_process_rss_bytes": [
+        796581888,
+        875751424
+      ],
+      "passed": true
+    },
+    {
+      "selector": "pod_broad",
+      "clients": 8,
+      "baseline_bucket_seconds": 3600,
+      "candidate_bucket_seconds": 10800,
+      "client_p50_ms": [
+        921.2155,
+        864.088
+      ],
+      "client_p95_ms": [
+        997.2515,
+        960.821
+      ],
+      "client_p99_ms": [
+        1006.835,
+        986.8445
+      ],
+      "cpu_ms_per_request": [
+        429.3975,
+        406.2075
+      ],
+      "throughput_requests_per_second": [
+        8.127,
+        8.5791
+      ],
+      "baseline_p50_drift": 0.00777,
+      "read_rows": [
+        103392,
+        64736
+      ],
+      "selected_marks": [
+        233,
+        82
+      ],
+      "observed_process_rss_bytes": [
+        1309966336,
+        1296183296
+      ],
+      "passed": true
+    }
+  ],
+  "interpretations": [
+    "At 8 clients, 10800s improves CPU/request 3.9%-6.7% and throughput 3.6%-6.3%, with low p50 baseline drift; does not improve every tail: pod_namespace 8-client p99 300.3555->303.7415ms (regression 1.1%).",
+    "node_broad at 4 clients p50 537.73->466.94ms (13.2%) but A/A drift is 21.39%; cannot claim robust p50 speedup from that case.",
+    "pod_broad 4/8 clients CPU decreases 7.3%/5.4% with 0.38%/0.67% baseline CPU control drift; stronger within-run evidence.",
+    "SelectedMarks node 117->53, pod_namespace229->82, pod_broad233->82. Selected marks and read rows are physical-read effects, NOT proof of mutex contention.",
+    "RSS under separate fresh processes plus an approximate 4Hz sampler is not enough to claim allocator-specific memory savings."
+  ],
+  "limits": [
+    "Synthetic aligned 3h node lifetimes, three days only; no staggered node start, realistic HPA, 14d, stale/NaN/ACL controls.",
+    "Read-only fixed one-part dataset; no simultaneous continuous ingest and merges.",
+    "Only one runner and one repeat of 9 ABBA combinations; p99 is a noisy tail estimate.",
+    "Lab binary glibc O1; not production jemalloc or production O2.",
+    "OSCPUWait is runnable scheduler wait, not a contended mutex; inferred pool-lock effects are tiny and unstable."
+  ],
+  "next_action": "Validate staggered node-start fixture SHA and actual bucket occupancy with same source and O1 binary; compare 3600 versus10800 at unchanged 1d native selectors and controls to bound sensitivity to bucket alignment before promotion."
+}
