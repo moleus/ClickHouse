@@ -10,5 +10,19 @@
   "baseline": "Unmodified stock-O1 ClickHouse TimeSeries v11 same RAW UUID inner columns from R02 source; tags_deduplication_cache_size_bytes=1048576 with >4096 approximate entries; 3600s expiration and 12 batches in <3600s.",
   "candidate": "Same binary/source/schema/data/12 batches, but size_bytes=32768 (227 approximate entries); rotate row order by deterministic offset in independently run fixture; native full oracle and exact query_log cache Hits/Misses.",
   "controls": "Four fresh-process ABBA phases (large/small/small/large) per order, same runner. Two independent order jobs 'fixed' and 'rotate' with exact sorted canonical fixture digest, each 4 server phases. No query cache, same full native labels/timestamp/float oracle, QueryFinish insert CPU plus process CPU/IO delta, raw physical TAGS vs SAMPLES cardinality and parts, A/A drift<=25% and practical magnitude>=5%. Optional no-cache table is a physical accounting control if cheap.",
-  "stop_conditions": "Do not change default TimeSeries TAGS cache globally; no memory pressure/production inference from synthetic small sizes until high-churn multiple metrics and real 100MiB/S3/13d tested. Protect R02/R18 old CI artifacts and R20 owner."
+  "stop_conditions": "Do not change default TimeSeries TAGS cache globally; no memory pressure/production inference from synthetic small sizes until high-churn multiple metrics and real 100MiB/S3/13d tested. Protect R02/R18 old CI artifacts and R20 owner.",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "fixture": "Source-pinned SHA 052b2058e7adc280a956b083c9af7d2e636eba6ab2607c204e6f676fcc5d1883 for 4096 stable unique metric-series IDs, 12 batches of one point per ID at fixed 1m steps, exact same 49152 data points, fixed or deterministically rotated 997-position row order per batch.",
+  "single_variable": "Within each order group, only tags_deduplication_cache_size_bytes=32768 (227 nominal entries) vs 1048576 (7281 nominal entries); same v11 RAW UUID DDL, immutable source/binary, fixed labels/timestamps/samples, TimeRanges and storage. Across two separate jobs, compare stable order with deterministic rotation while keeping logical fixture identical.",
+  "math_bound": "DedupCache.h nominal entry=(16+6*8)+(16+2*8)+(24+3*8)=144B on 64-bit. 4096 stable IDs require 589824B nominal. 32KiB stores ~227, 1MiB stores ~7281; 12 batches*4096=49152 references. Large cache expected TAGS rows4096/hits45056/misses4096. Tiny cache may produce up to49152 physical rows; do not infer precise miss count without ProfileEvents (SLRU and trimPendingRows).",
+  "falsifier": "If QueryFinish missing cache counters, native labels/float/timestamps differ, 4096 unique stable IDs/49152 physical samples differ, binary SHA changes, input canonical SHA differs or A/A process CPU/native p50 drift>25%, reject measured CPU performance. If small cache TAGS rows not >1.25x large, reject physical amplification; if order variations do not differ, do not claim order sensitivity.",
+  "test_matrix": "New path-scoped R21 workflow two independent order jobs [fixed,rotate]. Each job four fresh server A0 large/B1 small/B2 small/A3 large, 12 inserts of4096 rows per phase, STOP MERGES in all inner tables, QueryFinish cache hits/misses and CPU, raw TAGS physical rows/bytes and process CPU/IO, exact independent native PromQL avg by(project)(avg_over_time(gauge[30m])) with 3 warmups+6 measured per phase. Control drift<=25% and exact same logical fixture across order.",
+  "runner_budget": "Two bounded GitHub-hosted ubuntu-24.04 jobs x32min max, 4 fresh localhost stock O1 servers each sequentially, max_server_memory_usage2.8GB, no C++ build, no mutable build cache, no schedule, fail-fast=false, run unique concurrency.",
+  "planned_workflow": ".github/workflows/ts-lab-r21-dedup-cache-capacity-20261103.yml, push self-path only in lab/ts-cbo-adaptive-20261103; no prod/old branches.",
+  "dependencies": [
+    "R19 TAGS dedup cache safety source experiment CI41642999590",
+    "R02 stock O1 binary CI41596421285 and isolated process CPU helpers",
+    "R18 codec and R20 native planner are different owned questions"
+  ]
 }
