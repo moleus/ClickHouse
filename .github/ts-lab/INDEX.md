@@ -195,3 +195,18 @@ Same pinned stock O1 source/binary, same R01 fixture SHA256 `ea9a8d43c9e58ed916f
 
 - [Canonical root](claims/roots/R05.json), [claim](claims/R05-candidate-id-mark-bound-v1.json), [source and mathematical feasibility gate](experiments/R05_MARK_COVERAGE_FEASIBILITY_20261103.md), [create-only handoff](handoffs/20261103-r05-mark-bound-04.json).
 - No runtime improvement claimed, no new build. A uniform g-distinct-IDs/mark model predicts touched-mark fraction `1-(1-s)^g`; it is only a diagnostic prior. Next measure actual SAMPLES selected marks, ID clustering and native query parity with existing artifacts. R01/R02/R04/R08 owner boundaries remain unchanged.
+
+## 2026-11-03: R10 short-lookback follow-up disproves small-bucket assumption
+
+[Native 12-pair short-window A/B/B/A #41614179460](https://github.com/moleus/ClickHouse/actions/runs/41614179460),
+[immutable machine-readable evidence](evidence/R10-short-lookback-41614179460.json).
+Same source, pinned stock O1 binary, SHA-verified R01 400-slot 3d fixture and three RAW_UUID TimeSeries tables at 900/3600/10800s. All 12 pairs passed complete native PromQL label/time/value parity, physical point counts and control-drift gates, no OOM.
+
+- `pod_namespace [15m]`, 3600s→900s: **p50 28.357→30.959ms (+9.2%)**, CPU38.45→44.34ms (+15.3%), baseline drift2.48%.
+- `pod_namespace [1h]`, 3600s→900s: **29.708→32.115ms (+8.1%)**, CPU40.54→45.65ms (+12.6%), drift0.40%.
+- `node_broad [15m]` across hour boundary, 3600s→10800s: **44.416→40.123ms (-9.7%)**, CPU78.41→62.35ms (-20.5%), read_rows56,704→38,592, drift1.07%.
+- `pod_namespace [3h]`, 3600s→10800s: **36.965→33.951ms (-8.2%)**, CPU51.05→50.28ms, read_rows66,784→59,360, drift0.33%.
+- Previous [R10 1d full-native factorial #41613268106](https://github.com/moleus/ClickHouse/actions/runs/41613268106) found 10800s **4.2% slower** for broad nodes compared with 3600s, so longer buckets are not universally faster. A 900s bucket is **not** intrinsically better for a 15m PromQL lookback: reader/bucket-row overhead matters, and shorter seek ranges do not guarantee fewer physically scanned rows.
+
+No global change to `samples_bucket_step_seconds` is justified. Next useful question: native operator-level causal attribution and ingestion/merge costs for 3600 vs10800s under varied selectors and 14d+concurrent loads; reuse R02 source-pinned write-path work rather than repeating it. Sample-array count is not physical bucket-row count.
+
