@@ -1,0 +1,695 @@
+{
+  "schema": 1,
+  "repo": "moleus/ClickHouse",
+  "branch": "lab/timeseries-perf-results",
+  "valid_required": true,
+  "runs": [
+    {
+      "id": 41498812663,
+      "kind": "compiler",
+      "artifact": "tslab-95k-stage-projection-paired-41498812663",
+      "required": true,
+      "run": {
+        "conclusion": "success",
+        "headSha": "f973025a5287c3ffa0b0d1e6f38ab7fe0f3cfbf9",
+        "name": "TimeSeries exact same source O1 vs O2 matched 1.33m compiler benchmark",
+        "status": "completed"
+      },
+      "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41498812663",
+      "summary": {
+        "passed": true,
+        "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+        "errors": [],
+        "selectors": {
+          "whole_e14": {
+            "baseline": "o1",
+            "candidate": "o2",
+            "baseline_ms": 6063.116,
+            "candidate_ms": 3247.697,
+            "candidate_speedup": 1.8669,
+            "baseline_cpu_ms": 10720.067,
+            "candidate_cpu_ms": 5854.371,
+            "baseline_rss_kib": 1391830.0,
+            "candidate_rss_kib": 1363958.0,
+            "baseline_query_memory_bytes": 956727503.5,
+            "candidate_query_memory_bytes": 958587739.5,
+            "baseline_success": 4,
+            "candidate_success": 4,
+            "vm_ms": 2927.746
+          },
+          "stage_e14": {
+            "baseline": "o1",
+            "candidate": "o2",
+            "baseline_ms": 1108.656,
+            "candidate_ms": 537.314,
+            "candidate_speedup": 2.0633,
+            "baseline_cpu_ms": 2458.177,
+            "candidate_cpu_ms": 1334.132,
+            "baseline_rss_kib": 481274.0,
+            "candidate_rss_kib": 479030.0,
+            "baseline_query_memory_bytes": 85044873.5,
+            "candidate_query_memory_bytes": 83167738.0,
+            "baseline_success": 4,
+            "candidate_success": 4,
+            "vm_ms": 79.853
+          },
+          "project_e14": {
+            "baseline": "o1",
+            "candidate": "o2",
+            "baseline_ms": 1556.57,
+            "candidate_ms": 720.263,
+            "candidate_speedup": 2.1611,
+            "baseline_cpu_ms": 3727.654,
+            "candidate_cpu_ms": 1959.668,
+            "baseline_rss_kib": 589232.0,
+            "candidate_rss_kib": 581742.0,
+            "baseline_query_memory_bytes": 178261898.0,
+            "candidate_query_memory_bytes": 181767264.0,
+            "baseline_success": 4,
+            "candidate_success": 4,
+            "vm_ms": 400.666
+          },
+          "regex_e14": {
+            "baseline": "o1",
+            "candidate": "o2",
+            "baseline_ms": 1624.557,
+            "candidate_ms": 828.376,
+            "candidate_speedup": 1.9611,
+            "baseline_cpu_ms": 4144.188,
+            "candidate_cpu_ms": 2288.919,
+            "baseline_rss_kib": 621662.0,
+            "candidate_rss_kib": 587694.0,
+            "baseline_query_memory_bytes": 190738943.0,
+            "candidate_query_memory_bytes": 189383294.0,
+            "baseline_success": 4,
+            "candidate_success": 4,
+            "vm_ms": 401.954
+          }
+        },
+        "warning": "Fresh-process O1/O2 and allocator effect are separate; 4 trials per variant, no production-wide confidence interval."
+      }
+    },
+    {
+      "id": 41499622283,
+      "kind": "allocator",
+      "artifact": "tslab-95k-stage-projection-paired-41499622283",
+      "required": true,
+      "run": {
+        "conclusion": "success",
+        "headSha": "6d72837c3dc0f05f7c096d9526532d47e8d5cae8",
+        "name": "TimeSeries matched O2 jemalloc versus system allocator 1.33m VM reference",
+        "status": "completed"
+      },
+      "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41499622283",
+      "summary": {
+        "passed": true,
+        "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+        "errors": [],
+        "selectors": {
+          "whole_e14": {
+            "baseline": "system",
+            "candidate": "jemalloc",
+            "baseline_ms": 3541.309,
+            "candidate_ms": 3455.744,
+            "candidate_speedup": 1.0248,
+            "baseline_cpu_ms": 6438.808,
+            "candidate_cpu_ms": 6442.325,
+            "baseline_rss_kib": 1328392.0,
+            "candidate_rss_kib": 1521082.0,
+            "baseline_query_memory_bytes": 954288930.0,
+            "candidate_query_memory_bytes": 958734463.5,
+            "baseline_success": 4,
+            "candidate_success": 4,
+            "vm_ms": 3367.919
+          },
+          "stage_e14": {
+            "baseline": "system",
+            "candidate": "jemalloc",
+            "baseline_ms": 557.645,
+            "candidate_ms": 525.245,
+            "candidate_speedup": 1.0617,
+            "baseline_cpu_ms": 1391.997,
+            "candidate_cpu_ms": 1318.708,
+            "baseline_rss_kib": 466720.0,
+            "candidate_rss_kib": 496416.0,
+            "baseline_query_memory_bytes": 83525934.5,
+            "candidate_query_memory_bytes": 83393931.5,
+            "baseline_success": 4,
+            "candidate_success": 4,
+            "vm_ms": 93.156
+          },
+          "project_e14": {
+            "baseline": "system",
+            "candidate": "jemalloc",
+            "baseline_ms": 796.232,
+            "candidate_ms": 803.767,
+            "candidate_speedup": 0.9906,
+            "baseline_cpu_ms": 2148.039,
+            "candidate_cpu_ms": 2186.749,
+            "baseline_rss_kib": 586084.0,
+            "candidate_rss_kib": 620000.0,
+            "baseline_query_memory_bytes": 177442839.5,
+            "candidate_query_memory_bytes": 180553852.0,
+            "baseline_success": 4,
+            "candidate_success": 4,
+            "vm_ms": 493.325
+          },
+          "regex_e14": {
+            "baseline": "system",
+            "candidate": "jemalloc",
+            "baseline_ms": 900.52,
+            "candidate_ms": 849.822,
+            "candidate_speedup": 1.0597,
+            "baseline_cpu_ms": 2473.994,
+            "candidate_cpu_ms": 2350.296,
+            "baseline_rss_kib": 602594.0,
+            "candidate_rss_kib": 638662.0,
+            "baseline_query_memory_bytes": 190739966.5,
+            "candidate_query_memory_bytes": 189560556.0,
+            "baseline_success": 4,
+            "candidate_success": 4,
+            "vm_ms": 443.013
+          }
+        },
+        "warning": "Fresh-process O1/O2 and allocator effect are separate; 4 trials per variant, no production-wide confidence interval."
+      }
+    },
+    {
+      "id": 41499234636,
+      "kind": "collector",
+      "artifact": "tslab-native-collector-repeat-evidence",
+      "required": true,
+      "run": {
+        "conclusion": "success",
+        "headSha": "d875dbee56ee496879315a07b2ece48cba83543a",
+        "name": "TimeSeries native UInt64 collector repeats with reserved group0 correctness",
+        "status": "completed"
+      },
+      "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41499234636",
+      "summary": {
+        "passed": true,
+        "errors": [],
+        "cases": 20,
+        "observations": 0,
+        "results": {
+          "f100_t1_b8192": {
+            "success": 3,
+            "median_wall_ms": 429.508,
+            "median_process_rss_mib": 364.441,
+            "median_query_memory_mib": 84.481,
+            "median_query_cpu_ms": 428.32,
+            "median_cpu_per_row_us": 0.322
+          },
+          "f100_t1_b65536": {
+            "success": 3,
+            "median_wall_ms": 544.291,
+            "median_process_rss_mib": 367.641,
+            "median_query_memory_mib": 93.217,
+            "median_query_cpu_ms": 542.698,
+            "median_cpu_per_row_us": 0.408
+          },
+          "f100_t4_b8192": {
+            "success": 3,
+            "median_wall_ms": 296.556,
+            "median_process_rss_mib": 366.836,
+            "median_query_memory_mib": 85.768,
+            "median_query_cpu_ms": 681.838,
+            "median_cpu_per_row_us": 0.513
+          },
+          "f100_t4_b65536": {
+            "success": 3,
+            "median_wall_ms": 360.996,
+            "median_process_rss_mib": 408.832,
+            "median_query_memory_mib": 112.304,
+            "median_query_cpu_ms": 773.838,
+            "median_cpu_per_row_us": 0.582
+          },
+          "f050_t1_b8192": {
+            "success": 3,
+            "median_wall_ms": 389.587,
+            "median_process_rss_mib": 354.988,
+            "median_query_memory_mib": 84.481,
+            "median_query_cpu_ms": 388.367,
+            "median_cpu_per_row_us": 0.292
+          },
+          "f050_t1_b65536": {
+            "success": 3,
+            "median_wall_ms": 457.583,
+            "median_process_rss_mib": 367.781,
+            "median_query_memory_mib": 93.217,
+            "median_query_cpu_ms": 455.974,
+            "median_cpu_per_row_us": 0.343
+          },
+          "f050_t4_b8192": {
+            "success": 3,
+            "median_wall_ms": 243.26,
+            "median_process_rss_mib": 361.371,
+            "median_query_memory_mib": 86.83,
+            "median_query_cpu_ms": 668.265,
+            "median_cpu_per_row_us": 0.502
+          },
+          "f050_t4_b65536": {
+            "success": 3,
+            "median_wall_ms": 281.954,
+            "median_process_rss_mib": 367.949,
+            "median_query_memory_mib": 104.319,
+            "median_query_cpu_ms": 709.835,
+            "median_cpu_per_row_us": 0.534
+          },
+          "f010_t1_b8192": {
+            "success": 3,
+            "median_wall_ms": 320.795,
+            "median_process_rss_mib": 310.324,
+            "median_query_memory_mib": 24.481,
+            "median_query_cpu_ms": 319.214,
+            "median_cpu_per_row_us": 0.24
+          },
+          "f010_t1_b65536": {
+            "success": 3,
+            "median_wall_ms": 338.541,
+            "median_process_rss_mib": 321.973,
+            "median_query_memory_mib": 33.217,
+            "median_query_cpu_ms": 336.742,
+            "median_cpu_per_row_us": 0.253
+          },
+          "f010_t4_b8192": {
+            "success": 3,
+            "median_wall_ms": 170.455,
+            "median_process_rss_mib": 309.32,
+            "median_query_memory_mib": 24.327,
+            "median_query_cpu_ms": 590.598,
+            "median_cpu_per_row_us": 0.444
+          },
+          "f010_t4_b65536": {
+            "success": 3,
+            "median_wall_ms": 210.237,
+            "median_process_rss_mib": 367.371,
+            "median_query_memory_mib": 56.787,
+            "median_query_cpu_ms": 633.834,
+            "median_cpu_per_row_us": 0.477
+          },
+          "f001_t1_b8192": {
+            "success": 3,
+            "median_wall_ms": 262.651,
+            "median_process_rss_mib": 289.594,
+            "median_query_memory_mib": 6.297,
+            "median_query_cpu_ms": 260.91,
+            "median_cpu_per_row_us": 0.196
+          },
+          "f001_t1_b65536": {
+            "success": 3,
+            "median_wall_ms": 281.181,
+            "median_process_rss_mib": 301.586,
+            "median_query_memory_mib": 12.217,
+            "median_query_cpu_ms": 279.514,
+            "median_cpu_per_row_us": 0.21
+          },
+          "f001_t4_b8192": {
+            "success": 3,
+            "median_wall_ms": 144.046,
+            "median_process_rss_mib": 281.742,
+            "median_query_memory_mib": 8.358,
+            "median_query_cpu_ms": 515.496,
+            "median_cpu_per_row_us": 0.388
+          },
+          "f001_t4_b65536": {
+            "success": 3,
+            "median_wall_ms": 161.523,
+            "median_process_rss_mib": 338.469,
+            "median_query_memory_mib": 39.272,
+            "median_query_cpu_ms": 556.291,
+            "median_cpu_per_row_us": 0.418
+          },
+          "control_t1_b8192": {
+            "success": 3,
+            "median_wall_ms": 25.988,
+            "median_process_rss_mib": 272.457,
+            "median_query_memory_mib": 6.249,
+            "median_query_cpu_ms": 24.232,
+            "median_cpu_per_row_us": 0.018
+          },
+          "control_t1_b65536": {
+            "success": 3,
+            "median_wall_ms": 29.222,
+            "median_process_rss_mib": 271.848,
+            "median_query_memory_mib": 6.249,
+            "median_query_cpu_ms": 27.33,
+            "median_cpu_per_row_us": 0.021
+          },
+          "control_t4_b8192": {
+            "success": 3,
+            "median_wall_ms": 19.575,
+            "median_process_rss_mib": 270.82,
+            "median_query_memory_mib": 7.306,
+            "median_query_cpu_ms": 43.141,
+            "median_cpu_per_row_us": 0.032
+          },
+          "control_t4_b65536": {
+            "success": 3,
+            "median_wall_ms": 19.841,
+            "median_process_rss_mib": 273.387,
+            "median_query_memory_mib": 7.306,
+            "median_query_cpu_ms": 56.726,
+            "median_cpu_per_row_us": 0.043
+          }
+        },
+        "warning": "Native SQL timeSeriesStoreTags with only consistent UInt64 IDs; not full PromQL/ACL"
+      }
+    },
+    {
+      "id": 41493836279,
+      "kind": "granularity",
+      "artifact": "tslab-granularity-sweep-evidence",
+      "required": true,
+      "run": {
+        "conclusion": "success",
+        "headSha": "9855c5be3ce2c6f806aa1cda906b9e1081713320",
+        "name": "TimeSeries SAMPLES index granularity cost sweep g16 g64 g256 1.33m",
+        "status": "completed"
+      },
+      "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41493836279",
+      "summary": {
+        "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+        "passed_fixture_and_result_checks": true,
+        "environment_baseline_drift_gate": true,
+        "cases": {
+          "stage": {
+            "baseline_interpolated_p50_ms": 724.507,
+            "baseline_p50_start_end": [
+              770.302,
+              678.712
+            ],
+            "baseline_drift_fraction": 0.1264,
+            "baseline_cpu_ms": 1895.21,
+            "variants": [
+              {
+                "variant": "g256",
+                "phase": "g256_0",
+                "median_wall_ms": 770.302,
+                "median_cpu_ms": 1921.12,
+                "median_read_rows": 3988720.0,
+                "median_logical_read_bytes": 346704336.0,
+                "vs_control_wall_ratio": 1.0632,
+                "vs_control_cpu_ratio": 1.0137,
+                "all_measured_wall_ms": [
+                  758.239,
+                  760.929,
+                  779.674,
+                  791.096
+                ]
+              },
+              {
+                "variant": "g64",
+                "phase": "g64_1",
+                "median_wall_ms": 1076.479,
+                "median_cpu_ms": 2764.318,
+                "median_read_rows": 3749920.0,
+                "median_logical_read_bytes": 340832880.0,
+                "vs_control_wall_ratio": 1.4858,
+                "vs_control_cpu_ratio": 1.4586,
+                "all_measured_wall_ms": [
+                  1059.639,
+                  1063.836,
+                  1112.356,
+                  1089.121
+                ]
+              },
+              {
+                "variant": "g16",
+                "phase": "g16_2",
+                "median_wall_ms": 1395.815,
+                "median_cpu_ms": 3741.494,
+                "median_read_rows": 3142016.0,
+                "median_logical_read_bytes": 299454560.0,
+                "vs_control_wall_ratio": 1.9266,
+                "vs_control_cpu_ratio": 1.9742,
+                "all_measured_wall_ms": [
+                  1428.057,
+                  1508.447,
+                  1336.082,
+                  1363.573
+                ]
+              },
+              {
+                "variant": "g256",
+                "phase": "g256_3",
+                "median_wall_ms": 678.712,
+                "median_cpu_ms": 1869.302,
+                "median_read_rows": 3988720.0,
+                "median_logical_read_bytes": 346685896.0,
+                "vs_control_wall_ratio": 0.9368,
+                "vs_control_cpu_ratio": 0.9863,
+                "all_measured_wall_ms": [
+                  651.322,
+                  706.103,
+                  729.418,
+                  612.524
+                ]
+              }
+            ]
+          },
+          "whole": {
+            "baseline_interpolated_p50_ms": 4007.565,
+            "baseline_p50_start_end": [
+              3974.161,
+              4040.97
+            ],
+            "baseline_drift_fraction": 0.0167,
+            "baseline_cpu_ms": 7896.645,
+            "variants": [
+              {
+                "variant": "g256",
+                "phase": "g256_0",
+                "median_wall_ms": 3974.161,
+                "median_cpu_ms": 7782.459,
+                "median_read_rows": 3990000.0,
+                "median_logical_read_bytes": 345337936.0,
+                "vs_control_wall_ratio": 0.9917,
+                "vs_control_cpu_ratio": 0.9855,
+                "all_measured_wall_ms": [
+                  3980.031,
+                  3968.291,
+                  4010.817,
+                  3965.929
+                ]
+              },
+              {
+                "variant": "g16",
+                "phase": "g16_1",
+                "median_wall_ms": 5432.127,
+                "median_cpu_ms": 11561.968,
+                "median_read_rows": 3990000.0,
+                "median_logical_read_bytes": 340319696.0,
+                "vs_control_wall_ratio": 1.3555,
+                "vs_control_cpu_ratio": 1.4642,
+                "all_measured_wall_ms": [
+                  5543.165,
+                  5403.066,
+                  5454.969,
+                  5409.285
+                ]
+              },
+              {
+                "variant": "g64",
+                "phase": "g64_2",
+                "median_wall_ms": 4295.629,
+                "median_cpu_ms": 8541.219,
+                "median_read_rows": 3990000.0,
+                "median_logical_read_bytes": 341356624.0,
+                "vs_control_wall_ratio": 1.0719,
+                "vs_control_cpu_ratio": 1.0816,
+                "all_measured_wall_ms": [
+                  4296.502,
+                  4270.168,
+                  4543.835,
+                  4294.755
+                ]
+              },
+              {
+                "variant": "g256",
+                "phase": "g256_3",
+                "median_wall_ms": 4040.97,
+                "median_cpu_ms": 8010.831,
+                "median_read_rows": 3990000.0,
+                "median_logical_read_bytes": 345337936.0,
+                "vs_control_wall_ratio": 1.0083,
+                "vs_control_cpu_ratio": 1.0145,
+                "all_measured_wall_ms": [
+                  4024.022,
+                  4099.046,
+                  4041.53,
+                  4040.41
+                ]
+              }
+            ]
+          }
+        },
+        "physical_sample_model": {
+          "16": {
+            "samples_parts": 1,
+            "samples_marks": 83126,
+            "samples_disk_bytes": 51813624,
+            "expected_granule_fraction_uniform": 0.347335,
+            "expected_touched_granules": 28872,
+            "physical_marks_explain": [
+              [
+                83125,
+                83125
+              ],
+              [
+                83125,
+                83125
+              ],
+              [
+                30126,
+                83125
+              ]
+            ],
+            "sample_probe_count": 35000
+          },
+          "64": {
+            "samples_parts": 1,
+            "samples_marks": 20783,
+            "samples_disk_bytes": 50037549,
+            "expected_granule_fraction_uniform": 0.818549,
+            "expected_touched_granules": 17010,
+            "physical_marks_explain": [
+              [
+                20782,
+                20782
+              ],
+              [
+                20782,
+                20782
+              ],
+              [
+                17030,
+                20782
+              ]
+            ],
+            "sample_probe_count": 35000
+          },
+          "256": {
+            "samples_parts": 1,
+            "samples_marks": 5197,
+            "samples_disk_bytes": 49532596,
+            "expected_granule_fraction_uniform": 0.998916,
+            "expected_touched_granules": 5190,
+            "physical_marks_explain": [
+              [
+                5196,
+                5196
+              ],
+              [
+                5196,
+                5196
+              ],
+              [
+                5191,
+                5196
+              ]
+            ],
+            "sample_probe_count": 35000
+          }
+        },
+        "warning": "One-run O1 on isolated fixture; baseline drift checked. Separate SQL variants have different selectivity and data layout. No general optimal-granularity claim."
+      }
+    },
+    {
+      "id": 41499534451,
+      "kind": "callchain",
+      "artifact": "tslab-native-callchain-attribution-evidence",
+      "required": false,
+      "run": {
+        "conclusion": "failure",
+        "headSha": "8df7f411a0b91f0d3d30426705d73a205ada3059",
+        "name": "TimeSeries offline native DWARF CPU call chain attribution from frozen perf data",
+        "status": "completed"
+      },
+      "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41499534451",
+      "summary": {
+        "valid": false,
+        "total_samples": 616,
+        "symbolized_samples": null,
+        "symbolized_coverage": null,
+        "memset_attribution": {
+          "all_memset_leaves": 25,
+          "memset_with_collector_in_stack": 16
+        },
+        "top_leaves": [
+          {
+            "symbol": "__llvm_libc::memset_gt128_baseline(__llvm_libc::cpp::byte*, unsigned char, unsigned long)+0x98",
+            "samples": 25,
+            "fraction": 0.04058
+          },
+          {
+            "symbol": "[unknown]",
+            "samples": 18,
+            "fraction": 0.02922
+          },
+          {
+            "symbol": "void DB::ContextTimeSeriesTagsCollector::storeTagsTyped<DB::(anonymous namespace)::TwoComponentID<DB::(anonymous namespace)::OneComponentID<unsigned long>, DB::(anonymous namespace)::OneComponentID<StrongTypedef<wide::integer<128ul, unsigned int>, DB::UUIDTag> > > >(DB::(anonymous namespace)::TwoComponentID<DB::(anonymous namespace)::OneComponentID<unsigned long>, DB::(anonymous namespace)::OneComponentID<StrongTypedef<wide::integer<128ul, unsigned int>, DB::UUIDTag> > > const&, DB::IColumn const&, char8_t const*, unsigned long, std::__1::vector<std::__1::shared_ptr<std::__1::vector<std::__1::",
+            "samples": 4,
+            "fraction": 0.00649
+          },
+          {
+            "symbol": "HashTable<std::__1::pair<unsigned long, wide::integer<128ul, unsigned int> >, HashMapCell<std::__1::pair<unsigned long, wide::integer<128ul, unsigned int> >, unsigned long, DB::ContextTimeSeriesTagsCollector::IDMapHash, HashTableNoState, PairNoInit<std::__1::pair<unsigned long, wide::integer<128ul, unsigned int> >, unsigned long> >, DB::ContextTimeSeriesTagsCollector::IDMapHash, HashTableGrowerWithPrecalculation<8ul>, Allocator<true, true> >::reinsert(HashMapCell<std::__1::pair<unsigned long, wide::integer<128ul, unsigned int> >, unsigned long, DB::ContextTimeSeriesTagsCollector::IDMapHash, Ha",
+            "samples": 3,
+            "fraction": 0.00487
+          },
+          {
+            "symbol": "CityHash_v1_0_2::CityHash64(char const*, unsigned long)+0x424",
+            "samples": 1,
+            "fraction": 0.00162
+          },
+          {
+            "symbol": "operator delete(void*, unsigned long)+0x56",
+            "samples": 1,
+            "fraction": 0.00162
+          },
+          {
+            "symbol": "__llvm_libc::memcpy_ge64_baseline(__llvm_libc::cpp::byte*, __llvm_libc::cpp::byte const*, unsigned long)+0xeb",
+            "samples": 1,
+            "fraction": 0.00162
+          },
+          {
+            "symbol": "DB::ColumnString::insertRangeFrom(DB::IColumn const&, unsigned long, unsigned long)+0x1a4",
+            "samples": 1,
+            "fraction": 0.00162
+          },
+          {
+            "symbol": "malloc+0x14",
+            "samples": 1,
+            "fraction": 0.00162
+          },
+          {
+            "symbol": "DB::ColumnVector<unsigned long>::compareAt(unsigned long, unsigned long, DB::IColumn const&, int) const+0x4",
+            "samples": 1,
+            "fraction": 0.00162
+          }
+        ],
+        "warning": "If symbolized coverage below 80%, CPU call-stack fractions cannot be generalized."
+      }
+    },
+    {
+      "id": 41500561641,
+      "kind": "lint",
+      "artifact": "tslab-preflight-evidence",
+      "required": false,
+      "run": {
+        "conclusion": "success",
+        "headSha": "1042be15b8b3cd37908983d11ab6e6810b0213c5",
+        "name": "TimeSeries lab preflight CLI and workflow static checks before expensive CI",
+        "status": "completed"
+      },
+      "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41500561641",
+      "summary": {
+        "active_workflows": 7,
+        "active_errors": 0,
+        "all_workflows": 189,
+        "all_errors": 0
+      }
+    }
+  ],
+  "readme": "Raw files remain in their original GitHub Actions artifacts"
+}
