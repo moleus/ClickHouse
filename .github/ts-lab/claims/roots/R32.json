@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "question_id": "R32",
+  "owner": "chatgpt-r32-grafana-query-fixture-parity-20261104",
+  "scope": "E06+E03 strict realism audit of Jenkins sparse stage metrics: actual Grafana Prometheus HTTP query_range/query and variable endpoints, original vs new synthetic generator and matched O2 native TimeSeries. Does not overwrite R30/R31 evidence or alter master.",
+  "hypothesis": "Prior 95k/day fixture with one unique build per stage and correlated stage/branch/project misrepresents Jenkins stage-series cardinality and Grafana multi-label regex selectivity; 1d step only SQL path misses key query classes and HTTP behavior.",
+  "status": "CLAIMED",
+  "dependencies": [
+    "R29 stock O2 + jemalloc binary",
+    "R30 native ABBA",
+    "E06 oracle"
+  ],
+  "budget": "First smoke 14d x 64 builds/day x38 stages then canonical 14d x2500 builds/day x38 stages, no compilation",
+  "created_utc": "2026-11-04"
+}
