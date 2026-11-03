@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "question_id": "R20",
+  "primary_claim_id": "R20-noindex-bucket-sumcount-fastpath-v1",
+  "owner": "chatgpt-r20-bucket-sumcount-20261103",
+  "scope": "No-index TimeSeries v11 per-bucket exact-stale-aware sum/count query rewrite for bounded avg by(group)(avg_over_time(gauge[window])) on original TAGS/TimeRanges/SAMPLES and original full stable ID; finite/ordinary-NaN/duplicate time-grid semantics, same-stock O1 native parity, physical same-data CPU/read/latency, 1/4/8 client synchronized ABBA, admission policy and independent release-optimized O2/jemalloc source review. No new physical codec, tag metadata sidecar, sample partitioning, or ingestion change. Separate from R07 UTC-day-cover metadata, R18 value codec, R05 ID pruning, R19 retained metadata and R02 writer merges.",
+  "allowed_support_claims": [],
+  "based_on": "R07 no-index research led to new independently testable query-rewrite optimization. CI: source pinned O1 native stale grid #41641109486, fused bucket math grid #41642126884, staggered #41642508119, aligned #41643057088, 1/4/8 capacity #41643759040; original data and immutable evidence remain at R07 paths as historical provenance.",
+  "created_utc": "2026-11-03T13:28:28.162Z"
+}
