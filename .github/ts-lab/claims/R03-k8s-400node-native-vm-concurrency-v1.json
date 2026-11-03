@@ -1,0 +1,41 @@
+{
+  "id": "R03-k8s-400node-native-vm-concurrency-v1",
+  "question": "On a fixed 400-node 3d churn, multi-cadence gauge fixture, is stock-O1 ClickHouse TimeSeries with opt-in RAW_UUID layout competitive with pinned VictoriaMetrics v1.134.0 for exact same full PromQL query_range under 1/4/8 concurrent clients and bounded memory? Which selector classes reverse the outcome?",
+  "owner": "chatgpt-r03-native-vm-comparison-20261103",
+  "status": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "control_binaries": {
+    "clickhouse": {
+      "build_run": 41596421285,
+      "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+      "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+      "flags": "LLVM22.1.8 -O1 stock glibc"
+    },
+    "victoriametrics": {
+      "build_run": 41288854734,
+      "version": "1.134.0",
+      "archive_sha256": "cd6e109bae85ff7c138d838b32be9a7fe2a6d7a9b3a387a7cf9234f22991da10"
+    }
+  },
+  "fixture": {
+    "schema": "R01 400-slot 3d aligned, 60s/300s/15s scrape, three-hour node lives",
+    "sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+    "series": 28896,
+    "sample_points": 2488320
+  },
+  "metric_queries": [
+    "node_broad",
+    "pod_namespace",
+    "pod_broad",
+    "burst15"
+  ],
+  "window": "[1d] aggregation evaluated on exact 3 daily grid timestamps; same expr on both engines",
+  "math_and_falsifiers": "For 400 active node slots and 3h lifetime, 3d produces 28,896 IDs and 2,488,320 sample points. A valid cross-engine comparison requires exact label/time/value parity at each daily step, same sample input SHA and each engine's native supported query_range path. Compare QPS and CPU/request; more physical rows is not automatically more CPU. If VM/CH numeric semantics diverge, invalidate benchmark for that selector and record differences without performance ranking.",
+  "method": "One ubuntu-24.04 runner, load identical data into both engines, verify full ingest and VM visibility, stop CH background merges and record VM state, interleave VM/CH/CH/VM phases, each 2 warmups+8 measured concurrent waves for 1/4/8 clients. Per wave barrier sync, full output equality; p50/p95/p99, completed requests/s, process CPU jiffies per request, low-overhead 4Hz RSS, CH QueryFinish CPU and physical reads, operator trace diagnostic when available. Reject baseline A/A drift>25%. Preserve all trial outcomes and settings.",
+  "safety": "No new C++ builds, no prod mutation, no force push, no cancellations, no schedule; same-runner data only. VM -search.disableCache and nocache=1. CH query max_threads=2; VM thread policy native, not a per-engine identical thread setting. VM process memory setting is not hard RSS cgroup limit; show this limit explicitly.",
+  "dependencies": [
+    "R01-k8s-mixed-v1",
+    "R10-bucket-id-factorial-v1"
+  ],
+  "owner_boundary": "Do not duplicate R02 live write+merge, R04 TTL, R05 physical mark pruning, R10 bucket tuning, R13 regex rewrite, R14 exact grid rollup or R15 partition."
+}
