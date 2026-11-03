@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "question_id": "R07",
+  "claim_id": "R07-time-day-covering-metadata-v1",
+  "status": "ABBA_PASS_SQL_DIAGNOSTIC_NOT_NATIVE_PLANNER_PROMOTION",
+  "run_id": 41628618648,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41628618648",
+  "workflow_sha": "0ed9ba45f70f85037d37ff52ff49f35f117d99a2",
+  "script_sha": "94687f8b434fd448a67be82a5cae4db8b051c48f",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "stock_o1_binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "fixture_sha256": "351dff6b4f49986bb7f0f586459b86b918d99fd4d4cbb0b3293b4dfa680a8efb",
+  "artifact": {
+    "name": "tslab-r07-sidecar-sql-41628618648",
+    "zip_sha256": "2c64f7d9f308b8a5494ed5a5148a8dee982ff85fdd1a2a101e871f22b3bcecde",
+    "content_path": "r07sql/report.json"
+  },
+  "data": "same source 70000 distinct one-sample per id 14 UTC days; day SAMPLES on both SQL and native; optional day COVER derived from native TAGS and SAMPLES without changes to source",
+  "sidecar": {
+    "rows": 70000,
+    "unique_ids": 70000,
+    "partitions": 14,
+    "bytes_on_disk": 1548392,
+    "marks": 28,
+    "one_shot_build_wall_s": 0.043628604000005566,
+    "build_is_not_steady_state": true
+  },
+  "comparison": {
+    "case_count": 4,
+    "phases_per_case": 4,
+    "phase_order": [
+      "native",
+      "sql",
+      "sql",
+      "native"
+    ],
+    "warmups_per_phase": 2,
+    "measured_per_phase": 4,
+    "measured_queries": 64,
+    "warmup_queries": 32,
+    "drift_threshold": 0.25,
+    "exact_native_output_parity": true,
+    "all_cases_nonempty": true,
+    "all_cases_valid_control": true,
+    "one_stock_binary_same_host": true,
+    "no_server_restart_between_phases": true
+  },
+  "cases": [
+    {
+      "case_name": "broad1d",
+      "native_p50_ms": 33.0715,
+      "sql_p50_ms": 33.165,
+      "speed_ratio_native_over_sql": 0.9971807628524046,
+      "native_cpu_ms": 46.49025,
+      "sql_cpu_ms": 37.2905,
+      "native_read_rows": 145000,
+      "sql_read_rows": 30000,
+      "native_read_bytes": 14920000,
+      "sql_read_bytes": 1230156,
+      "native_selected_marks": 38,
+      "sql_selected_marks": 44,
+      "control_drift": 0.0919522852,
+      "output_groups": 38,
+      "valid_control": true
+    },
+    {
+      "case_name": "stage1d",
+      "native_p50_ms": 19.334,
+      "sql_p50_ms": 11.159,
+      "speed_ratio_native_over_sql": 1.732592526212026,
+      "native_cpu_ms": 22.20925,
+      "sql_cpu_ms": 13.183,
+      "native_read_rows": 145000,
+      "sql_read_rows": 30000,
+      "native_read_bytes": 14990000,
+      "sql_read_bytes": 1145436,
+      "native_selected_marks": 38,
+      "sql_selected_marks": 44,
+      "control_drift": 0.0108616944,
+      "output_groups": 1,
+      "valid_control": true
+    },
+    {
+      "case_name": "broad3d",
+      "native_p50_ms": 43.556,
+      "sql_p50_ms": 18.585,
+      "speed_ratio_native_over_sql": 2.3436104385256926,
+      "native_cpu_ms": 81.265,
+      "sql_cpu_ms": 26.58225,
+      "native_read_rows": 155000,
+      "sql_read_rows": 60000,
+      "native_read_bytes": 15640000,
+      "sql_read_bytes": 2460312,
+      "native_selected_marks": 78,
+      "sql_selected_marks": 88,
+      "control_drift": 0.0036734319,
+      "output_groups": 38,
+      "valid_control": true
+    },
+    {
+      "case_name": "broad14d",
+      "native_p50_ms": 130.7285,
+      "sql_p50_ms": 43.994,
+      "speed_ratio_native_over_sql": 2.9715074782924944,
+      "native_cpu_ms": 282.2665,
+      "sql_cpu_ms": 85.42675,
+      "native_read_rows": 210000,
+      "sql_read_rows": 210000,
+      "native_read_bytes": 19600000,
+      "sql_read_bytes": 8611092,
+      "native_selected_marks": 298,
+      "sql_selected_marks": 308,
+      "control_drift": 0.188092115,
+      "output_groups": 38,
+      "valid_control": true
+    }
+  ],
+  "math_limitations": [
+    "This tests native PromQL against custom SQL using a covering table, not ClickHouse native planner routed through a new time metadata access path.",
+    "Different query operator DAG, per-ID aggregate, column projection and row-set materialization are changed together; direct SQL vs native ratio does NOT causally isolate sidecar index gain.",
+    "A SQL-only baseline using the ordinary TAGS table with identical operator tree is necessary to isolate the sidecar effect.",
+    "One sample per series, one metric family, no NaNs/histograms/late writes, no ACL/replica or steady-state sidecar writes; no production recommendation."
+  ],
+  "negative_methods": [
+    {
+      "run_id": 41628463197,
+      "reason": "First ABBA attempt failed before measurements: missing import os in query ID generation. The script was corrected with import-only commit 94687f8b434fd448a67be82a5cae4db8b051c48f; no schema/binary/SQL changes."
+    }
+  ],
+  "next_gate": "Same source/fixture/SQL operator shape: compare diagnostic SQL using original TAGS vs the day covering sidecar, paired ABBA. Record source revision and write/merge overhead. No C++ build until sidecar-specific independent gain and correctness confirmed."
+}
