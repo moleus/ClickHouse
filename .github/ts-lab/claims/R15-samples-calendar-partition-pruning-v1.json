@@ -1,0 +1,22 @@
+{
+  "id": "R15-samples-calendar-partition-pruning-v1",
+  "question": "For a one-sample-per-series high-churn TimeSeries v11 workload, can daily SAMPLES partitioning prune almost all physically irrelevant marks on short time-range selectors that default monthly id-first parts cannot?",
+  "owner": "chatgpt-r15-calendar-partition-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Default TimeSeries v11 SAMPLES PARTITION BY toYYYYMM(toDateTime(bucket,'UTC')), ORDER BY (id,bucket), samples_index_granularity=256, same sample_bucket_step, raw UUID ID and pinned fixture.",
+  "candidate": "Opt-in SAMPLES INNER ENGINE PARTITION BY toDate(toDateTime(bucket,'UTC')) ORDER BY (id,bucket) keeping all other inner target schemas and settings fixed; v11 version supports explicit samples_partition_by; measure native correctness, physical pruning and write/merge costs.",
+  "fixture": "Deterministic synthetic one-sample-per-ID 95000/day for 14 UTC days, 1330000 unique random 64-bit IDs, one merged part per monthly/daily partition, 256 rows/mark; ONLY mark-occupancy surrogate, not native ClickHouse. Future exact frozen Jenkins 14d and R01 Kubernetes 3d fixture.",
+  "single_variable": "SAMPLES partition key calendar month versus UTC calendar day, all other schema/bin/queries/ID type/bucket duration and merge state fixed.",
+  "math_bound": "Under independent uniform daily timestamp occupancy, monthly mark with g rows and w queried days in D-day one-month corpus has P(contains candidate time)=1-(1-w/D)^g. With D14,g256,w1,~0.9999999942 of monthly marks contain relevant day. Daily partitions select w/D of day parts if native index proves partition pruning; 14d/1d ideal ratio ~14x for SAMPLE mark work, NOT whole-query latency. Deterministic surrogate 5196 vs372 positive marks, 13.97x. Actual KeyCondition, partial merges and time ranges may differ.",
+  "falsifier": "If generated SQL lacks partition-prunable predicate on bucket, selected-mark counts are unchanged, join/metadata/aggregation dominates, write/merge/part count/metadata or storage cost outweigh reads, ACL/sample-output parity fails, or 14d/broad clients regress, reject/day-partition or use it only for bounded workloads.",
+  "test_matrix": "Math one-sample uniform model and deterministic tests for 1/3/7/14d, g=1 no-benefit counterexample. Native same-source stock O1, identical raw UUID table and samples_bucket_step, sample count+output/labels/timestamps parity, EXPLAIN indexes=1 partition pruning and SelectedMarks/read_bytes; 1/3/7/14d stage/project/whole, 1/4/8 clients, fresh server ABBA, repeated updates and merges, write/merge CPU, active parts/inserts, peak RSS.",
+  "runner_budget": "First pure-Python model and source audit only. Later reuse exact compiled stock O1 and frozen fixture; no C++ build; keep all existing long builds untouched.",
+  "planned_workflow": "No expensive Actions. Cheap 4-test source/math CI possible, no schedule.",
+  "dependencies": [
+    "Pinned StorageTimeSeries.cpp documents default monthly SAMPLES partition and sample bucket key.",
+    "Pinned TimeSeriesSettings.cpp declares samples_partition_by and settings version gate.",
+    "R05 ID-set mark-range surrogate suggests candidate IDs can intersect almost all id-first mark spans.",
+    "R10 bucket-width tests are orthogonal; hold samples_bucket_step_seconds fixed."
+  ]
+}
