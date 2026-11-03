@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "question_id": "R02-small-batch-raw-lc-write-v1",
+  "subexperiment": "fresh-process-whole-CPU-ABBA-96batches-v3",
+  "decision": "INCONCLUSIVE_REPLICATION_NEEDED",
+  "ci_status": "success",
+  "verified_utc": "2026-11-03T11:06:00Z",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary": {
+    "build_run": 41596421285,
+    "sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "source": "stock O1 no C++ patches, glibc, LLVM22.1.8",
+    "archive_and_binary_sha_verified": true
+  },
+  "fixture": {
+    "combined_sha256": "dd2dd55ee8fcf3c11c1fef94ebdd54ac8b3a6a53cea6deaae991b3b94c88b931",
+    "slots_per_scope": 2000,
+    "series_unique": 66000,
+    "physical_sample_rows": 68000,
+    "sample_points": 384000,
+    "small_batches": 96,
+    "minutes_of_data": 96,
+    "per_batch_series": 4000,
+    "stable_series": 2000,
+    "rotating_series": 64000,
+    "three_inner_tables": [
+      "tags",
+      "samples",
+      "timeranges"
+    ],
+    "part_counts_before_optimize": {
+      "tags": 32,
+      "samples": 96,
+      "timeranges": 96
+    },
+    "part_counts_after_optimize": {
+      "tags": 1,
+      "samples": 1,
+      "timeranges": 1
+    },
+    "promql_oracle": "avg by(scope)(avg_over_time(tslab_r02_periodic[4h])) at final timestamp, independent Python series means; all phases equal within 1e-8"
+  },
+  "phases": {
+    "A0": {
+      "mode": "LC",
+      "write_cpu_s": 5.5,
+      "write_wall_s": 10.12447,
+      "merge_cpu_s": 1.76,
+      "merge_wall_s": 1.04588
+    },
+    "B1": {
+      "mode": "RAW",
+      "write_cpu_s": 4.72,
+      "write_wall_s": 9.41026,
+      "merge_cpu_s": 1.29,
+      "merge_wall_s": 0.79128
+    },
+    "B2": {
+      "mode": "RAW",
+      "write_cpu_s": 4.44,
+      "write_wall_s": 9.08501,
+      "merge_cpu_s": 1.18,
+      "merge_wall_s": 0.75484
+    },
+    "A3": {
+      "mode": "LC",
+      "write_cpu_s": 5.37,
+      "write_wall_s": 10.01041,
+      "merge_cpu_s": 1.71,
+      "merge_wall_s": 0.98811
+    }
+  },
+  "means": {
+    "write_cpu_s": {
+      "lc": 5.435,
+      "raw": 4.58,
+      "raw_over_lc": 0.84269,
+      "lc_control_drift": 0.02392
+    },
+    "write_wall_s": {
+      "lc": 10.06744,
+      "raw": 9.24763,
+      "raw_over_lc": 0.91857,
+      "lc_control_drift": 0.01133
+    },
+    "merge_cpu_s": {
+      "lc": 1.735,
+      "raw": 1.235,
+      "raw_over_lc": 0.71182,
+      "lc_control_drift": 0.02882
+    },
+    "merge_wall_s": {
+      "lc": 1.017,
+      "raw": 0.77306,
+      "raw_over_lc": 0.76014,
+      "lc_control_drift": 0.0568
+    },
+    "write_bytes": {
+      "lc": 29888512,
+      "raw": 28061696,
+      "raw_over_lc": 0.93888,
+      "lc_control_drift": 0
+    },
+    "merge_write_bytes": {
+      "lc": 13824000,
+      "raw": 13238272,
+      "raw_over_lc": 0.95763,
+      "lc_control_drift": 0.00533
+    }
+  },
+  "physical_compressed_bytes": {
+    "lc": {
+      "tags": 2169053,
+      "samples": 2584002,
+      "timeranges": 1485031,
+      "total": 6238086
+    },
+    "raw": {
+      "tags": 2036254,
+      "samples": 2540208,
+      "timeranges": 1450432,
+      "total": 6026894
+    },
+    "raw_fraction_smaller": 0.033856
+  },
+  "method": "Single GitHub Ubuntu runner, four complete fresh server processes in A/B/B/A order; each identical sequence of 96 chronological 4000-row INSERTs under STOP MERGES for inner TAGS/SAMPLES/TimeRanges; /proc process tree watchdog+child worker CPU/IO deltas before and after write; START MERGES+3 OPTIMIZE FINAL CPU/IO measured separately. All 96 QueryFinish records per phase and physical counts verified. Same full native 4h PromQL and exact independent labels/timestamps/numeric values, no caching, no production writes. A/A drift bound predeclared<=25%.",
+  "math_bound": "Raw UUID vs LowCardinality(UUID) physical representation has dictionary overhead. DistinctID/physicalID rows 66000/68000 ~0.97 after merging, so dictionary overhead may exceed savings when individual series have few bucketed rows. One 0.01s CPU tick is <0.3% of this 5.4s write interval, unlike 12-batch test where it was ~4%; observed raw/LC CPU ratios .8427 for insert and .7118 for merges exceed A/A drifts by large margins. This does NOT imply production effect due O1/glibc and background merge isolation.",
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41624336193",
+    "job_id": 125877763675,
+    "artifact_id": 13224084337,
+    "artifact_zip_sha256": "dae14fcafa6a28c61f285c75d50874c0e8de12eb89c46999a041ae585d6776ee",
+    "workflow_file": ".github/workflows/ts-lab-r02-process-cpu-abba-long-20261103.yml",
+    "workflow_commit": "499cfae0ec521aae20a933995e04f74d2f3f2a94",
+    "source_script": ".github/ts-lab/experiments/r02_process_cpu_abba.py",
+    "source_script_commit": "45d3f28b3dbdc3623829994c6ca586a6d586ad13"
+  },
+  "limitations": [
+    "One runner and one ABBA with two phases/mode; cannot claim robust cross-host effect. Two independent-runner replicas are in CI 41624764688; do not invent results.",
+    "Server uses stock O1 lab build and glibc, not optimized production allocator/binary.",
+    "Background merges stopped during inserts, then restarted and forced to final; this separates phases but does not test natural concurrent reads+writes/merges.",
+    "/proc write_bytes includes non-physical-table writes, not billable storage cost; merged compressed bytes and marked physical rows are authoritative small-fixture size.",
+    "Native read measured for parity but no concurrent query latency p95; cannot use these write results as read-path proof."
+  ],
+  "next_action": {
+    "question_id": "R02",
+    "step": "Inspect BOTH independent-runner CI replication jobs 41624764688, require same stock binary/fixture SHA, exact 96x4 ingest and native parity, no A/A drift >25%, and consistent direction/effect of process CPU. Then rank risk for production and schedule separate matched optimized jemalloc build only if available (never cancel 41607779848).",
+    "stop_condition": "Any CI/sampling/fixture mismatch or missing independent-runner artifacts invalidates replication."
+  }
+}
