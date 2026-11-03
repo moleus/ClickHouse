@@ -1,0 +1,19 @@
+{
+  "id": "R17-native-output-cost-cpu-floor-v1",
+  "question": "Does HTTP JSONEachRow output serialization account for a substantial share of the 3-41x ClickHouse O1 versus optimized VictoriaMetrics native PromQL latency gap on low-output-cardinality Kubernetes selectors?",
+  "owner": "chatgpt-r17-native-output-cost-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Stock O1, LLVM22.1.8, binary f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e, v11 TimeSeries opt-in RAW UUID on three inner layers, query SELECT * FROM prometheusQueryRange(...) FORMAT JSONEachRow",
+  "candidate": "Identical exact native PromQL query and data, one format setting changed: FORMAT Null, which consumes result without JSON output; not a valid production endpoint or direct source of semantic outputs",
+  "fixture": "R01 deterministic aligned 400 active-node slots, three hours life, 3 days, 28,896 series, 2,488,320 sample points, SHA ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+  "single_variable": "Output format JSONEachRow versus Null, same SQL calculation, server/process and plan. Exact native output assertions on every JSON phase, other phases validate empty HTTP body plus server-level rows/read/marks; fail if physical read path changes.",
+  "math_bound": "At most 3 evaluation ticks times 1,4,8,16 groups => 3-48 native PromQL samples in small result. If JSON serialization costs s CPU ms/query and whole stock query costs c CPU ms/query, output-only optimization can remove at most s/c of CPU on that workload. If s is <10% of c, 10x-40x VM gap must be elsewhere; do not use absolute CPU as evidence of any one internal operator.",
+  "falsifier": "Full JSON oracle labels/timestamps/value mismatch; Null HTTP response nonempty; query finish missing, physical samples data change, selected marks/read rows differ beyond same-runner controls due format-driven plan change, A/A drift >25%, OOM. Never equate null output with full PromQL correctness; use only diagnostic CPU cost bound.",
+  "test_matrix": "One source-pinned 4-vCPU runner, 4 selectors node_broad,pod_namespace,pod_broad,burst15; three daily steps; full JSON/Null/Null/JSON A/B/B/A per selector; 2 warmups +24 measured queries/phase, separate query ID, CPU per request, server latency, p50/p95 and RSS begin/end outside timing, full native JSON equality; representative processor DAG/cpu profile query IDs; parts one per inner layer and immutable.",
+  "runner_budget": "One ubuntu-24.04 GitHub Actions job <=45min, no source/C++ rebuild, pinned artifacts and fixture, no VM run, 4x4x26=416 queries of low-cost query shapes, max memory 4.8GB server",
+  "planned_workflow": ".github/workflows/ts-lab-r17-output-floor-20261103.yml path-only push + workflow_dispatch, no schedule, run-unique concurrency, cancel false",
+  "dependencies": [
+    "R03-k8s-400node-native-vm-concurrency-v1"
+  ]
+}
