@@ -1,0 +1,19 @@
+{
+  "id": "R04-recent-ttl-parity-v1",
+  "question": "Do native TimeSeries queries preserve exact output when choosing RecentSamples near a TTL boundary, with late and out-of-order ingest?",
+  "owner": "chatgpt-r04-native-ttl-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Pinned O1 JOIN override binary sha256 3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221; recent preferred query setting disabled, same physical table",
+  "candidate": "Identical query/data/binary with time_series_prefer_recent_samples_table=1 and RecentSamples TTL=3600s",
+  "fixture": "Small deterministic series fixture relative to recorded UTC epoch; same UUID and tags, hot/cold/late samples, input SHA manifest",
+  "single_variable": "Read target preference, not physical source binary or data; hot, straddle and cold windows are separate correctness cases",
+  "math_bound": "Recent routing can only preserve results if the minimum requested sample time is newer than now - TTL + 60s; outside this window selector must use main samples. Recent-table write amplification is at least one additional sample write per ingested sample and must be measured separately.",
+  "falsifier": "Any differing labels/timestamps/numeric values, missing old sample when window crosses TTL, missing newly inserted late sample, or ability to select RecentSamples without valid TTL coverage",
+  "test_matrix": "Hot, 1h boundary, straddle, all-cold; before/after late insertion and part merges; direct preference ON/OFF exact output equality; inspect query plan or query_log for actual selected target",
+  "runner_budget": "Local SHA verified O1 binary and tiny fixture first; one path-isolated CI job <=15m only after source+smoke parity",
+  "planned_workflow": ".github/workflows/ts-lab-r04-recent-ttl-semantic-20261103.yml (if cheap local proof valid)",
+  "dependencies": [
+    "R08-matcher-absence-regex-v1"
+  ]
+}
