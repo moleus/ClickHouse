@@ -73,7 +73,7 @@ def restrict_time_ranges_in_to_candidates(full_sql):
         raise ValueError("Unexpected TimeRanges table")
     if right.count(" WHERE ")!=1:
         raise ValueError("Right selector is not one SQL WHERE")
-    original_right_table,right_pred=right[12:].split(" WHERE ",1)
+    original_right_table,right_pred=right[len("SELECT id FROM "):].split(" WHERE ",1)
     if not original_right_table.startswith("default.`.inner_id.timeranges."):
         raise ValueError("Invalid right table")
     if "greaterOrEquals(max_time," not in right_pred or "lessOrEquals(min_time," not in right_pred:
