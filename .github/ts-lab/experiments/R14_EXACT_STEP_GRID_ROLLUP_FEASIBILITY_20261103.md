@@ -75,3 +75,7 @@ maps PromQL \`avg\` to SQL \`avgForEach(values)\` and emits \`GROUP BY new_group
 [fromSelector.cpp](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/TimeSeries/PrometheusQueryToSQL/fromSelector.cpp) converts instant selectors via \`last_over_time\` and transforms stale markers into absence; range selectors drop dedicated stale markers but retain ordinary NaNs. This supports the **strict finite-float and static-grid scope** above and explains why an unguarded numeric rollup is unsafe.
 
 The only plausible **large** R14 gain is **persisting and reusing** already computed per-grid group states for repeated, revision-equivalent requests, thereby skipping selector/TAGS/TimeRanges/SAMPLES/aggregation on the subsequent reads. Adding an \`avgForEach\` in the same query would mostly duplicate the current work. CPU and storage gain must include actual repetition frequency and freshness cost.
+
+## Independent CI verification
+
+[Minimal GitHub Actions run #41622064271](https://github.com/moleus/ClickHouse/actions/runs/41622064271) finished **success**. Inspected decoded job logs: Python 3.12.3, all **9/9** named unittest cases OK (including seeded parity), sparse checkout and provenance SHA256 step succeeded. This verifies the mathematical oracle only. No native performance data.
