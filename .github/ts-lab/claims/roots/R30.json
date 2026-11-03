@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "question_id": "R30",
+  "primary_claim_id": "R30-time-ranges-any-semi-join-v1",
+  "owner": "chatgpt-e03-r30-any-time-ranges-20261103",
+  "scope": "Independent E03 join strictness candidate for native TimeSeries: change TAGS LEFT ALL TimeRanges membership join to LEFT ANY under identical ID and matched-flag semantics when multiple unmerged TimeRanges rows share an ID. Test duplicate/late/partial-window rows, legacy-generator escape, stateful tag collector, full native PromQL and memory. Does not alter R05 SAMPLES mark pruning, R07 new layout, R28 admission or R29 optimized baseline; no source default change without oracle.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-03",
+  "reason": "Native selector returns an IN set but uses a multiplicity-preserving ALL LEFT metadata JOIN; duplicated TimeRanges rows can repeat the same ID during inserts. Candidate ANY could reduce left-side multiplication while preserving membership; not measured or proven."
+}
