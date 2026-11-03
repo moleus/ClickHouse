@@ -1,0 +1,93 @@
+name: TimeSeries patched LowCardinality UniqV2 correctness matrix
+# 2026-11-03 launch: verify LC cardinality estimator on one fixed synthetic value
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-cbo-lowcard-ndv-patch-test-20261103.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-lowcard-ndv-patch-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Preflight
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/ts-lab-cbo/probe_lowcard_curve.py
+          python3 .github/ts-lab-cbo/probe_lowcard_curve.py --help
+          python3 -m py_compile .github/ts-lab-cbo/verify_lowcard_ndv_fix.py
+      - name: Verify and extract pinned O2 binary
+        run: |
+          set -euo pipefail
+          mkdir -p evidence "$RUNNER_TEMP/art" "$RUNNER_TEMP/bin"
+          gh run download 41588660466 -R "$REPO" -n tslab-cbo-lowcard-ndv-binary-26a5aa85d7877fab7851b97afbc6bd85ca22c01d -D "$RUNNER_TEMP/art"
+          archive="$(find "$RUNNER_TEMP/art" -name 'clickhouse-cbo-lowcard-ndv-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/archive-check.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/bin"
+          (cd "$RUNNER_TEMP/bin" && sha256sum -c SHA256SUMS) | tee evidence/binary-check.txt
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/bin/BUILD_INFO.txt"
+          grep -q 'optimization=O1' "$RUNNER_TEMP/bin/BUILD_INFO.txt"
+          chmod +x "$RUNNER_TEMP/bin/clickhouse"
+      - name: Start isolated ClickHouse and statistics logs
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ch/data" "$RUNNER_TEMP/ch/tmp" "$RUNNER_TEMP/ch/userfiles"
+          cat > "$RUNNER_TEMP/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/ch/data/</path><tmp_path>$RUNNER_TEMP/ch/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/ch/userfiles/</user_files_path>
+            <max_server_memory_usage>5000000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default>
+              <allow_experimental_time_series_table>1</allow_experimental_time_series_table>
+              <enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions>
+              <log_queries>1</log_queries><log_processors_profiles>1</log_processors_profiles>
+              <use_statistics>1</use_statistics><predicate_statistics_sample_rate>1</predicate_statistics_sample_rate>
+              <query_profiler_cpu_time_period_ns>1000000</query_profiler_cpu_time_period_ns>
+              <query_profiler_real_time_period_ns>1000000</query_profiler_real_time_period_ns>
+              <memory_profiler_step>1048576</memory_profiler_step>
+              <max_memory_usage>4000000000</max_memory_usage>
+            </default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <trace_log><database>system</database><table>trace_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></trace_log>
+            <processors_profile_log><database>system</database><table>processors_profile_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></processors_profile_log>
+            <predicate_statistics_log><database>system</database><table>predicate_statistics_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></predicate_statistics_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/bin/clickhouse" server --config-file="$RUNNER_TEMP/config.xml" >evidence/server.log 2>&1 &
+          ready=0
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping >/dev/null 2>&1; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then tail -100 evidence/server.log; exit 1; fi
+      - name: Run query statistics and JOIN comparisons
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-cbo/probe_lowcard_curve.py --out evidence/lowcard-curve.json | tee evidence/run.log
+          python3 .github/ts-lab-cbo/verify_lowcard_ndv_fix.py --input evidence/lowcard-curve.json --out evidence/lowcard-validation.json | tee evidence/validation.log
+      - name: Save failure-aware raw evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-lowcard-ndv-patch-20261103
+          path: evidence/
+          retention-days: 45
+          compression-level: 1
