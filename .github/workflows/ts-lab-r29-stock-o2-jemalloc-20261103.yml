@@ -161,6 +161,18 @@ jobs:
           test -s build-lab/programs/clickhouse
           build-lab/programs/clickhouse --version
 
+      - name: Verify unmodified pinned source and optimized jemalloc CMake options
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git diff --exit-code
+          grep -E '^ENABLE_JEMALLOC(:[^=]*)?=ON$' build-lab/CMakeCache.txt
+          grep -E '^CMAKE_BUILD_TYPE(:[^=]*)?=Release$' build-lab/CMakeCache.txt
+          grep -E '^CMAKE_CXX_FLAGS_RELEASE(:[^=]*)?=.*-O2' build-lab/CMakeCache.txt
+          grep -E '^(ENABLE_JEMALLOC|CMAKE_BUILD_TYPE|CMAKE_CXX_FLAGS_RELEASE)' build-lab/CMakeCache.txt > evidence/r29-cmake-options.txt
+          sha256sum build-lab/programs/clickhouse > evidence/r29-executable-sha256.txt
+          printf 'No C++ lab patch; verified source, O2 and enabled jemalloc.\n' > evidence/r29-source-contract.txt
+
       - name: Package lab binary
         run: |
           set -euo pipefail
@@ -194,28 +206,6 @@ jobs:
         with:
           path: .ccache
           key: tslab-ccache-${{ runner.os }}-${{ env.SOURCE_SHA }}-r29-stock-o2-jemalloc-${{ github.run_id }}
-
-      - name: Verify effective unpatched O2 jemalloc build configuration
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
-          git diff --exit-code
-          grep -E '^ENABLE_JEMALLOC(:[^=]*)?=ON          build-lab/programs/clickhouse local -q 'SELECT 1' | grep -x 1
-          build-lab/programs/clickhouse local -q 'SELECT version()'
-          build-lab/programs/clickhouse local --allow_experimental_time_series_table=1 -q 'SELECT 1' | grep -x 1
-          build-lab/programs/clickhouse local --allow_experimental_time_series_table=1 -q 'SELECT toTypeName(tuple(toUInt64(1), generateUUIDv4()))'
-
- build-lab/CMakeCache.txt
-          grep -E '^CMAKE_BUILD_TYPE(:[^=]*)?=Release          build-lab/programs/clickhouse local -q 'SELECT 1' | grep -x 1
-          build-lab/programs/clickhouse local -q 'SELECT version()'
-          build-lab/programs/clickhouse local --allow_experimental_time_series_table=1 -q 'SELECT 1' | grep -x 1
-          build-lab/programs/clickhouse local --allow_experimental_time_series_table=1 -q 'SELECT toTypeName(tuple(toUInt64(1), generateUUIDv4()))'
-
- build-lab/CMakeCache.txt
-          grep -E '^CMAKE_CXX_FLAGS_RELEASE(:[^=]*)?=.*-O2' build-lab/CMakeCache.txt
-          grep -E '^(ENABLE_JEMALLOC|CMAKE_BUILD_TYPE|CMAKE_CXX_FLAGS_RELEASE)' build-lab/CMakeCache.txt > evidence/r29-cmake-options.txt
-          sha256sum build-lab/programs/clickhouse > evidence/r29-executable-sha256.txt
-          echo 'Stock source and matched LLVM, O2, jemalloc verified; no lab patch.' > evidence/r29-source-contract.txt
 
       - name: Smoke tests
         run: |
