@@ -16,6 +16,10 @@
 
 **Single write branch:** `lab/ts-cbo-adaptive-20261103`. All agents should commit their research here. Keep one append-only history; do not reset, amend, rebase, or force-push.
 
+## E03 / R31: TimeRanges IN-set semi-filter on native-generated SQL (2026-11-04)
+
+- [Canonical R31 root](claims/roots/R31.json), [claim](claims/R31-timeranges-membership-in-semijoin-v1.json), [source proof and test](../ts-lab-r31/IN_MEMBERSHIP_SOURCE_PROOF_20261104.md), [immutable artifact evidence](evidence/R31-inset-three-way-41719952453.json) / [CI #41719952453](https://github.com/moleus/ClickHouse/actions/runs/41719952453) **PASS**. On pinned O1 source and 2048 stable IDs with 1/16 unmerged TimeRanges rows each, 6/6 exact ID-set and SAMPLES SQL hashes equal across original ALL / R30 ANY / R31 WHERE id IN (same TimeRanges time+metric filters with original legacy-ID OR). Project k16 A/B/C/C/B/A: ALL 44ms wall/54.891ms CPU/13.35MB, ANY 30.75/40.947/11.74MB, **IN 20/29.538/8.61MB** (−54.5% wall, −46.2% CPU from ALL). At k1 wall 14/14/13ms. IN EXPLAIN shows **CreatingSets + TAGS PREWHERE id IN** rather than FullSortingMergeJoin. This is **SQL-stage only, not native patched C++, release O2 or 1.33m/14d**; IN has an unbounded prior set build memory risk until measured. R29 optimized stock build unchanged.
+
 ## E03 / R30 — TimeRanges membership JOIN multiplicity (2026-11-03)
 
 - [R30 verified FINAL negative control](evidence/R30-any-sql-postmerge-41715251318.json), [CI #41715251318](https://github.com/moleus/ClickHouse/actions/runs/41715251318) PASS: only TimeRanges merged; 66560 physical rows/18 parts become 5120/1; 5120 unique IDs unchanged. Stage/project/whole ALL/ANY output multiplication **16x→1x** with exact ID-set and SAMPLES parity. Direct project SQL premerge wall84.25→55.5ms (-34.1%), CPU104.18→75.59ms (-27.4%); postmerge 23→20.5ms, effect small and not proven stable, tracked memory ANY slightly higher. Strong causal evidence for **duplicate-right-row reduction**, not a native C++ production speedup.
