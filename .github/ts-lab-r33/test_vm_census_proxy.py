@@ -52,10 +52,12 @@ class VMCensusFixtureTests(unittest.TestCase):
             owner_path=pathlib.Path(tmp)/"owner.jsonl"
             independent_path=pathlib.Path(tmp)/"independent.jsonl"
             owner=generate(owner_path,association="owner_hierarchy")
-            independent=generate(independent_path,association="counterfactual_independent_project")
+            independent=generate(independent_path,association="counterfactual_shuffled_project")
             proof_a=validate(owner_path,owner)
             proof_b=validate(independent_path,independent)
             self.assertEqual(proof_a["marginals"],proof_b["marginals"])
+            self.assertEqual(proof_a["marginal_frequency_sha256"],
+                             proof_b["marginal_frequency_sha256"])
             self.assertEqual(owner["series"],independent["series"])
             self.assertNotEqual(owner["sha256"],independent["sha256"])
             self.assertEqual(proof_a["stage_projects_min"],1)
