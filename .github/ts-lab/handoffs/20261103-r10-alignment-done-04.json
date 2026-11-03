@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "session_id": "r10-alignment-done-20261103-04",
+  "status": "done",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "3b8a904ed1221a60ddca7daa5226b9a56fa7bb32",
+  "last_verified_utc": "2026-11-03T10:43:15.302Z",
+  "question_id": "R10",
+  "summary": "Completed source-pinned R10 native TimeSeries read/write/merge CPU and bucket width tests, including validated staggered start confounder, single-runner 2x2 interaction, and final 4/8 client staggered A/B/B/A: global 10800s bucket not supported. All new workflows path-scoped and unscheduled; no cancelled jobs or production/master/old-branch changes.",
+  "completed": [
+    "R10 400-slot 3d multi-cadence synthetic fixture with 28,896 IDs/2,488,320 points; source SHA52529f0 and pinned O1 executable SHA f0a2fa1; unchanged original aligned SHA ea9a8d43 and staggered source SHA ae85496e.",
+    "R10 41616086196 fresh-server write/explicit merges PASS: 3600->10800 insert CPU1.590->1.520s, merge CPU0.825->0.720s, compressed disk7.4248->6.8332MB, same full native parity; not steady-state.",
+    "R10 41617111380 aligned 1/4/8-client PASS and source-pinned 9-case evidence; n8 selective and broad p50/CPU often faster, but n8 namespace p99 slightly worse and n4 node baseline drift21.4%.",
+    "R10 41618267456 fixture unit CI PASS; changed only timestamps via slot*(317)%10800 sec; aligned original fixture remains SHA identical.",
+    "R10 41618941657 staggered native 1-client ABBA PASS: namespace p5073.726->85.345ms CPU135.859->168.388ms, burst15 p5054.164->61.632ms; actual SAMPLES bucket rows113760->57120, fewer read rows/marks yet more reader CPU.",
+    "R10 41619669176 same runner 2x2 outer aligned/stagger/stagger/aligned x inner 3600/10800/10800/3600 ABBA PASS 512 full-native requests. Namespace p50 candidate/base ratio aligned0.97046 vs stagger1.25384; burst15 1.00882 vs1.23197; all repeated controls pass. Exact data/effects .github/ts-lab/evidence/R10-alignment-factorial-41619669176.json.",
+    "R10 41620367659 staggered 4/8-client PASS all8 ABBA: 1920 unique query IDs, full native parity and no OOM. At n8 namespace p50331->393ms, CPU156->187ms, QPS22.40->18.65; burst15 p50218->259ms CPU103->125ms QPS33.65->28.32. Immutable .github/ts-lab/evidence/R10-staggered-concurrent-41620367659.json and INDEX latest.",
+    "Source audit StorageTimeSeriesSelector.cpp: reader prunes bucket rows with min/max and ID then materializes physical samples array and applies timeSeriesSliceSortedArray; read-mark counts alone cannot predict CPU. .github/ts-lab-r10/START_ALIGNMENT_CPU_AUDIT_20261103.md.",
+    "Derived CPU-mix break-even model .github/ts-lab-r10/BUCKET_CPU_BREAK_EVEN_20261103.md, explicitly synthetic and excludes write/merge/allocator/p99.",
+    "Glibc frontiers OOM-aware reducer 41617708973 PASS with101 unique IDs, two default Code241 OOM, arena4/trim exploratory Pareto; source-pinned record saved. Other agent R12 normal-data LC decoder 41620022189 normal A/B/B/A stage patch regressed and remains unsafe; no promotion."
+  ],
+  "negative_results": [
+    "Global 10800s SAMPLES bucket cannot be justified by physical bytes or aligned 3h start benchmark; staggered selective queries regress by ~19% at8 clients and ~25% single-client.",
+    "n4 node-broad p50 changes smaller than A/A drift, do not claim as stable; some p99 changes differ from p50 sign.",
+    "Staggered fixture shifts last lifecycle beyond nominal 3d boundary; not a 400-active-node HPA/production traffic simulator.",
+    "No 14d, true HPA, cold-store, concurrent streaming write+read or jemalloc optimized binary parity; production default unchanged.",
+    "Lab source C++ LC fastpath unsafe on malformed dictionary indexes and slower stage/whole in matched R12; do not use."
+  ],
+  "active_run_ids": [
+    41607779848
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "fixture_sha256": "ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a",
+  "relevant_paths": [
+    ".github/ts-lab/INDEX.md",
+    ".github/ts-lab/claims/roots/R10.json",
+    ".github/ts-lab/METHODOLOGY_AND_FAILURES.md",
+    ".github/ts-lab/evidence/R10-alignment-factorial-41619669176.json",
+    ".github/ts-lab/evidence/R10-staggered-concurrent-41620367659.json",
+    ".github/ts-lab-r10/START_ALIGNMENT_CPU_AUDIT_20261103.md",
+    ".github/ts-lab-r10/BUCKET_CPU_BREAK_EVEN_20261103.md"
+  ],
+  "blocked_by": [
+    "Production allocator pinned jemalloc build run41607779848 remains compiling; do not cancel or launch duplicate.",
+    "Other agents own R11 cache, R12 LC decoder and R13 branch matcher, avoid overlapping work."
+  ],
+  "next_action": {
+    "question_id": "R10",
+    "step": "Read updated INDEX/root claims and finish other agents' active results first. Reject global 10800 bucket candidate for staggered selective PromQL. For a new high-value experiment, couple staggered 14d/HPA node/pod fixture with concurrent remote-write and native PromQL and source-pinned jemalloc/O2 once available, ideally adaptive optimizer cost bounds and query mix distribution; avoid large new binaries without a correctness/math preflight.",
+    "stop_condition": "Keep a permanent negative result if 10800s increases CPU/QPS tail or OOM; do not change master/prod or enable schedules, and do not pretend glibc O1 is production parity."
+  }
+}
