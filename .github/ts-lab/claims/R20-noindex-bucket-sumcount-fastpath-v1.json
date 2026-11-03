@@ -1,0 +1,26 @@
+{
+  "id": "R20-noindex-bucket-sumcount-fastpath-v1",
+  "question": "Can a source-compatible, no-new-index, exact stale-aware per-bucket (sum,count) per-full-ID aggregation for a narrow TimeSeries v11 avg_over_time gauge query family be admitted by a native planner only when it beats the stock time-grid plan, including multi-evaluation correctness, optimized production allocator and concurrent reads/writes?",
+  "owner": "chatgpt-r20-bucket-sumcount-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Unmodified stock O1 native TimeSeries PromQL timeSeriesSelector+time grid+avgForEach, with existing TAGS/TimeRanges/SAMPLES and full stable Tuple(UInt64,UUID). Original R07 no-index safe point SQL uses arrayJoin and avg per full ID then avg by label. No codec/partition/write-path changes.",
+  "candidate": "Conservative opt-in planner/query rewrite for exact form avg by(one equality-accessible group)(avg_over_time(gauge[window])) over v11 bucketed samples: filter exact stale bit 0x7ff0000000000002, retain ordinary NaN, time selector (start,end] per evaluation, reduce each SAMPLES bucket to (sample_sum,sample_count), merge per full ID via sum sums / sum counts, require count>0 then average eligible ID scalars by label. Use original TAGS, preserve TimeRanges, full ID, ACL and native fallback. Never force globally.",
+  "fixture": "Source-pin R01 staggered SHA ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a and aligned SHA ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d; each 2,488,320 samples across 28,896 series and 3 days/400 synthetic nodes, mixed 15s/60s/300s. Adversarial six-series stale-only/ordinary-NaN/duplicates 5-grid test, no production data.",
+  "single_variable": "Physical query operator DAG per-ID state update frequency: point-wise arrayJoin+avg vs per-bucket arrayFilter+sum+count with identical source data/label selector/filter/physical marks, same original full ID and exact time/stale predicates. Separate tests compare native baseline vs bucket path.",
+  "math_bound": "For original per-ID sample count P and persisted bucket rows B, exact real arithmetic avg_i=(sum_b sum_{p in filtered samples_b}p.value)/(sum_b count(filtered samples_b)), then avg by(group) over valid series IDs. O(P) sample scan remains; per-ID hash-state updates can fall from O(P) to O(B). Frozen R01 staggered P=2,488,320 B=113,760 (P/B=21.873x); aligned B=86,688 (28.704x). These are theoretical row-update factors, NOT query speedups. In same-runner 1/4/8 burst test #41643759040, pod3d eight-client median wave QPS13.13 native vs52.17 bucket (3.97x), QueryFinish CPU263.47 vs69.34ms, only synthetic short bursts not sustained capacity.",
+  "falsifier": "If exact stale marker/ordinary NaN semantics, duplicate timestamp max after concurrent writes, full unique series ID dedup, TimeRanges TTL, project ACL, regex/offsets, multi-step query grids, histograms, counter semantics, or numerical stability differ, reject generic native rewrite or require fallback. If O2/jemalloc, 1/4/8 clients with continuous ingestion, mixed short/long windows, p99/RSS/GC/merge load or 70k one-sample/high-cardinality Jenkins show net regression, no default. Held-out pod1d point SQL slightly beat bucket wall even though bucket reduced CPU.",
+  "test_matrix": "CI 41641109486 exact 22 native stale+ordinary NaN five-grid observations; 41642126884 exact 22 fused bucket native observations. R01 separate 18 native grid checks + 4-case ABBA on 41642508119 staggered and 41643057088 aligned. 41643759040 1/4/8 synchronized clients native vs bucket ABBA two broad 3d selectors, all outputs exact. NEXT: source-pinned admission predicate and native EXPLAIN, copy/mutation/late update/ACL/regex boundaries, independent production-optimized O2/jemalloc binary, sustained Poisson mixed read/write load and p95/p99 CPU/RSS under appropriate rate.",
+  "runner_budget": "Completed experiments reused immutable stock O1 binary and synthetic frozen fixtures, no new C++ builds. Further C++ optimization requires source/semantics and cost-model proof; avoid expensive duplicates, do not cancel other owner CI or scheduled master workflows.",
+  "planned_workflow": "Only new path-scoped non-scheduled CI for bounded semantic/capacity gates under lab/ts-cbo-adaptive-20261103; preserve immutable R07 evidence as provenance. No upstream or production mutation.",
+  "dependencies": [
+    "R07-stale-safe-five-tick-41641109486.json",
+    "R07-bucket-sumcount-native-grid-41642126884.json",
+    "R07-bucket-sumcount-R01-ABBA-41642508119.json",
+    "R07-bucket-sumcount-R01-aligned-41643057088.json",
+    "R07-bucket-sumcount-capacity-41643759040.json",
+    "R07 original TAGS/sidecar factorial negatives #41629085028 and native-vs-TAGS gauge SQL negatives #41629492828",
+    "R18 codec experiments separate owner",
+    "R19 historical metadata/TTL separate owner"
+  ]
+}
