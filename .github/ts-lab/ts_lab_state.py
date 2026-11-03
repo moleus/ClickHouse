@@ -127,26 +127,55 @@ def fetch_json(url, token=None):
         return json.load(response)
 
 
+def fetch_action_runs(base, status, token=None, page_cap=10):
+    """Read all pages up to an explicit limit; never hide truncation."""
+    runs = []
+    for page in range(1, page_cap + 1):
+        data = fetch_json(
+            base + '/actions/runs?status=' + urllib.parse.quote(status) +
+            '&per_page=100&page=' + str(page), token)
+        batch = data.get('workflow_runs', [])
+        runs.extend(batch)
+        total = data.get('total_count')
+        if len(batch) < 100 or (isinstance(total, int) and len(runs) >= total):
+            return runs, True
+    return runs, False
+
+
+def is_research_branch(candidate, current):
+    """Legacy lab/timeseries-* jobs are still valid deduplication locks."""
+    return isinstance(candidate, str) and (
+        candidate == current or candidate.startswith('lab/ts-') or
+        candidate.startswith('lab/timeseries-'))
+
+
 def snapshot(repo, branch, token=None, limit=12):
     base = 'https://api.github.com/repos/' + urllib.parse.quote(repo, safe='/')
     escaped_branch = urllib.parse.quote(branch, safe='')
     recent = fetch_json(base + '/commits?sha=' + escaped_branch + '&per_page=8', token)
-    running = fetch_json(base + '/actions/runs?status=in_progress&per_page=100', token)
-    pending = fetch_json(base + '/actions/runs?status=queued&per_page=100', token)
+    running, live_complete = fetch_action_runs(base, 'in_progress', token)
+    pending_by_id = {}
+    pending_complete = True
+    for state in ('queued', 'waiting', 'requested', 'pending'):
+        page, complete = fetch_action_runs(base, state, token)
+        pending_complete = pending_complete and complete
+        for run in page:
+            pending_by_id[run['id']] = run
     results = {'repository': repo, 'branch': branch,
                'checked_at_utc': dt.datetime.now(dt.timezone.utc).isoformat(),
                'head_sha': recent[0]['sha'] if recent else None,
                'recent_commits': [
                    {'sha': r['sha'], 'subject': r['commit']['message'].splitlines()[0]}
-                   for r in recent], 'live_runs': [], 'queued_runs': []}
-    for source, key in ((running, 'live_runs'), (pending, 'queued_runs')):
-        relevant = [r for r in source.get('workflow_runs', [])
-                    if r.get('head_branch') == branch or
-                    (r.get('head_branch') or '').startswith('lab/ts-')]
+                   for r in recent], 'live_runs': [], 'queued_runs': [],
+               'live_inventory_complete': live_complete,
+               'queue_inventory_complete': pending_complete,
+               'active_statuses_checked': ['in_progress','queued','waiting','requested','pending']}
+    for source, key in ((running, 'live_runs'), (list(pending_by_id.values()), 'queued_runs')):
+        relevant = [r for r in source if is_research_branch(r.get('head_branch'), branch)]
         results[key] = [
             {'id': r['id'], 'name': r['name'], 'branch': r['head_branch'],
              'status': r['status'], 'url': r['html_url']}
-            for r in relevant[:limit]]
+            for r in relevant]
     for folder, key in (('claims', 'claim_files'), ('handoffs', 'handoff_files')):
         url = base + '/contents/.github/ts-lab/' + folder + '?ref=' + escaped_branch
         try:
@@ -197,6 +226,8 @@ def main(argv=None):
     print('Repo:', data['repository'], '/', data['branch'])
     print('HEAD:', data['head_sha'], '\nUTC:', data['checked_at_utc'])
     print('Recent commits:')
+    print('CI inventory complete:', data.get('live_inventory_complete'),
+          data.get('queue_inventory_complete'))
     for c in data['recent_commits'][:5]:
         print(' ', c['sha'][:10], c['subject'])
     for key in ('live_runs', 'queued_runs'):
