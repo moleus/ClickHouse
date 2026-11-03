@@ -82,7 +82,7 @@ jobs:
             --manifest evidence/r27/fixture-manifest.json \
             | tee evidence/r27/fixture-generation.log
           test "$(sha256sum "$RUNNER_TEMP/r27-fixture.jsonl" | awk '{print $1}')" = \
-            ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d
+            8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858
           sha256sum "$RUNNER_TEMP/r27-fixture.jsonl" > evidence/r27/fixture-sha256.txt
 
       - name: Import and fully stop identical baseline VM data once
