@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "question_id": "R06",
+  "primary_claim_id": "R06-native-order-aware-plan-cost-v1",
+  "owner": "chatgpt-e03-order-aware-20261103",
+  "scope": "E03 source-level/native TimeSeries selector planning audit; offline explainable plan cost and memory-bound feasibility for ordered-merge vs hash/projection and TimeRanges selection. Does not own R05 candidate-ID/mark pruning, R07 metadata layout, or E06 oracle. No C++ build or CI until separately preregistered.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-03",
+  "reason": "No canonical R06 root in the inspected shared-branch claims directory; E03 requires order-aware CBO with explicit memory and correctness gates."
+}
