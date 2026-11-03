@@ -73,3 +73,16 @@ Pinned [fromSelector.cpp](https://github.com/moleus/ClickHouse/blob/52529f0c7115
 Pinned [TimeSeriesSink.cpp](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/TimeSeries/TimeSeriesSink.cpp) lines324–395 sorts input samples and removes same-timestamp duplicates, choosing the **maximum finite value** (NaN loses to any finite). The shared [timeSeries duplicate merge rule](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/AggregateFunctions/TimeSeries/timeseriesMaxValueForDuplicateTimestamp.h) is associative and commutative. Duplicate semantics depend on the real stored bucket aggregate state, not on the JSONL input point count. An appropriate source-pinned small native semantic falsifier is [r07_stale_duplicate_semantic_oracle.py](r07_stale_duplicate_semantic_oracle.py) and its path-scoped [CI](../../workflows/ts-lab-r07-stale-duplicate-semantics-20261103.yml).
 
 **Next decision gate:** do not port the raw SQL route to C++ until it filters stale markers, preserves correct per-series/per-timestamp arbitration, and passes multiple evaluation-step grid, NaN and concurrency tests. Even after semantic fixes, benchmark the extra per-point bit check and possible TimeRanges skipping against native under fixed O1 and subsequently production-like O2/jemalloc, not just this favorable high-churn fixture. R02/R18 and the long jemalloc build retain their owners.
+
+## Stale-NaN source semantics falsifier: stock native reproduction PASS
+
+[CI #41635230738](https://github.com/moleus/ClickHouse/actions/runs/41635230738) **SUCCESS**, [permanent evidence](../evidence/R07-stale-duplicate-native-counterexample-41635230738.json), raw ZIP independently SHA256-verified \`d283ff9bf03e4ac0226195dc8ed9a666399e044db70e1ec3fda156f60a189ec8\`. Tiny stock O1 TimeSeries v11 inserted two gauge series with real values, exact stale-NaN payload \`0x7ff0000000000002\`, and same-timestamp duplicates.
+
+| Source sample scenario | Stored physical SAMPLES | Native \`avg_over_time[1h]\` | Unmodified SQL \`avg\` | Corrected SQL \`avgIf(NOT exact stale bits)\` |
+|---|---|---:|---|---:|
+| stage=stale, 5 at t1, stale marker at t2 | 2 points, 1 exact stale marker | **5.0** | **NaN (wrong)** | **5.0** |
+| stage=duplicate, 1 and7 at t1, 3 at t2 | 2 points after keeping max7 at t1 | **5.0** | 5.0 | 5.0 |
+
+**Important distinction:** this is an **expected negative correctness test that passed**, not a performance regression. The original \`r07_r01_multisample_native_tags_abba.py\` handles ONLY finite gauges with no stale marker. It is **not fully equivalent** to native PromQL if this special bit payload is present. Fixing the SQL candidate requires a predicate \`reinterpretAsUInt64(tupleElement(point,2)) != 0x7ff0000000000002\` before averaging; do **not** filter every NaN because native range selectors deliberately preserve ordinary NaN. This exact predicate is source-verified in pinned \`fromSelector.cpp\`; the duplicate priority is source-verified in \`TimeSeriesSink.cpp\`. Repeat native equality and A/B/B/A with the corrected filter before any C++ patch.
+
+The counterexample proves that correctness gates remain essential even after two favorable matched throughput-less 2.49m-source benchmarks. No operational behavior, native query planner or production source changed.
