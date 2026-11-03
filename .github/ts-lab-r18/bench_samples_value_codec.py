@@ -145,9 +145,11 @@ def audit(name,manifest):
         "SELECT count() AS bucket_rows,sum(length(samples)) AS sample_points "
         "FROM "+inner(name,"samples")
     )[0]
-    if (int(checks["bucket_rows"])!=manifest["series"]*3
+    expected_buckets=int(manifest.get("bucket_rows_by_step",{}).get(
+        "3600",manifest["series"]*3))
+    if (int(checks["bucket_rows"])!=expected_buckets
         or int(checks["sample_points"])!=manifest["samples"]
-        or int(p["samples"]["parts"]["rows"])!=manifest["series"]*3
+        or int(p["samples"]["parts"]["rows"])!=expected_buckets
         or int(p["tags"]["parts"]["rows"])!=manifest["series"]):
         raise AssertionError((name,"Incomplete point/bucket count",checks,p))
     digest=jsonrows(
