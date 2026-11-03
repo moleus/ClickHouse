@@ -133,8 +133,8 @@ def generate(path, manifest_path, days, slots):
         "samples": sum(expected_samples.values()),
         "fixture_bytes": out.stat().st_size,
         "sha256": sums.hexdigest(),
-        "first_label": first_label,
-        "last_label": last_label,
+        "first_label": list(first_label) if first_label else None,
+        "last_label": list(last_label) if last_label else None,
     }
     manifest_file.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     return manifest
