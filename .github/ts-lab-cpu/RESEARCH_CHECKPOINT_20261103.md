@@ -186,3 +186,22 @@ with A/A drift, whole negligible. Thread budget should not be promoted as
 a generic tuning change. Fresh project8 max_threads1 [#41609140400](https://github.com/moleus/ClickHouse/actions/runs/41609140400)
 remains a separate capacity experiment.
 
+## 2026-11-03: project8 max_threads1 still OOM, fresh process A/B/B/A invalid
+
+[CI #41609140400](https://github.com/moleus/ClickHouse/actions/runs/41609140400),
+[complete evidence](NATIVE_FRESH8_THREAD1_CAPACITY_20261103.md).
+Same O1 binary, SHA-verified 1.33m fixture, project14d native PromQL,
+fresh ClickHouse process LC/RAW/RAW/LC per phase, server max4.47GiB.
+Reduced per-query `max_threads` **2→1**, fixed 8 concurrent clients.
+- LC A0: all 2 warmups +8 measured bursts PASS, p50 5102.359ms,
+  CPU/request2361.657ms, observed RSS peak4.01GiB.
+- RAW B1: 8 bursts then OOM; RAW B2: 1 burst then OOM;
+  LC A3: 3 bursts then OOM.
+- Three phase failures with Code241 near4.47GiB cap. Overall CI FAILURE;
+  full LC/RAW A/B/B/A at 8 clients is **invalid**.
+- Evidence shows small thread budget can prolong survival under this
+  particular glibc lab allocator, but **cannot guarantee capacity**.
+  First and last LC fresh-process phases disagree, so do not credit
+  a schema with greater memory safety. Existing source-pinned jemalloc
+  build must be separately verified and run before production judgment.
+
