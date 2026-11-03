@@ -626,3 +626,37 @@ First [R18 #41630357537](https://github.com/moleus/ClickHouse/actions/runs/41630
 was an invalid pre-ingest benchmark gate (backtick/Delta(8) DDL formatting);
 correction confirmed in successful rerun, retained as [M42](METHODOLOGY_AND_FAILURES.md).
 One representative CPU trace per variant is diagnostic, not causal proof.
+
+## 2026-11-03: R18 value-distribution holdout reverses the value-codec storage winner
+
+[Two independent full native ABBA holdout CI jobs #41631747983](https://github.com/moleus/ClickHouse/actions/runs/41631747983),
+[SHA-verified immutable result](evidence/R18-value-pattern-holdout-41631747983.json),
+[heldout data and caveats](../ts-lab-r18/HELDOUT_VALUE_DISTRIBUTIONS_20261103.md).
+R18 primary root remains owned by the existing agent; no duplicate root.
+Same O1 ClickHouse binary and **same 400-node 3d metric names, tags,
+timestamps, 28,896 series, 2,488,320 points, 86,688 SAMPLES rows and
+340 marks**; only finite Float64 value distribution changes. Actual
+`samples.value` ALP+ZSTD3 versus ZSTD1 verified, exact complete native
+PromQL labels/times/float values, four selectors and A/B/B/A per
+fixture, all eight comparisons PASS.
+
+| Value distribution | ALP+ZSTD3 compressed SAMPLES | ZSTD1 compressed SAMPLES | ZSTD1 change |
+|---|---:|---:|---:|
+| Original repetitive [#41630585794](https://github.com/moleus/ClickHouse/actions/runs/41630585794) | 5,303,391 B | 3,414,486 B | **−35.6%** |
+| Smooth deterministic | 4,718,192 B | 3,937,064 B | −16.6% |
+| High-entropy Float64 | **19,686,139 B** | 20,216,284 B | **+2.7%** |
+
+**Codecs have different storage winners for different value entropy.**
+In high-entropy namespace query, ZSTD1 CPU **107.805→99.317ms (−7.9%)**
+even as it occupies more bytes, CPU baseline drift1.60%; the original
+repetitive namespace showed the **opposite sign**, CPU+10.0% on ZSTD1
+with drift0.80%. Both jobs have exact same-native output parity.
+Different heldout jobs are isolated runners (AMD EPYC 7763), and the
+original fixture was run on EPYC 9V45: **never compare absolute CPU
+across runs**. Within-run A/B/B/A only.
+
+Scientific decision remains **ACCEPT_NEXT_GATE_ONLY, NO GLOBAL CODEC
+PROMOTION**. First [R18 #41630357537](https://github.com/moleus/ClickHouse/actions/runs/41630357537)
+was invalid DDL formatting guard, corrected and recorded as M42;
+no C++ build, master, old-branch or production changes.
+
