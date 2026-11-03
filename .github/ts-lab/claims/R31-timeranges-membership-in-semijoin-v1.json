@@ -1,0 +1,21 @@
+{
+  "id": "R31-timeranges-membership-in-semijoin-v1",
+  "question": "Can native TimeSeries ID membership use an exact right-side IN-set/semi-filter with lower CPU and bounded RSS than BOTH ALL and ANY JOIN, across duplicate density and label/time selectors?",
+  "owner": "chatgpt-r31-native-metadata-in-semijoin-20261104",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Generated native TAGS ALL LEFT TimeRanges membership SQL in unchanged pinned O1 join-override ClickHouse; secondary R30 ANY as comparison.",
+  "candidate": "Rewrite only internal diagnostic generated SQL from LEFT JOIN right rows + matched flag to correlated ID IN (identical right SELECT id); retain original unmatched ID-range OR expression. No production source mutation.",
+  "fixture": "Reuse deterministic repeated stable-ID plus before/after-window control, at k=1 and k=16; exact SHA and physical parts logged by isolated CI.",
+  "single_variable": "At each frozen physical table compare ALL vs ANY vs explicit IN-set semantic filter on the same TAGS/TimeRanges data, same query columns/settings, run A/B/C/C/B/A.",
+  "math_bound": "When all right matching rows expose matched=1, existence of a right row is equivalent to id IN (rightSELECT id) for each TAGS ID, and the metric-range exclusion fallback is identical. IN materializes a set of up to #unique matching right IDs, but its implementation and memory are not bounded by EXPLAIN estimates. Do not assume improved RSS.",
+  "falsifier": "Any missing/mismatched IDs, (id,samples) or side-effect tag grouping; unsupported IN syntax/typing; worse CPU/memory at both density levels; over-limit RSS/OOM; unbounded planner cost or alias capture.",
+  "test_matrix": "Exact rewrite source parser unit tests; one isolated 4096 ID fixture at k=1 and k=16 with disjoint before/after-window cohorts; stage/project/whole selectors, explicit ID-sets and SAMPLES array parity, plans, ALL/ANY/IN mirrored phases for project, QueryFinish CPU/wall/tracker and actual physical counts; later full patched C++ native PromQL oracle, 1/4/8 clients, 14d if positive.",
+  "runner_budget": "One isolated Ubuntu Actions no-build job using existing SHA-verified O1 binary, 2 tables, bounded series and max_memory_usage<=2GiB; do not interrupt E01 R29 compilation.",
+  "planned_workflow": ".github/workflows/ts-lab-r31-membership-in-20261104.yml (single path-filtered push/manual job; no schedule)",
+  "dependencies": [
+    "R30 frozen repeated-ID proof",
+    "R06 generated SQL capture",
+    "E06/R08 oracle"
+  ]
+}
