@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "session_id": "r14-step-grid-exact-avg-20261103-06",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "d95eb81bf58d10c4b2162cad4caeb85e60520a2d",
+  "last_verified_utc": "2026-11-03T10:54:39.469Z",
+  "question_id": "R14",
+  "summary": "Reserved R14 exact persistent step-grid AVG sufficient-statistics hypothesis. Source confirms ClickHouse already uses avgForEach GROUP BY, so do not duplicate within-query native aggregation. Mathematical oracle and CI 9/9 tests PASS; no measured native speedup.",
+  "completed": [
+    "Create-only canonical root and claim; R14 exact algebra and source caveats note.",
+    "Python oracle supports static instant/avg_over_time, finite values, stage/job/branch literal filters, source revision and exact grid gate; nine named tests pass on local Python and CI 41622064271 (job logs checked).",
+    "Source-pinned applyOneArgumentAggregationOperator.cpp already maps avg to avgForEach(values) with GROUP BY; fromSelector.cpp uses last_over_time stale marker handling.",
+    "Illustrative 95k series/day, 38 stages, 10 jobs, 14d: branch=All subgroup state upper count 5320 vs1330000 raw series, 250x fewer logical values; Amdahl with f=0.9 yields only ~9.65x optimistic wall ceiling, NOT measured."
+  ],
+  "negative_results": [
+    "Snapshot freshness unresolved; R11 demonstrated stale optional generic cache after INSERT. No trusted source-revision mechanism implemented.",
+    "Byte-for-byte IEEE float exactness not assured due associativity; ordinary NaN/histogram/regex/offset/unknown labels must fallback.",
+    "Nested avg_over_time first computes per-series average; flattening all raw samples changes semantics when counts differ.",
+    "First hand-written test expected 4.0 for compile but oracle correctly computed 17/3; fixed expected value after initial test failure.",
+    "No source-pinned native query sample or measured group NDV: 250x ratio is conditional, not a measured performance claim."
+  ],
+  "active_run_ids": [
+    41607779848
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "no binary used, pure oracle",
+  "fixture_sha256": "synthetic Python source, no external fixture",
+  "relevant_paths": [
+    ".github/ts-lab/claims/roots/R14.json",
+    ".github/ts-lab/claims/R14-exact-step-grid-avg-rollup-v1.json",
+    ".github/ts-lab/experiments/R14_EXACT_STEP_GRID_ROLLUP_FEASIBILITY_20261103.md",
+    ".github/ts-lab/experiments/r14_rollup_oracle.py",
+    ".github/ts-lab/experiments/test_r14_rollup_oracle.py",
+    ".github/workflows/ts-lab-r14-rollup-math-20261103.yml"
+  ],
+  "blocked_by": [
+    "Actual production-like exact Grafana PromQL AST and per-evaluation group cardinalities not yet verified.",
+    "Immutable snapshot or trusted input revision gate not yet engineered; no native ABBA or real write cost data."
+  ],
+  "next_action": {
+    "question_id": "R14",
+    "step": "On source-frozen synthetic panel query, extract actual PromQL AST and lookback/grid, count active series N and retained-label groups G, reject if N/G is small; if promising implement immutable revisioned rollup proof of native output parity before performance runs.",
+    "stop_condition": "Unsupported query mode, dynamic regex/labels/time grid, untrusted source revision, stale values or native numeric parity failure -> fallback/record negative; do not launch C++ build."
+  }
+}
