@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "question_id": "R19-expired-samples-retained-tags-timeranges-v1",
+  "decision": "INFRA_FAIL",
+  "ci_status": "failure",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "method": "The script expects a localhost native ClickHouse server on port 18191, but the first workflow reused a self-booting R02 runner template without the server start step. It did not execute an INSERT or any native PromQL performance query.",
+  "failure": {
+    "error": "<urlopen error [Errno 111] Connection refused>",
+    "stage": "First SQL CREATE TABLE before fixture ingest",
+    "run_id": 41635086542,
+    "job_id": 125914139864,
+    "artifact_id": 13230391193,
+    "artifact_digest": "edb009a10ff0425d3cc86151db35de8ce710d0594c41c8849f1b3ba23ca44687"
+  },
+  "fix": {
+    "commit": "8423f6da28eaa0309c3d2c38db53eee98eef45e6",
+    "followup_run_id": 41635340660,
+    "description": "Explicitly launch pinned stock O1 with bounded localhost config, QueryFinish and part_log, and wait for /ping before running R19."
+  },
+  "limitations": [
+    "No source correctness/retention conclusion from failed CI. Repo-source hypothesis is independent of this environment failure.",
+    "Do not call connection refusal a ClickHouse engine issue."
+  ],
+  "next_action": "Use only the fixed follow-up CI 41635340660 to measure retention and queries; preserve first failure as negative methodological evidence."
+}
