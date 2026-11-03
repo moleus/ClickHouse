@@ -89,7 +89,7 @@ jobs:
           d=json.load(open('evidence/r19ttl/report.json'))
           assert d['passed'] and not d['errors'],d.get('errors')
           assert d['ttl_days']==30
-          assert sorted(d['checkpoints'])==['post_ingest','post_late','post_resume','post_ttl']
+          assert sorted(d['checkpoints'])==['post_ingest','post_late','post_resume','post_ttl','ttl_zero_row_parts']
           assert d['checkpoints']['post_ttl']['samples_rows']==16
           assert d['checkpoints']['post_late']['samples_rows']==16
           assert d['checkpoints']['post_resume']['samples_rows']==17
