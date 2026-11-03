@@ -251,3 +251,56 @@ drift below25%, no OOM.
   was still in progress at this checkpoint. No cancellation, duplicate compile
   or master/production write.
 
+## 2026-11-03: R17/R18 output formatter falsified, value-codec storage CPU crossover
+
+- [R17 native JSON versus FORMAT Null #41628966700](https://github.com/moleus/ClickHouse/actions/runs/41628966700)
+  **416 queries** PASS with full nonempty JSON native PromQL parity,
+  zero-byte Null output, identical read_rows/SelectedMarks and exact
+  unchanged RAW UUID inner parts. Namespace CPU JSON94.337ms→Null93.260ms
+  (only1.1% cost on191 JSON output bytes); burst15 CPU67.899→68.010ms
+  (no benefit). Broad node FORMAT Null **slowed** CPU411.338→440.113ms
+  despite same rows/marks; output sink affects pipeline scheduling and
+  **is not a pure serializer cost measurement**. CPU trace on one
+  representative namespace query read_decode45/90 samples; burst15
+  read_decode29/60; broad node grid128/413 and expression121/413.
+  Do not make strong call-path or mutex claims from one query.
+  [Immutable evidence](../ts-lab/evidence/R17-output-format-cpu-41628966700.json),
+  [source/cost report](../ts-lab-r17/NATIVE_OUTPUT_CPU_ATTRIBUTION_20261103.md).
+  R03 VM vs CH comparison is additionally confounded by optimized VM vs O1
+  ClickHouse; JSON is not the dominant CPU explanation for tiny output.
+
+- [R18 three-codec full native #41630585794](https://github.com/moleus/ClickHouse/actions/runs/41630585794)
+  PASS, eight ALP/ZSTD1/LZ4 A/B/B/A cases on same 400-node/3d SHA-verified
+  fixture and stock O1 executable. Same RAW UUID, 3600s, 28,896 IDs,
+  2,488,320 sample values, one active part/layer, same native results.
+  Compressed SAMPLES ALP+ZSTD3=5,303,391B; ZSTD1=3,414,486B (−35.6%),
+  LZ4=3,773,263B (−28.9%). But `pod_namespace` CPU
+  ALP36.886→ZSTD1 40.558ms **+10.0%** with0.80% A/A CPU drift.
+  Broad node CPU115.136→108.109ms (−6.1%, drift3.85%);
+  other small effects inconclusive. One unpaired ingest/merge per codec
+  has no steady-state write CPU validity. Original [R18 first #41630357537](https://github.com/moleus/ClickHouse/actions/runs/41630357537)
+  was invalid string DDL check on quoted `samples.value` and `Delta(8)`,
+  fixed and preserved in failure M42.
+  [Evidence](../ts-lab/evidence/R18-samples-value-codec-41630585794.json).
+
+- [R18 held-out smooth and entropy #41631747983](https://github.com/moleus/ClickHouse/actions/runs/41631747983)
+  **both jobs PASS**, same source/binary/IDs/time labels with only Float64
+  sample values changed, exact native results and complete ABBA. Compressed
+  SAMPLES smooth ALP4,718,192B vs ZSTD1 3,937,064B (ZSTD1 −16.6%);
+  entropy ALP**19,686,139B** vs ZSTD1 20,216,284B (**ALP −2.6%**).
+  Thus the sign of codec storage advantage flips with value entropy.
+  Entropy `pod_namespace` CPU ALP107.805→ZSTD1 99.317ms (−7.9%),
+  A/A CPU drift1.60%, opposite to original repetitive gauge.
+  [Immutable 2-job evidence](../ts-lab/evidence/R18-value-pattern-holdout-41631747983.json),
+  [held-out report](../ts-lab-r18/HELDOUT_VALUE_DISTRIBUTIONS_20261103.md).
+  R18/heldout runners are different AMD models than R17: **do not compare
+  absolute CPU/wall across CI runners**. No global codec recommendation.
+
+**Decisions:** R17 output formatter as primary cause **REJECT**.
+R18 value codec **ACCEPT_NEXT_GATE_ONLY**; need real-like Float64 entropy,
+late/counter/NaN values and paired natural merges/concurrent read on a
+production-allocator/optimized binary. Original O1 jemalloc build
+[#41607779848](https://github.com/moleus/ClickHouse/actions/runs/41607779848)
+still *Compile one executable* at this checkpoint; do not cancel or
+start another full compilation. No master/production or old branches changed.
+
