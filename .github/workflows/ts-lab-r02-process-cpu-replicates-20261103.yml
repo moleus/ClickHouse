@@ -1,0 +1,97 @@
+name: R02 replicate 96-batch LC vs RAW process CPU ABBA on 2 independent runners
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r02-process-cpu-replicates-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ts-lab-r02-process-cpu-replicates-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  r02:
+    name: replicate-${{ matrix.replicate }}
+    strategy:
+      fail-fast: false
+      matrix:
+        replicate: [one, two]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      BINARY_SHA256: f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Source and preflight
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r02long
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          python3 -m py_compile .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py
+          python3 .github/ts-lab/experiments/r02_process_cpu_abba.py --help > evidence/r02long/help.txt
+          git rev-parse HEAD > evidence/r02long/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r02_process_cpu_abba.py > evidence/r02long/script-sha256.txt
+      - name: Reuse pinned SHA verified O1 binary (no recompilation)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r02long-art" "$RUNNER_TEMP/r02long-bin"
+          gh run download 41596421285 -R "$REPO" \
+            --pattern 'tslab-stock-clickhouse-o1-binary-*' \
+            -D "$RUNNER_TEMP/r02long-art"
+          archive="$(find "$RUNNER_TEMP/r02long-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r02long/archive-verify.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r02long-bin"
+          (cd "$RUNNER_TEMP/r02long-bin" && sha256sum -c SHA256SUMS) | tee evidence/r02long/binary-verify.txt
+          test "$(sha256sum "$RUNNER_TEMP/r02long-bin/clickhouse" | cut -d' ' -f1)" = "$BINARY_SHA256"
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r02long-bin/BUILD_INFO.txt"
+          grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/r02long-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/r02long-bin/BUILD_INFO.txt" evidence/r02long/build-info.txt
+          chmod +x "$RUNNER_TEMP/r02long-bin/clickhouse"
+          "$RUNNER_TEMP/r02long-bin/clickhouse" --version | tee evidence/r02long/version.txt
+      - name: Repeated fresh-server A B B A with watchdog and worker process CPU
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r02_process_cpu_abba.py \
+            --binary "$RUNNER_TEMP/r02long-bin/clickhouse" \
+            --outdir evidence/r02long --port 18191 --batches 96 | tee evidence/r02long/console.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/r02long/report.json'))
+          assert d['passed'] and not d['errors'],d['errors']
+          assert len(d['phases'])==4 and len(d['input_sha256'])==96
+          assert d['physical_points_per_phase']==384000
+          assert d['comparison']['valid'] and d['comparison']['decision'] in ('NO_EFFECT','INCONCLUSIVE_REPLICATION_NEEDED')
+          for phase,mode in (('A0','lc'),('B1','raw'),('B2','raw'),('A3','lc')):
+              result=d['phases'][phase]
+              assert result['mode']==mode and result['passed']
+              assert len(result['inserts'])==96 and len(result['merges'])==3
+              assert result['physical_after_merges']['physical_sample_points']==384000
+              assert all(result['physical_after_merges'][k]['parts']==1 for k in ('tags','samples','timeranges'))
+              assert len(result['insert_query_log'])==96 and result['part_log']['available']
+          print('R02_PROCESS_CPU_FINAL',json.dumps({'passed':True,
+            'decision':d['comparison']['decision'],'ratios':d['comparison']['ratios'],
+            'fixture':d['combined_fixture_sha256']}))
+          PY
+      - name: Preserve raw correct and failed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r02-process-cpu-replicate-${{ github.run_id }}-${{ matrix.replicate }}
+          path: |
+            evidence/r02long/*.txt
+            evidence/r02long/*.log
+            evidence/r02long/*.json
+            evidence/r02long/phase-*/report.json
+            evidence/r02long/phase-*/config.xml
+            evidence/r02long/phase-*/server.log
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
