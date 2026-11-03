@@ -14,6 +14,8 @@ EXPECTED={
  'default':{},
  'trim':{'MALLOC_TRIM_THRESHOLD_':'131072'},
  'arena2':{'MALLOC_ARENA_MAX':'2'},
+ 'arena4':{'MALLOC_ARENA_MAX':'4'},
+ 'arena8':{'MALLOC_ARENA_MAX':'8'},
  'trim_arena2':{'MALLOC_TRIM_THRESHOLD_':'131072','MALLOC_ARENA_MAX':'2'}
 }
 def process():
