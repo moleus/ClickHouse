@@ -1,0 +1,1202 @@
+{
+  "schema": 1,
+  "type": "TimeSeries synthetic physical layout research",
+  "run_urls": {
+    "sparse": "https://github.com/moleus/ClickHouse/actions/runs/41505253205",
+    "dense": "https://github.com/moleus/ClickHouse/actions/runs/41504786378",
+    "mark_model": "https://github.com/moleus/ClickHouse/actions/runs/41503557195",
+    "public_corpus": "https://github.com/moleus/ClickHouse/actions/runs/41502908657"
+  },
+  "sparse_id_formats": {
+    "stage": {
+      "0": {
+        "variant": "stage",
+        "fastpath": 0,
+        "passed": true,
+        "imported_rows": 1330000,
+        "binary_sha256": "908e215164bb87c8633c7b3bdd418eefdcb746e9172e971fdbb5f61740b241ad",
+        "issues": [],
+        "comparisons": {
+          "stage": {
+            "speedup": 2.577,
+            "baseline_ms": 454.351,
+            "candidate_ms": 176.306,
+            "drift_fraction": 0.0012,
+            "correctness_pass": true
+          },
+          "project": {
+            "speedup": 1.2039,
+            "baseline_ms": 702.04,
+            "candidate_ms": 583.134,
+            "drift_fraction": 0.0005,
+            "correctness_pass": true
+          },
+          "project_stage": {
+            "speedup": 3.3141,
+            "baseline_ms": 332.925,
+            "candidate_ms": 100.458,
+            "drift_fraction": 0.0683,
+            "correctness_pass": true
+          },
+          "regex": {
+            "speedup": 0.9819,
+            "baseline_ms": 804.278,
+            "candidate_ms": 819.101,
+            "drift_fraction": 0.0017,
+            "correctness_pass": true
+          }
+        },
+        "physical_mark_counts": {
+          "churn_ts": {
+            "stage": {
+              "matching_samples": 35000,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5191,
+                  "total": 5196
+                }
+              ]
+            },
+            "project": {
+              "matching_samples": 166250,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            },
+            "project_stage": {
+              "matching_samples": 8750,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 4243,
+                  "total": 5196
+                }
+              ]
+            },
+            "regex": {
+              "matching_samples": 190008,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            }
+          },
+          "churn_stage": {
+            "stage": {
+              "matching_samples": 35000,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 137,
+                  "total": 5196
+                }
+              ]
+            },
+            "project": {
+              "matching_samples": 166250,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 2608,
+                  "total": 5196
+                }
+              ]
+            },
+            "project_stage": {
+              "matching_samples": 8750,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 137,
+                  "total": 5196
+                }
+              ]
+            },
+            "regex": {
+              "matching_samples": 190008,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            }
+          }
+        }
+      },
+      "1": {
+        "variant": "stage",
+        "fastpath": 1,
+        "passed": true,
+        "imported_rows": 1330000,
+        "binary_sha256": "908e215164bb87c8633c7b3bdd418eefdcb746e9172e971fdbb5f61740b241ad",
+        "issues": [],
+        "comparisons": {
+          "stage": {
+            "speedup": 2.9393,
+            "baseline_ms": 320.17,
+            "candidate_ms": 108.927,
+            "drift_fraction": 0.207,
+            "correctness_pass": true
+          },
+          "project": {
+            "speedup": 1.18,
+            "baseline_ms": 479.322,
+            "candidate_ms": 406.193,
+            "drift_fraction": 0.0309,
+            "correctness_pass": true
+          },
+          "project_stage": {
+            "speedup": 3.8981,
+            "baseline_ms": 295.192,
+            "candidate_ms": 75.728,
+            "drift_fraction": 0.1568,
+            "correctness_pass": true
+          },
+          "regex": {
+            "speedup": 0.9581,
+            "baseline_ms": 598.693,
+            "candidate_ms": 624.876,
+            "drift_fraction": 0.0333,
+            "correctness_pass": true
+          }
+        },
+        "physical_mark_counts": {
+          "churn_ts": {
+            "stage": {
+              "matching_samples": 35000,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5191,
+                  "total": 5196
+                }
+              ]
+            },
+            "project": {
+              "matching_samples": 166250,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            },
+            "project_stage": {
+              "matching_samples": 8750,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 4243,
+                  "total": 5196
+                }
+              ]
+            },
+            "regex": {
+              "matching_samples": 190008,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            }
+          },
+          "churn_stage": {
+            "stage": {
+              "matching_samples": 35000,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 137,
+                  "total": 5196
+                }
+              ]
+            },
+            "project": {
+              "matching_samples": 166250,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 2608,
+                  "total": 5196
+                }
+              ]
+            },
+            "project_stage": {
+              "matching_samples": 8750,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 137,
+                  "total": 5196
+                }
+              ]
+            },
+            "regex": {
+              "matching_samples": 190008,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "project": {
+      "0": {
+        "variant": "project",
+        "fastpath": 0,
+        "passed": true,
+        "imported_rows": 1330000,
+        "binary_sha256": "908e215164bb87c8633c7b3bdd418eefdcb746e9172e971fdbb5f61740b241ad",
+        "issues": [],
+        "comparisons": {
+          "stage": {
+            "speedup": 1.312,
+            "baseline_ms": 237.348,
+            "candidate_ms": 180.911,
+            "drift_fraction": 0.2222,
+            "correctness_pass": true
+          },
+          "project": {
+            "speedup": 1.3573,
+            "baseline_ms": 470.531,
+            "candidate_ms": 346.664,
+            "drift_fraction": 0.03,
+            "correctness_pass": true
+          },
+          "project_stage": {
+            "speedup": 2.5549,
+            "baseline_ms": 194.06,
+            "candidate_ms": 75.956,
+            "drift_fraction": 0.0194,
+            "correctness_pass": true
+          },
+          "regex": {
+            "speedup": 0.9905,
+            "baseline_ms": 536.699,
+            "candidate_ms": 541.851,
+            "drift_fraction": 0.0592,
+            "correctness_pass": true
+          }
+        },
+        "physical_mark_counts": {
+          "churn_ts": {
+            "stage": {
+              "matching_samples": 35000,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5191,
+                  "total": 5196
+                }
+              ]
+            },
+            "project": {
+              "matching_samples": 166250,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            },
+            "project_stage": {
+              "matching_samples": 8750,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 4243,
+                  "total": 5196
+                }
+              ]
+            },
+            "regex": {
+              "matching_samples": 190008,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            }
+          },
+          "churn_project": {
+            "stage": {
+              "matching_samples": 35000,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 2598,
+                  "total": 5196
+                }
+              ]
+            },
+            "project": {
+              "matching_samples": 166250,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 651,
+                  "total": 5196
+                }
+              ]
+            },
+            "project_stage": {
+              "matching_samples": 8750,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 650,
+                  "total": 5196
+                }
+              ]
+            },
+            "regex": {
+              "matching_samples": 190008,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            }
+          }
+        }
+      },
+      "1": {
+        "variant": "project",
+        "fastpath": 1,
+        "passed": true,
+        "imported_rows": 1330000,
+        "binary_sha256": "908e215164bb87c8633c7b3bdd418eefdcb746e9172e971fdbb5f61740b241ad",
+        "issues": [],
+        "comparisons": {
+          "stage": {
+            "speedup": 1.6092,
+            "baseline_ms": 410.13,
+            "candidate_ms": 254.859,
+            "drift_fraction": 0.0418,
+            "correctness_pass": true
+          },
+          "project": {
+            "speedup": 1.7665,
+            "baseline_ms": 630.71,
+            "candidate_ms": 357.036,
+            "drift_fraction": 0.0023,
+            "correctness_pass": true
+          },
+          "project_stage": {
+            "speedup": 2.6141,
+            "baseline_ms": 393.707,
+            "candidate_ms": 150.606,
+            "drift_fraction": 0.0824,
+            "correctness_pass": true
+          },
+          "regex": {
+            "speedup": 0.9853,
+            "baseline_ms": 751.502,
+            "candidate_ms": 762.728,
+            "drift_fraction": 0.0087,
+            "correctness_pass": true
+          }
+        },
+        "physical_mark_counts": {
+          "churn_ts": {
+            "stage": {
+              "matching_samples": 35000,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5191,
+                  "total": 5196
+                }
+              ]
+            },
+            "project": {
+              "matching_samples": 166250,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            },
+            "project_stage": {
+              "matching_samples": 8750,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 4243,
+                  "total": 5196
+                }
+              ]
+            },
+            "regex": {
+              "matching_samples": 190008,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            }
+          },
+          "churn_project": {
+            "stage": {
+              "matching_samples": 35000,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 2598,
+                  "total": 5196
+                }
+              ]
+            },
+            "project": {
+              "matching_samples": 166250,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 651,
+                  "total": 5196
+                }
+              ]
+            },
+            "project_stage": {
+              "matching_samples": 8750,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 650,
+                  "total": 5196
+                }
+              ]
+            },
+            "regex": {
+              "matching_samples": 190008,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "project_stage": {
+      "0": {
+        "variant": "project_stage",
+        "fastpath": 0,
+        "passed": true,
+        "imported_rows": 1330000,
+        "binary_sha256": "908e215164bb87c8633c7b3bdd418eefdcb746e9172e971fdbb5f61740b241ad",
+        "issues": [],
+        "comparisons": {
+          "stage": {
+            "speedup": 2.8363,
+            "baseline_ms": 416.123,
+            "candidate_ms": 146.715,
+            "drift_fraction": 0.2281,
+            "correctness_pass": true
+          },
+          "project": {
+            "speedup": 1.4873,
+            "baseline_ms": 698.545,
+            "candidate_ms": 469.669,
+            "drift_fraction": 0.0012,
+            "correctness_pass": true
+          },
+          "project_stage": {
+            "speedup": 2.9731,
+            "baseline_ms": 375.964,
+            "candidate_ms": 126.454,
+            "drift_fraction": 0.1221,
+            "correctness_pass": true
+          },
+          "regex": {
+            "speedup": 0.9696,
+            "baseline_ms": 824.781,
+            "candidate_ms": 850.63,
+            "drift_fraction": 0.012,
+            "correctness_pass": true
+          }
+        },
+        "physical_mark_counts": {
+          "churn_ts": {
+            "stage": {
+              "matching_samples": 35000,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5191,
+                  "total": 5196
+                }
+              ]
+            },
+            "project": {
+              "matching_samples": 166250,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            },
+            "project_stage": {
+              "matching_samples": 8750,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 4243,
+                  "total": 5196
+                }
+              ]
+            },
+            "regex": {
+              "matching_samples": 190008,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            }
+          },
+          "churn_project_stage": {
+            "stage": {
+              "matching_samples": 35000,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 140,
+                  "total": 5196
+                }
+              ]
+            },
+            "project": {
+              "matching_samples": 166250,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 651,
+                  "total": 5196
+                }
+              ]
+            },
+            "project_stage": {
+              "matching_samples": 8750,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 35,
+                  "total": 5196
+                }
+              ]
+            },
+            "regex": {
+              "matching_samples": 190008,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            }
+          }
+        }
+      },
+      "1": {
+        "variant": "project_stage",
+        "fastpath": 1,
+        "passed": true,
+        "imported_rows": 1330000,
+        "binary_sha256": "908e215164bb87c8633c7b3bdd418eefdcb746e9172e971fdbb5f61740b241ad",
+        "issues": [],
+        "comparisons": {
+          "stage": {
+            "speedup": 2.5301,
+            "baseline_ms": 224.424,
+            "candidate_ms": 88.703,
+            "drift_fraction": 0.2078,
+            "correctness_pass": true
+          },
+          "project": {
+            "speedup": 1.494,
+            "baseline_ms": 386.161,
+            "candidate_ms": 258.47,
+            "drift_fraction": 0.0526,
+            "correctness_pass": true
+          },
+          "project_stage": {
+            "speedup": 3.056,
+            "baseline_ms": 185.508,
+            "candidate_ms": 60.702,
+            "drift_fraction": 0.0338,
+            "correctness_pass": true
+          },
+          "regex": {
+            "speedup": 0.9071,
+            "baseline_ms": 432.855,
+            "candidate_ms": 477.167,
+            "drift_fraction": 0.0125,
+            "correctness_pass": true
+          }
+        },
+        "physical_mark_counts": {
+          "churn_ts": {
+            "stage": {
+              "matching_samples": 35000,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5191,
+                  "total": 5196
+                }
+              ]
+            },
+            "project": {
+              "matching_samples": 166250,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            },
+            "project_stage": {
+              "matching_samples": 8750,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 4243,
+                  "total": 5196
+                }
+              ]
+            },
+            "regex": {
+              "matching_samples": 190008,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            }
+          },
+          "churn_project_stage": {
+            "stage": {
+              "matching_samples": 35000,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 140,
+                  "total": 5196
+                }
+              ]
+            },
+            "project": {
+              "matching_samples": 166250,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 651,
+                  "total": 5196
+                }
+              ]
+            },
+            "project_stage": {
+              "matching_samples": 8750,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 35,
+                  "total": 5196
+                }
+              ]
+            },
+            "regex": {
+              "matching_samples": 190008,
+              "selected_marks": [
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                },
+                {
+                  "selected": 5196,
+                  "total": 5196
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "errors": [],
+  "all_six_passed": true,
+  "no_private_data": true,
+  "limitations": [
+    "Single-node synthetic data, not production query frequencies",
+    "No hardware PMU, no tenant ACL or distributed storage proof",
+    "Physically shorter SAMPLES read does not imply broad-query correctness",
+    "Sparse results only; prior broad ID queries OOM at 4.66GiB"
+  ],
+  "dense": {
+    "fixture_sha256": "83695082ec9713894ae3a75bec127065fed82f13673093ff8de4ac2b8d15c9ce",
+    "total_samples": 2400000,
+    "cases": {
+      "cluster": {
+        "speedup": 1.056,
+        "baseline_p50_ms": 49.037,
+        "candidate_p50_ms": 46.419,
+        "baseline_drift": 0.021,
+        "cpu_per_phase_ms": {}
+      },
+      "both": {
+        "speedup": 1.397,
+        "baseline_p50_ms": 29.919,
+        "candidate_p50_ms": 21.413,
+        "baseline_drift": 0.001,
+        "cpu_per_phase_ms": {}
+      },
+      "whole": {
+        "speedup": 0.931,
+        "baseline_p50_ms": 104.868,
+        "candidate_p50_ms": 112.638,
+        "baseline_drift": 0.013,
+        "cpu_per_phase_ms": {}
+      },
+      "namespace": {
+        "speedup": 1.259,
+        "baseline_p50_ms": 33.084,
+        "candidate_p50_ms": 26.284,
+        "baseline_drift": 0.006,
+        "cpu_per_phase_ms": {
+          "A3": 59.047
+        }
+      }
+    },
+    "querylog_coverage": {
+      "found": 29,
+      "expected": 144,
+      "fraction": 0.2014
+    },
+    "limitation": "240 samples/series inserted in one batch, NOT real every-15-second remote-write ingestion",
+    "errors": []
+  },
+  "mark_model": {
+    "granularity": 256,
+    "predicted_marks": {
+      "default": {
+        "whole": 5196,
+        "stage": 5195,
+        "project": 5196,
+        "project_stage": 4230,
+        "regex": 5196
+      },
+      "stage": {
+        "whole": 5196,
+        "stage": 137,
+        "project": 2611,
+        "project_stage": 137,
+        "regex": 5196
+      },
+      "project": {
+        "whole": 5196,
+        "stage": 2599,
+        "project": 650,
+        "project_stage": 650,
+        "regex": 5196
+      },
+      "project_stage": {
+        "whole": 5196,
+        "stage": 140,
+        "project": 650,
+        "project_stage": 35,
+        "regex": 5196
+      }
+    },
+    "surrogate_not_clickhouse": true
+  },
+  "public_dashboard_corpus": {
+    "repo": "dotdc/grafana-dashboards-kubernetes",
+    "commit": "ad7c41e8f967ba788c9f090de537519bd376fd4e",
+    "panel_definitions": 289,
+    "label_panels": {
+      "cluster": 287,
+      "namespace": 102,
+      "pod": 87,
+      "job": 55,
+      "instance": 54,
+      "image": 28,
+      "phase": 27,
+      "resource": 24,
+      "severity": 13,
+      "node": 10
+    },
+    "not_real_execution_counts": true
+  }
+}
