@@ -1,9 +1,10 @@
-name: R07 diagnostic full-ID day-cover SQL vs native TimeSeries exactness
+name: R07 same-runner full-ID day-cover SQL vs native PromQL ABBA
 on:
   push:
     branches: [lab/ts-cbo-adaptive-20261103]
     paths:
       - '.github/workflows/ts-lab-r07-native-cover-sql-20261103.yml'
+      - '.github/ts-lab/experiments/r07_native_cover_sql_smoke.py'
   workflow_dispatch:
 permissions:
   contents: read
