@@ -31,7 +31,12 @@ def encode_time(epoch):
     )
 
 
-def make_row(tier, slot, life, substream):
+def node_start_offset(slot):
+    """Synthetic deterministic unaligned node starts, 0..10799s per slot."""
+    return (slot * 317) % LIFE
+
+
+def make_row(tier, slot, life, substream, stagger=False):
     definition = TIERS[tier]
     node = f"node-{slot:04d}-life-{life:04d}"
     common = {
@@ -52,7 +57,7 @@ def make_row(tier, slot, life, substream):
         })
     else:
         common["job"] = "node-exporter"
-    epoch = BASE + life * LIFE
+    epoch = BASE + life * LIFE + (node_start_offset(slot) if stagger else 0)
     samples = []
     for i in range(definition["samples"]):
         sample_ts = epoch + (i + 1) * definition["step"] - 1
@@ -83,7 +88,7 @@ def expected_counts(days, slots):
     return series_by_tier, sample_by_tier
 
 
-def generate(path, manifest_path, days, slots):
+def generate(path, manifest_path, days, slots, stagger=False):
     if not (1 <= days <= 14 and 1 <= slots <= 4000):
         raise ValueError("days must be 1..14, slots must be 1..4000")
     out = pathlib.Path(path)
@@ -102,7 +107,7 @@ def generate(path, manifest_path, days, slots):
                 if slot % 100 == 0:
                     tiers.append(("burst15", 2))
                 for tier, substream in tiers:
-                    row = make_row(tier, slot, life, substream)
+                    row = make_row(tier, slot, life, substream, stagger=stagger)
                     if not row["samples"]:
                         raise AssertionError("Empty timeseries")
                     label = (row["metric_name"], row["tags"]["node"], row["tags"].get("pod"))
@@ -136,6 +141,28 @@ def generate(path, manifest_path, days, slots):
         "first_label": list(first_label) if first_label else None,
         "last_label": list(last_label) if last_label else None,
     }
+    if stagger:
+        # Same series/tags/count as aligned control; only timestamps move.
+        # A phase shift can place the last lifecycle's samples past the
+        # nominal query horizon. This is an ID/bucket alignment experiment,
+        # not a complete 400-active-node timeline/HPA simulator.
+        steps = (900, 3600, 10800)
+        bucket_rows = {str(b): 0 for b in steps}
+        for life in range(days * PER_DAY):
+            for slot in range(slots):
+                offset = node_start_offset(slot)
+                cadences = (60, 300, 300) + ((15,) if slot % 100 == 0 else ())
+                for cadence in cadences:
+                    first = BASE + life * LIFE + offset + cadence - 1
+                    last = BASE + life * LIFE + offset + LIFE - 1
+                    for b in steps:
+                        bucket_rows[str(b)] += last // b - first // b + 1
+        manifest["stagger_policy"] = "node start = (slot * 317) % 10800 seconds"
+        manifest["bucket_rows_by_step"] = bucket_rows
+        manifest["scope_note"] = (
+            "Fixed series count and sample count, timestamps shifted by slot. "
+            "First/last lifecycle need not fit nominal 3d horizon; not a 400-node active-capacity simulator."
+        )
     manifest_file.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     return manifest
 
@@ -146,8 +173,10 @@ def main():
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--days", type=int, default=3)
     parser.add_argument("--node-slots", type=int, default=400)
+    parser.add_argument("--stagger-node-starts", action="store_true")
     args = parser.parse_args()
-    result = generate(args.fixture, args.manifest, args.days, args.node_slots)
+    result = generate(args.fixture, args.manifest, args.days, args.node_slots,
+                      stagger=args.stagger_node_starts)
     print("R01_FIXTURE", json.dumps(result, separators=(",", ":"), sort_keys=True), flush=True)
 
 
