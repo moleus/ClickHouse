@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "id": "R33-grafana-real-query-fixture-contract-v1",
+  "owner": "chatgpt-r33-grafana-query-fixture-parity-20261104",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "key_gaps": [
+    "Old fixture 95k unique build labels/day despite 38 stage labels; actual expected 38 stage series per build for approx 2500 builds/day. Explicit model assumption until production Grafana panel and label census are attached.",
+    "stage=i%38 and branch=i%19 perfectly couple feature branch with stage; project=i%8 locks parity of stage and project, so half combinations are impossible.",
+    "Old 14d queries only stage/project single equals and 1d avg_over_time with forced UTC day step/end, lacking branch, jenkins_job, result, regex, time shift, actual Grafana query_range/query and label-lookup.",
+    "Large selector SQL uses count/uniq and two aggregate hash fingerprints plus only first 64 samples, not a full native PromQL oracle.",
+    "Fresh-process R30 ABBA failed with exit code236 but failed job did not include phase logs (fixed in follow-up; diagnostics pending)."
+  ],
+  "falsifier": "New fixture parity validation fails; ClickHouse HTTP Prometheus API incompatible with Grafana query_range/query/metadata; native SQL output mismatch; query cost and selected row count differ materially under realistic tags.",
+  "protocol": "Two uniquely hashed fixtures/metadata, query catalog with exact HTTP request bodies, multiple time alignments and variable regex/multi-select, full response-point oracle including tags and timestamps, paired same-binary O2 timings and query_log, no global planner promotion before resource safety.",
+  "source_authorities": [
+    "https://grafana.com/docs/grafana/latest/datasources/prometheus/query-editor/",
+    "https://grafana.com/docs/grafana/latest/datasources/prometheus/template-variables/",
+    "https://prometheus.io/docs/prometheus/latest/querying/api/",
+    "https://clickhouse.com/blog/introducing-promql"
+  ]
+}
