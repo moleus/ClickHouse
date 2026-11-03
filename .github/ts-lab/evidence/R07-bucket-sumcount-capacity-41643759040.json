@@ -1,0 +1,262 @@
+{
+  "schema_version": 1,
+  "question_id": "R07",
+  "state": "SUCCESS_PINNED_SYNTHETIC_1_4_8_CONCURRENT_NATIVE_VS_BUCKET_SQL_ABBA",
+  "run_id": 41643759040,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41643759040",
+  "workflow_commit": "d8f600a8261ce9e5b95c78e0c8c4dd4b0ee78d02",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "stock_o1_binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "artifact": {
+    "id": 13234196778,
+    "name": "tslab-r07-bucket-capacity-41643759040",
+    "digest": "sha256:33581b3e54217dcf4e394c257d55c73d71c07b60a1fc59252b39ce2272d88d9c",
+    "bytes": 54382,
+    "full_report": "r07-capacity/report.json (all 520 per-client replies, 120 wave spans, query logs, CPU, p95, RSS and source manifest)"
+  },
+  "fixture": {
+    "sha256": "ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a",
+    "series": 28896,
+    "samples": 2488320,
+    "sample_bucket_rows": 113760,
+    "sample_periods_seconds": [
+      15,
+      60,
+      300
+    ],
+    "node_slots": 400,
+    "days": 3,
+    "stable_id_type": "Tuple(UInt64,UUID)",
+    "original_TAGS_TimeRanges_SAMPLES_unchanged": true,
+    "no_extra_index": true,
+    "no_Cpp_build": true
+  },
+  "method": {
+    "selectors": [
+      "node_broad_3d",
+      "pod_broad_3d"
+    ],
+    "clients": [
+      1,
+      4,
+      8
+    ],
+    "order": [
+      "native",
+      "bucket",
+      "bucket",
+      "native"
+    ],
+    "waves_per_phase": 5,
+    "warmup_waves": 1,
+    "measured_waves": 4,
+    "total_client_queries": 520,
+    "measured_client_queries": 416,
+    "warmup_client_queries": 104,
+    "wave_count": 120,
+    "exact_parity_check": "Every client independently compared entire labels/timestamp/Float64 values to stock native PromQL oracle; 18 extra single-eval grid parity checks before stress",
+    "every_control_drift_under_25_percent": true,
+    "one_server_same_runner_source_sha_and_full_R01_fixture": true,
+    "query_cpu": "QueryFinish OSCPUVirtualTimeMicroseconds; per-query CPU not an exclusive processor profile",
+    "qps": "n / (latest client completion minus earliest start) per synchronized burst, median of 4 measured waves in each phase; NOT sustained throughput or maximum offered arrival rate",
+    "rss": "4Hz sampled whole-server process RSS; carries cache/allocator state across ABBA, not independent process-memory peak"
+  },
+  "results": {
+    "node_broad_3d": {
+      "1": {
+        "native_p50_ms": 143.3175,
+        "native_p95_ms": 146.457,
+        "native_query_cpu_ms": 317.37424999999996,
+        "native_read_rows": 67136,
+        "native_read_bytes": 34335928,
+        "native_selected_marks": 154,
+        "native_query_mem_peak_bytes": 78696332,
+        "native_wave_qps_median": 6.972925379660748,
+        "native_process_rss_observed_max": 693411840,
+        "bucket_p50_ms": 80.3395,
+        "bucket_p95_ms": 81.2935,
+        "bucket_query_cpu_ms": 80.51625,
+        "bucket_read_rows": 71008,
+        "bucket_read_bytes": 30211070,
+        "bucket_selected_marks": 154,
+        "bucket_query_mem_peak_bytes": 17224396,
+        "bucket_wave_qps_median": 12.43392956364187,
+        "bucket_process_rss_observed_max": 680312832,
+        "control_drift": {
+          "native": 0.0018071763741344536,
+          "bucket": 0.012808145432819426
+        },
+        "valid_controls": true,
+        "native_over_bucket_p50_ratio": 1.783898331455884,
+        "native_over_bucket_p95_ratio": 1.801583152404559,
+        "bucket_over_native_wave_qps_ratio": 1.783172612159348,
+        "simultaneous_clients": 1
+      },
+      "4": {
+        "native_p50_ms": 419.507,
+        "native_p95_ms": 460.424,
+        "native_query_cpu_ms": 373.24424999999997,
+        "native_read_rows": 67136,
+        "native_read_bytes": 34335928,
+        "native_selected_marks": 154,
+        "native_query_mem_peak_bytes": 83544065.5,
+        "native_wave_qps_median": 9.155795865104915,
+        "native_process_rss_observed_max": 1146202112,
+        "bucket_p50_ms": 117.8125,
+        "bucket_p95_ms": 130.456,
+        "bucket_query_cpu_ms": 112.05799999999999,
+        "bucket_read_rows": 71008,
+        "bucket_read_bytes": 30211070,
+        "bucket_selected_marks": 154,
+        "bucket_query_mem_peak_bytes": 19618804.5,
+        "bucket_wave_qps_median": 32.76653859137892,
+        "bucket_process_rss_observed_max": 1066743808,
+        "control_drift": {
+          "native": 0.12733518153451553,
+          "bucket": 0.0041676392572945475
+        },
+        "valid_controls": true,
+        "native_over_bucket_p50_ratio": 3.560802122015915,
+        "native_over_bucket_p95_ratio": 3.5293432268351017,
+        "bucket_over_native_wave_qps_ratio": 3.5787755727779595,
+        "simultaneous_clients": 4
+      },
+      "8": {
+        "native_p50_ms": 845.609,
+        "native_p95_ms": 964.6785,
+        "native_query_cpu_ms": 378.85375,
+        "native_read_rows": 67136,
+        "native_read_bytes": 34335928,
+        "native_selected_marks": 154,
+        "native_query_mem_peak_bytes": 82633349.5,
+        "native_wave_qps_median": 8.387150763278022,
+        "native_process_rss_observed_max": 1555619840,
+        "bucket_p50_ms": 273.40700000000004,
+        "bucket_p95_ms": 328.6245,
+        "bucket_query_cpu_ms": 115.65975,
+        "bucket_read_rows": 71008,
+        "bucket_read_bytes": 30211070,
+        "bucket_selected_marks": 154,
+        "bucket_query_mem_peak_bytes": 19285884,
+        "bucket_wave_qps_median": 26.16669988377671,
+        "bucket_process_rss_observed_max": 1492076544,
+        "control_drift": {
+          "native": 0.03863960766737343,
+          "bucket": 0.0956010636157815
+        },
+        "valid_controls": true,
+        "native_over_bucket_p50_ratio": 3.092857900492672,
+        "native_over_bucket_p95_ratio": 2.9355038957837896,
+        "bucket_over_native_wave_qps_ratio": 3.119855672363013,
+        "simultaneous_clients": 8
+      }
+    },
+    "pod_broad_3d": {
+      "1": {
+        "native_p50_ms": 135.7575,
+        "native_p95_ms": 139.13,
+        "native_query_cpu_ms": 211.93725,
+        "native_read_rows": 121056,
+        "native_read_bytes": 23228216,
+        "native_selected_marks": 302,
+        "native_query_mem_peak_bytes": 53906755,
+        "native_wave_qps_median": 7.362702489421586,
+        "native_process_rss_observed_max": 1607292928,
+        "bucket_p50_ms": 48.653999999999996,
+        "bucket_p95_ms": 53.308499999999995,
+        "bucket_query_cpu_ms": 47.84725,
+        "bucket_read_rows": 117184,
+        "bucket_read_bytes": 16626574,
+        "bucket_selected_marks": 302,
+        "bucket_query_mem_peak_bytes": 13075930,
+        "bucket_wave_qps_median": 20.541974591068318,
+        "bucket_process_rss_observed_max": 1607278592,
+        "control_drift": {
+          "native": 0.0014069204279690073,
+          "bucket": 0.052328688288732675
+        },
+        "valid_controls": true,
+        "native_over_bucket_p50_ratio": 2.79026390430386,
+        "native_over_bucket_p95_ratio": 2.609902735961432,
+        "bucket_over_native_wave_qps_ratio": 2.7900047055523625,
+        "simultaneous_clients": 1
+      },
+      "4": {
+        "native_p50_ms": 296.7515,
+        "native_p95_ms": 358.2455,
+        "native_query_cpu_ms": 253.3625,
+        "native_read_rows": 121056,
+        "native_read_bytes": 23228216,
+        "native_selected_marks": 302,
+        "native_query_mem_peak_bytes": 61924597,
+        "native_wave_qps_median": 12.437336471561126,
+        "native_process_rss_observed_max": 1607112704,
+        "bucket_p50_ms": 94.0945,
+        "bucket_p95_ms": 108.5555,
+        "bucket_query_cpu_ms": 69.657,
+        "bucket_read_rows": 117184,
+        "bucket_read_bytes": 16626574,
+        "bucket_selected_marks": 302,
+        "bucket_query_mem_peak_bytes": 13079767,
+        "bucket_wave_qps_median": 37.73159810916756,
+        "bucket_process_rss_observed_max": 1582366720,
+        "control_drift": {
+          "native": 0.15755606964076,
+          "bucket": 0.022838741903086802
+        },
+        "valid_controls": true,
+        "native_over_bucket_p50_ratio": 3.1537603154275757,
+        "native_over_bucket_p95_ratio": 3.300113766690771,
+        "bucket_over_native_wave_qps_ratio": 3.033736217995195,
+        "simultaneous_clients": 4
+      },
+      "8": {
+        "native_p50_ms": 549.934,
+        "native_p95_ms": 615.2215,
+        "native_query_cpu_ms": 263.47225000000003,
+        "native_read_rows": 121056,
+        "native_read_bytes": 23228216,
+        "native_selected_marks": 302,
+        "native_query_mem_peak_bytes": 58953070.5,
+        "native_wave_qps_median": 13.134855424959408,
+        "native_process_rss_observed_max": 1707991040,
+        "bucket_p50_ms": 135.61149999999998,
+        "bucket_p95_ms": 154.41500000000002,
+        "bucket_query_cpu_ms": 69.33850000000001,
+        "bucket_read_rows": 117184,
+        "bucket_read_bytes": 16626574,
+        "bucket_selected_marks": 302,
+        "bucket_query_mem_peak_bytes": 15182633,
+        "bucket_wave_qps_median": 52.173220129176954,
+        "bucket_process_rss_observed_max": 1674024960,
+        "control_drift": {
+          "native": 0.01422716180487105,
+          "bucket": 0.004992201988769335
+        },
+        "valid_controls": true,
+        "native_over_bucket_p50_ratio": 4.055216556118029,
+        "native_over_bucket_p95_ratio": 3.984208140400867,
+        "bucket_over_native_wave_qps_ratio": 3.972119862852483,
+        "simultaneous_clients": 8
+      }
+    }
+  },
+  "main_findings": [
+    "node3d n1 p50 native143.3175ms vs bucket80.3395ms=1.784x, median burst qps6.97 vs12.43=1.783x; query CPU317.37 vs80.52ms.",
+    "node3d n4 p50 native419.507 vs bucket117.8125ms=3.561x, burst qps9.156 vs32.767=3.579x; query CPU373.24 vs112.06ms.",
+    "node3d n8 p50 native845.609 vs bucket273.407ms=3.093x, p95 964.679 vs328.625ms=2.936x, burst qps8.387 vs26.167=3.120x; query CPU378.85 vs115.66ms.",
+    "pod3d n1 p50 native135.7575 vs bucket48.654ms=2.790x, burst qps7.363 vs20.542=2.790x; query CPU211.94 vs47.85ms.",
+    "pod3d n4 p50 native296.7515 vs bucket94.0945ms=3.154x, p95 native358.246 vs bucket108.556ms=3.300x, burst qps12.437 vs37.732=3.034x; CPU253.36 vs69.66ms.",
+    "pod3d n8 p50 native549.934 vs bucket135.6115ms=4.055x, p95 615.222 vs154.415ms=3.984x, median burst QPS13.135 vs52.173=3.972x; QueryFinish CPU263.47 vs69.34ms.",
+    "Both paths used same physical sample mark count for node3d 154 each and pod3d302 each: the large gains are not produced by fewer selected marks. ArrayFilter per bucket still scans all samples. CPU demand reduction is consistent with higher multi-client capacity but not exclusive causation."
+  ],
+  "restrictions": [
+    "Source O1 not production O2/jemalloc or high cardinality Jenkins; only two broad 3d synthetic gauge queries, not native rate, regex, offsets, histograms or arbitrary PromQL.",
+    "Measured p95 for n=1 has only eight client observations per variant, and n=8 64 per variant. Not a production p99 or service SLA.",
+    "Wave QPS is synchronous short-burst completion rate, not steady sustained throughput under a queue with arrival distribution and mixed reads/writes.",
+    "4Hz whole-server RSS sampling and allocator retention cannot establish a process RSS benefit; query memory tracker is per-query, not system peak.",
+    "All A/A drift under25% predeclared gate but some n4 baseline native drift 12.7%/15.8%; ratios are same-runner only; do not multiply with earlier R15 or R18 effects.",
+    "Versioned source and stable tag/time metadata path preserved in SQL oracle only; upstream native ClickHouse planner has NOT been patched. No auto workflow, master, production data or other question-owner root affected."
+  ],
+  "next_gate": "Source-based guarded native C++ planner proof preserving stale/ordinary NaNs, per-ID and cross-bucket duplicate arbitration, multi-grid and TimeRanges, plus release optimized O2/jemalloc independent runner and steady mixed read/write arrivals. Do not propose unconditional rewrite; maintain native fallback for unsupported PromQL."
+}
