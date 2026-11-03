@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "question_id": "R18-timeseries-samples-value-codec-v1",
+  "decision": "ACCEPT_SOURCE_DISTRIBUTION_DEPENDENT_CROSSOVER_ONLY",
+  "conclusion": "CODEC(ALP,ZSTD3) vs ZSTD(1) compressed SAMPLES size changes sign across fixed-time/label Float64 distributions, while read CPU tradeoffs remain workload-dependent. No global codec switch.",
+  "workflow": {
+    "id": 41631747983,
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41631747983",
+    "head_sha": "c5336d582b2f09f7a44a540b0530aa8ef6bb49ae",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "smooth",
+        "id": 125902783127,
+        "status": "success",
+        "artifact_id": 13228487441,
+        "zip_sha256": "91390698faf5afa5239ebaa460b371487d15fc0e49d5a59415cb62bd1ebd7cd5"
+      },
+      {
+        "name": "entropy",
+        "id": 125902783159,
+        "status": "success",
+        "artifact_id": 13229225029,
+        "zip_sha256": "00e55c4ea87083f83e41f91e7a171e5e044c8ae69e402f770750305dba56b1e2"
+      }
+    ]
+  },
+  "source": {
+    "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+    "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "build_run": 41596421285,
+    "compiler": "LLVM22.1.8 O1 stock glibc",
+    "cpu_models": "Both independent holdout jobs ran on AMD EPYC 7763 64-Core Processor, 4 logical CPUs each. Original R18 had AMD EPYC 9V45 and R17 AMD EPYC 9V74, so no cross-runner latency comparison."
+  },
+  "parent_fixture": {
+    "sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+    "series": 28896,
+    "samples": 2488320,
+    "days": 3,
+    "node_slots": 400,
+    "node_lifetime_seconds": 10800,
+    "source": "R01 deterministic aligned synthetic three-day gauges"
+  },
+  "method": "Two new separately SHA-verified fixtures generated from exact parent series: same tags, row ordering, timestamp strings, sample counts, stable RAW UUID IDs and 3600s sample buckets, only Float64 sample values changed. For each fixture, two same-binary tables: stock samples.value CODEC(ALP,ZSTD(3)) vs CODEC(ZSTD(1)), SAMPLES timestamp CODEC(Delta(8),T64,ZSTD(3)), one physical part each. Four full native PromQL selectors, independent ALP/ZSTD/ZSTD/ALP with 2 warmups+8 measured queries each phase. All labels, timestamps and numeric outputs exactly matched per pattern; compare only within each runner and pattern. Physical parts, rows/marks and 2,488,320 elements audited before/after. Both jobs PASS. Write/OPTIMIZE measured once per table, process-wide CPU descriptive only.",
+  "values": {
+    "original": {
+      "pattern": "repetitive",
+      "fixture_sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+      "baseline_source": "https://github.com/moleus/ClickHouse/actions/runs/41630585794",
+      "samples_bytes": {
+        "alp": 5303391,
+        "zstd1": 3414486
+      },
+      "total_inner_bytes": {
+        "alp": 7424806,
+        "zstd1": 5535901
+      },
+      "samples_zstd_vs_alp_change_pct": -35.617
+    },
+    "smooth": {
+      "pattern": "smooth",
+      "fixture_sha256": "fd380b0fb4b60f62ef3d100ffe6e0c865935ce5f71f585202b670439f22ad2b2",
+      "fixture_bytes": 99848877,
+      "range": [
+        0.125001,
+        0.127216
+      ],
+      "samples_bytes": {
+        "alp": 4718192,
+        "zstd1": 3937064
+      },
+      "total_inner_bytes": {
+        "alp": 6839607,
+        "zstd1": 6058479
+      },
+      "samples_zstd_vs_alp_change_pct": -16.557,
+      "query_abba": {
+        "node_broad": {
+          "alp_wall_ms": 235.425,
+          "zstd1_wall_ms": 226.281,
+          "alp_cpu_ms": 375.483,
+          "zstd1_cpu_ms": 359.45,
+          "wall_control_drift": 0.00129,
+          "cpu_control_drift": 0.00409
+        },
+        "pod_namespace": {
+          "alp_wall_ms": 75.672,
+          "zstd1_wall_ms": 69.297,
+          "alp_cpu_ms": 105.299,
+          "zstd1_cpu_ms": 95.799,
+          "wall_control_drift": 0.10372,
+          "cpu_control_drift": 0.05827
+        },
+        "pod_broad": {
+          "alp_wall_ms": 248.767,
+          "zstd1_wall_ms": 243.955,
+          "alp_cpu_ms": 385.657,
+          "zstd1_cpu_ms": 378.44,
+          "wall_control_drift": 0.02912,
+          "cpu_control_drift": 0.01323
+        },
+        "burst15": {
+          "alp_wall_ms": 54.957,
+          "zstd1_wall_ms": 51.166,
+          "alp_cpu_ms": 74.233,
+          "zstd1_cpu_ms": 67.902,
+          "wall_control_drift": 0.0355,
+          "cpu_control_drift": 0.02981
+        }
+      },
+      "ingest_unpaired": {
+        "alp_wall_s": 3.1743,
+        "zstd1_wall_s": 2.9908,
+        "alp_whole_server_cpu_s": 3.6639,
+        "zstd1_whole_server_cpu_s": 3.5377,
+        "alp_optimize_wall_s": 0.5706,
+        "zstd1_optimize_wall_s": 0.4549
+      }
+    },
+    "entropy": {
+      "pattern": "entropy",
+      "fixture_sha256": "4b81b190cbcff7af58682e8c023cebfad22e3bb98afb591d8b2d9928eade9d57",
+      "fixture_bytes": 125678305,
+      "range": [
+        2.956028130052246e-7,
+        0.9999997361116666
+      ],
+      "samples_bytes": {
+        "alp": 19686139,
+        "zstd1": 20216284
+      },
+      "total_inner_bytes": {
+        "alp": 21807554,
+        "zstd1": 22337699
+      },
+      "samples_zstd_vs_alp_change_pct": 2.693,
+      "query_abba": {
+        "node_broad": {
+          "alp_wall_ms": 251.766,
+          "zstd1_wall_ms": 238.296,
+          "alp_cpu_ms": 398.822,
+          "zstd1_cpu_ms": 379.944,
+          "wall_control_drift": 0.13332,
+          "cpu_control_drift": 0.11392
+        },
+        "pod_namespace": {
+          "alp_wall_ms": 75.091,
+          "zstd1_wall_ms": 70.717,
+          "alp_cpu_ms": 107.805,
+          "zstd1_cpu_ms": 99.317,
+          "wall_control_drift": 0.03038,
+          "cpu_control_drift": 0.01596
+        },
+        "pod_broad": {
+          "alp_wall_ms": 230.385,
+          "zstd1_wall_ms": 243.039,
+          "alp_cpu_ms": 358.039,
+          "zstd1_cpu_ms": 376.731,
+          "wall_control_drift": 0.16704,
+          "cpu_control_drift": 0.14256
+        },
+        "burst15": {
+          "alp_wall_ms": 50.539,
+          "zstd1_wall_ms": 48.482,
+          "alp_cpu_ms": 67.755,
+          "zstd1_cpu_ms": 63.097,
+          "wall_control_drift": 0.04048,
+          "cpu_control_drift": 0.03702
+        }
+      },
+      "ingest_unpaired": {
+        "alp_wall_s": 4.0181,
+        "zstd1_wall_s": 3.6878,
+        "alp_whole_server_cpu_s": 5.0092,
+        "zstd1_whole_server_cpu_s": 4.5007,
+        "alp_optimize_wall_s": 0.6713,
+        "zstd1_optimize_wall_s": 0.515
+      }
+    }
+  },
+  "correctness": {
+    "both_jobs_pass": true,
+    "all_eight_A_B_B_A_comparisons_pass": true,
+    "original_tags_hash_digest": "3199471147651921930",
+    "both_candidate_tag_digests_equal_baseline": true,
+    "all_codes_effective_SHOW_CREATE_verified": true,
+    "all_sample_points": 2488320,
+    "all_bucket_rows": 86688,
+    "all_marks": 340,
+    "full_native_labels_times_values_equal_per_value_pattern": true,
+    "no_oom": true
+  },
+  "findings": [
+    "ZSTD(1) stores repetitive source values 35.6% smaller than stock ALP SAMPLES, smooth +finely quantized gauges 16.6% smaller, but entropy random doubles **2.7% larger** than ALP; the compressed-size ordering reverses with value entropy on otherwise identical data.",
+    "Smooth heldout: node_broad native CPU 375.5->359.5ms (-4.3%) with CPU A/A drift0.4%, burst15 CPU74.2->67.9ms (-8.5%) with drift3.0%. Namespace CPU105.3->95.8ms (-9.0%) but drift5.8%, wall drift10.4%, so less robust than raw delta.",
+    "Entropy heldout: pod_namespace native CPU107.8->99.3ms (-7.9%) with A/A CPU drift1.6%, despite ZSTD1 SAMPLES on-disk being larger than ALP. Pod_broad CPU change +5.2% is smaller than 14.3% A/A CPU drift, not robust.",
+    "Raw original repetitive fixture: pod_namespace ZSTD1 CPU+10% vs A/A drift0.8% (regression), while smooth/entropy variants have CPU in opposite direction. A single value-codec policy cannot optimize all value shapes and selectors.",
+    "Do not use absolute wall/CPU values across original R18 AMD EPYC 9V45 and heldout AMD EPYC 7763. Only same-runner ALP/ZSTD comparisons have matched controls.",
+    "Both holdout runs use synthetic labels and timestamps with changed float values; no independent Prometheus semantic oracle beyond same native comparison and no realistic NaN/Inf, resets or out-of-order writes."
+  ],
+  "limitations": [
+    "Only 3 days, aligned 400-node gauge-style synthetic data. Entropy uses deterministic SplitMix64 53-bit pseudo-random Float64 in [0,1), smooth range 0.125001-0.127216. Neither is observed production distribution.",
+    "Cost of natural repeated inserts, late sample updates, merges and allocation under 8 clients not proven; write/optimize snapshots unpaired.",
+    "Stock O1 glibc binary, not optimized jemalloc production parity. JEMALLOC build 41607779848 still running separately at last checkpoint.",
+    "ALP/ZSTD effect on dense high-cardinality 14d PromQL exactness, NaN/Inf, staleness, rate and histograms still unknown.",
+    "Single representative CPU stack per variant is diagnostic; no named mutex or pure decompression attribution."
+  ],
+  "next_action": "Do not promote a global value-codec default. Use R18 codec source and heldout corpus to estimate a compact production-like histogram of finite Float64 value entropy/quantization, then collect one paired append/merge +8-client read test on representative data if relevant. Avoid repeating synthetic cross-runner performance tests."
+}
