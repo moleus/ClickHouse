@@ -365,3 +365,46 @@ hypothesis that alignment itself reverses performance needs
 not a cross-runner ratio comparison. The staggered generator is an
 alignment probe, not a complete 400-active-node HPA simulator.
 
+## 2026-11-03: R10 same-runner 2×2 node-start alignment interaction confirmed
+
+[Immutable source-pinned nested native ABBA evidence](evidence/R10-alignment-factorial-41619669176.json),
+[CI #41619669176](https://github.com/moleus/ClickHouse/actions/runs/41619669176)
+**PASS**. One runner, same unmodified O1 stock executable/LLVM/source SHA,
+**four** RAW_UUID TimeSeries tables from original aligned fixture
+`ea9a8d43...` and deterministic staggered fixture `ae85496e...`.
+Every table has 28,896 series, 2,488,320 samples and the same logical
+ID digest. Actual SAMPLES bucket rows for aligned are
+3600s **86,688**, 10800s **28,896**; for staggered
+3600s **113,760**, 10800s **57,120**, with one part per inner layer.
+
+Outer fresh-server A/B/B/A `aligned/stagger/stagger/aligned`, nested
+four-selector bucket A/B/B/A `3600/10800/10800/3600` per panel,
+two warmup+six measured queries per phase: **512 full native
+PromQL requests**, complete label/timestamp/numeric equality
+*within* each fixture; different shift fixture values are intentionally
+NOT compared at equal timestamps. All inner controls and repeated
+bucket-effect drift checks PASS; no OOM.
+
+| Selector | Aligned 10800/3600 p50 ratio | Staggered 10800/3600 p50 ratio | Aligned→staggered interaction |
+|---|---:|---:|---:|
+| pod_namespace | **0.97046** (−3.0%) | **1.25384** (+25.4%) | **1.29201** |
+| burst15 | 1.00882 (+0.9%) | **1.23197** (+23.2%) | 1.22120 |
+| pod_broad | 0.93209 (−6.8%) | 1.06298 (+6.3%) | 1.14043 |
+| node_broad | 1.03086 (+3.1%) | **0.88253** (−11.7%) | 0.85611 |
+
+The two aligned/staggered repeat differences in the namespace candidate
+ratio were **2.74% / 0.52%**; effect direction is stable. Namespace
+CPU 10800/3600 ratio aligned **0.9181** (−8.2%) but staggered
+**1.2980** (+29.8%). **This is a verified interaction** between
+time alignment and bucket width for this synthetic dataset; it removes
+cross-runner doubt from comparing prior separate R10 jobs.
+
+**Decision: reject blanket 10800s as a replacement for 3600s.**
+Aligned 3h-life series are an unrealistic data-layout benchmark if real
+nodes have arbitrary start phases. Candidate p50 may improve on broad
+nodes but regress on selective pods. The staggered fixture has a
+3d first/last lifecycle boundary artifact, is not a true 400-active-node
+HPA simulator, and neither 14d nor production jemalloc has been tested.
+[New staggered 4/8-client follow-up #41620367659](https://github.com/moleus/ClickHouse/actions/runs/41620367659)
+is isolated, source/binary pinned and does not cancel other agents.
+
