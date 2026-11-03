@@ -1,4 +1,4 @@
-name: TimeSeries sparse versus dense UUID ID CPU crossover
+name: TimeSeries sparse versus dense UUID ID CPU crossover (v11 ID schema)
 on:
   push:
     branches: [lab/ts-cpu-attribution-20261103]
@@ -75,6 +75,29 @@ jobs:
             sleep 1
           done
           if [ "$ready" -ne 1 ]; then tail -100 evidence/server.log; exit 1; fi
+      - name: Fail-fast TimeSeries v11 raw UUID inner-column DDL smoke
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import urllib.request
+          sql = ("CREATE TABLE raw_uuid_ddl_smoke ENGINE=TimeSeries "
+                 "SETTINGS recent_samples_ttl_seconds=0 "
+                 "SAMPLES INNER COLUMNS (id Tuple(UInt64, UUID)) "
+                 "TAGS INNER COLUMNS ("
+                 "id Tuple(UInt64, UUID) DEFAULT tuple(sipHash64(metric_name),"
+                 "reinterpretAsUUID(sipHash128(tags))),"
+                 "metric_name LowCardinality(String),"
+                 "tags Map(LowCardinality(String),String),"
+                 "INDEX tags_idx tags TYPE text(tokenizer = 'keyValuePairs') GRANULARITY 100000000) "
+                 "TIME RANGES INNER COLUMNS (id Tuple(UInt64, UUID))")
+          endpoint='http://127.0.0.1:18191/?wait_end_of_query=1'
+          for statement in (sql,
+                            "SELECT count() FROM system.tables WHERE database='default' AND name='raw_uuid_ddl_smoke'",
+                            "DROP TABLE raw_uuid_ddl_smoke SYNC"):
+              with urllib.request.urlopen(urllib.request.Request(endpoint,data=statement.encode(),method='POST'),timeout=60) as response:
+                  body=response.read().decode()
+                  print('RAW_UUID_SCHEMA_SMOKE',statement[:70],body[:400],flush=True)
+          PY
       - name: Build pinned 40-day dense and sparse time-series fixture
         run: |
           set -euo pipefail
