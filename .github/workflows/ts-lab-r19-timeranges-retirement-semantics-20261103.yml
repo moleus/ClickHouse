@@ -1,0 +1,125 @@
+name: R19 TimeRanges-only historical retirement with resumed native series
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r19-timeranges-retirement-semantics-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ts-lab-r19-ranges-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  r02:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      BINARY_SHA256: f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Source and preflight
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r19ranges
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          python3 -m py_compile .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r19_ttl_resurrection_semantics.py .github/ts-lab/experiments/r19_timeranges_only_retirement_semantics.py
+          python3 .github/ts-lab/experiments/r19_timeranges_only_retirement_semantics.py --help > evidence/r19ranges/help.txt
+          git rev-parse HEAD > evidence/r19ranges/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r19_ttl_resurrection_semantics.py .github/ts-lab/experiments/r19_timeranges_only_retirement_semantics.py > evidence/r19ranges/script-sha256.txt
+      - name: Reuse pinned SHA verified O1 binary (no recompilation)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r19ranges-art" "$RUNNER_TEMP/r19ranges-bin"
+          gh run download 41596421285 -R "$REPO" \
+            --pattern 'tslab-stock-clickhouse-o1-binary-*' \
+            -D "$RUNNER_TEMP/r19ranges-art"
+          archive="$(find "$RUNNER_TEMP/r19ranges-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r19ranges/archive-verify.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r19ranges-bin"
+          (cd "$RUNNER_TEMP/r19ranges-bin" && sha256sum -c SHA256SUMS) | tee evidence/r19ranges/binary-verify.txt
+          test "$(sha256sum "$RUNNER_TEMP/r19ranges-bin/clickhouse" | cut -d' ' -f1)" = "$BINARY_SHA256"
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r19ranges-bin/BUILD_INFO.txt"
+          grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/r19ranges-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/r19ranges-bin/BUILD_INFO.txt" evidence/r19ranges/build-info.txt
+          chmod +x "$RUNNER_TEMP/r19ranges-bin/clickhouse"
+          "$RUNNER_TEMP/r19ranges-bin/clickhouse" --version | tee evidence/r19ranges/version.txt
+      - name: Start isolated ClickHouse with query_log and bounded memory
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r19ranges"/{data,tmp,userfiles}
+          cat > "$RUNNER_TEMP/r19ranges/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/r19ranges/data/</path><tmp_path>$RUNNER_TEMP/r19ranges/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/r19ranges/userfiles/</user_files_path>
+            <max_server_memory_usage>2800000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions><max_threads>2</max_threads><max_memory_usage>1800000000</max_memory_usage><log_queries>1</log_queries></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <part_log><database>system</database><table>part_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></part_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/r19ranges-bin/clickhouse" server --config-file="$RUNNER_TEMP/r19ranges/config.xml" > evidence/r19ranges/server.log 2>&1 &
+          echo "$!" > evidence/r19ranges/server.pid
+          ready=0
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping > evidence/r19ranges/ping.txt 2>/dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then tail -100 evidence/r19ranges/server.log; exit 1; fi
+      - name: DELETE expired TimeRanges only after sample TTL then resume same old native ID
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r19_timeranges_only_retirement_semantics.py \
+            --endpoint http://127.0.0.1:18191/ \
+            --out evidence/r19ranges/report.json | tee evidence/r19ranges/console.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/r19ranges/report.json'))
+          assert d['passed'] and not d['errors'],d['errors']
+          assert d['source_sha']=='52529f0c711566d696917678bf15e7068772fdde'
+          assert d['old_series']==128 and d['live_series']==16
+          assert d['scientific_decision']=='SEMANTIC_LAB_PROOF_ONLY'
+          assert d['steps']['after_sample_ttl']['samples_rows']==16
+          assert d['steps']['after_sample_ttl']['tags_distinct_id']==144
+          assert d['steps']['after_sample_ttl']['timeranges_distinct_id']==144
+          assert d['steps']['after_ranges_retirement']['samples_rows']==16
+          assert d['steps']['after_ranges_retirement']['tags_distinct_id']==144
+          assert d['steps']['after_ranges_retirement']['timeranges_distinct_id']==16
+          assert d['steps']['after_old_series_resumed']['timeranges_distinct_id']==17
+          assert d['steps']['after_old_series_resumed']['samples_rows']==17
+          assert d['steps']['after_late_and_final']['samples_rows']==17
+          assert d['steps']['native_after_retire']['points']==1
+          assert d['steps']['native_after_resume']['points']==2
+          assert d['steps']['native_final']['points']==2
+          print('R19_RANGES_VALIDATED',json.dumps({'passed':True,
+             'cutoff':d['cutoff_utc'],'source_sha':d['source_sha'],
+             'inputs':d['inputs_sha256']},separators=(',',':')))
+
+          PY
+      - name: Preserve raw correct and failed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r19-ranges-semantics-${{ github.run_id }}
+          path: |
+            evidence/r19ranges/*.txt
+            evidence/r19ranges/*.log
+            evidence/r19ranges/*.json
+            evidence/r19ranges/phase-*/report.json
+            evidence/r19ranges/phase-*/config.xml
+            evidence/r19ranges/phase-*/server.log
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
