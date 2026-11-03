@@ -1,0 +1,22 @@
+{
+  "id": "R29-stock-o2-jemalloc-source-parity-v1",
+  "question_id": "R29",
+  "owner": "chatgpt-e01-stock-o2-jemalloc-20261103",
+  "state": "claimed",
+  "question": "Can we produce a reproducible *unmodified stock* source-pinned LLVM22 -O2+jemalloc ClickHouse binary so E02 can compare production-like query performance without the O1/glibc confounder or older C++ lab patches?",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Verified unmodified stock O1/glibc ClickHouse built 41596421285 SHA256 f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e; matched source/LLVM22",
+  "candidate": "One separate source-equivalent unpatched -O2/ENABLE_JEMALLOC=ON ClickHouse executable with SHA256 archive and runtime allocator evidence; no benchmark claim yet",
+  "fixture": "No fixture; this is a source/optimized-build reproducibility gate. Native correctness smoke only, later E02 restores the exact R01 and Jenkins fixtures.",
+  "single_variable": "Combined benchmark-build configuration (O1/glibc diagnostic vs O2/jemalloc). No causal performance attribution to either compiler or allocator separately; no engine/DDL/query changes.",
+  "math_bound": "A source-identical binary with different compiler and allocator flags is a candidate not a performance win. Pair same-source artifacts and record exact binary SHA/BUILD_INFO. No Amdahl upper bound can be asserted without a measured compiler-sensitive fraction.",
+  "falsifier": "Any pinned source diff, wrong LLVM version, unexpected patch in the tree, missing jemalloc linkage/allocator runtime evidence, binary smoke failure, artifact/inner digest mismatch, source branch write outside lab or loss of previous artifacts invalidates promotion.",
+  "test_matrix": "Source sha, symlink and submodule integrity; CMakeCache O2/ENABLE_JEMALLOC, no patch; SHA256 file+archive; executable version/local SQL and runtime jemalloc system tables; preserve compiler and ccache telemetry. Later E02 reuses binary without recompiling.",
+  "runner_budget": "One isolated GitHub-hosted compile job <=360m, -j2, 2.5GB ccache, no concurrent build launch and no cache deletion; self-path trigger; single runner",
+  "planned_workflow": ".github/workflows/ts-lab-r29-stock-o2-jemalloc-20261103.yml",
+  "dependencies": [
+    "E01 optimized build epic",
+    "R28 capacity result CI 41683302083",
+    "R03 matched VM diagnostic 41624246411"
+  ]
+}
