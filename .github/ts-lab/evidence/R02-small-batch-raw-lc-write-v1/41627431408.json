@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "question_id": "R02-small-batch-raw-lc-write-v1",
+  "subexperiment": "natural-merges-concurrent-native-3-runner-reduction",
+  "decision": {
+    "native_read_p95": "REPLICATED_LAB_EFFECT",
+    "later_growth_quartile_p95": "REPLICATED_LAB_EFFECT",
+    "mixed_process_cpu": "INCONCLUSIVE",
+    "mixed_wall": "INCONCLUSIVE"
+  },
+  "ci_status": "success",
+  "verified_utc": "2026-11-03T11:27:00Z",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary": {
+    "run_id": 41596421285,
+    "sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "flags": "LLVM 22.1.8 O1 stock glibc",
+    "archive_and_binary_manifest_passed": true
+  },
+  "fixture": {
+    "sha256": "dd2dd55ee8fcf3c11c1fef94ebdd54ac8b3a6a53cea6deaae991b3b94c88b931",
+    "series_per_insert": 4000,
+    "batches": 96,
+    "warmup_batches": 12,
+    "concurrent_inserts": 84,
+    "sample_points": 384000,
+    "fixture_persisted": true
+  },
+  "method": "Three independent hosted runners, each four fresh-process A0 LC B1 RAW B2 RAW A3 LC phases; 12 batches preload, 84 later-time batches ingested with natural merges ON and one closed-loop native reader. Native query fixed to first 12 batches for invariant independent avg-by(scope) oracle. Only fully overlapping requests are counted, 58-83 per phase. Each runner has distinct baseline drift <=25% and all source SHA, scripts, oracle and part count checks. Strict CI reducer also stratifies queries by four equal insert-progress intervals.",
+  "math_bound": "Each phase performs the same native PromQL expression and inserts identical 96 batches. The fixed query depends only on samples in first 12 batches; later samples cannot change the oracle. Within each hosted runner compare mean p95 of RAW B1/B2 to LC A0/A3. A/A drift <=25%; the RAW improvement must exceed max(5%, observed control drift) on all three independent runners, else no effect accepted. Cross-host absolute p95 cannot be pooled.",
+  "source_works": [
+    {
+      "run_id": 41626226951,
+      "artifact_id": 13225183978,
+      "official_zip_sha256": "89f6d214904f1d82a9146ec75555c7a4a2d432c0280031ce79660198977178f4",
+      "read_p95_raw_over_lc": 0.81884,
+      "baseline_drift": 0.1416,
+      "mixed_cpu_raw_over_lc": 0.9412,
+      "full_query_counts_per_phase": [
+        74,
+        82,
+        81,
+        75
+      ]
+    },
+    {
+      "run_id": 41626554592,
+      "job_name": "replicate-one",
+      "artifact_id": 13226276692,
+      "official_zip_sha256": "823a6c2eae991fdf5af92fd72d5c7462d41319edad559e8b843fd13a7c4d25f9",
+      "read_p95_raw_over_lc": 0.87156,
+      "baseline_drift": 0.05671,
+      "mixed_cpu_raw_over_lc": 0.92963,
+      "full_query_counts_per_phase": [
+        59,
+        61,
+        65,
+        58
+      ]
+    },
+    {
+      "run_id": 41626554592,
+      "job_name": "replicate-two",
+      "artifact_id": 13226241959,
+      "official_zip_sha256": "202e477497d1719848ce4e66e0ebfdb1cff670ecbfa5de9aa719ff4c6d307d1e",
+      "read_p95_raw_over_lc": 0.85806,
+      "baseline_drift": 0.02427,
+      "mixed_cpu_raw_over_lc": 0.9862,
+      "full_query_counts_per_phase": [
+        76,
+        83,
+        81,
+        73
+      ]
+    }
+  ],
+  "aggregate_geomean": {
+    "native_read_p95_raw_over_lc": 0.84919,
+    "read_p95_relative_decrease": 0.15081,
+    "mixed_cpu_raw_over_lc": 0.95203,
+    "mixed_wall_raw_over_lc": 0.99578
+  },
+  "progress_quartile_geomean_raw_over_lc": {
+    "first": 0.97702,
+    "second": 0.95811,
+    "third": 0.83191,
+    "fourth": 0.80382
+  },
+  "progress_late_replicated": true,
+  "official_reduction_ci": {
+    "run_id": 41627431408,
+    "job_id": 125888196108,
+    "artifact_id": 13225549572,
+    "digest_sha256": "aa5c608aa37691fa2a7edc26754e49d607fcd5149da67acad7b0a04a4cf18247",
+    "raw_reducer_script": ".github/ts-lab/experiments/r02_reduce_live_read_write.py",
+    "workflow": ".github/workflows/ts-lab-r02-reduce-live-three-runners-20261103.yml",
+    "source_sha256_of_reducer": "verified in artifact reducer-sha.txt",
+    "official_artifacts_verified_via_GitHub_API": true,
+    "zip_note": "reducer report ZIP hashes of locally repacked content, official ZIP digest values stored here and in source-artifacts.txt"
+  },
+  "limitations": [
+    "Closed-loop reader: faster candidate gets more queries in same write interval; unequal QPS may affect p95 and CPU. Do not claim isolated CPU change or production read p95 until fixed request schedule.",
+    "Read p95 from 58–83 fully overlapping queries per phase; time-of-ingest distribution differs by mode. Four equal-progress quartiles were checked; quartile p95 may be noisy with 11-23 requests.",
+    "Same unoptimized stock O1/glibc build, small pinned synthetic 96-batch workload, no external VM/EBS workload, not production jemalloc.",
+    "Mixed process CPU includes query execution, INSERT and natural merges; it is INCONCLUSIVE across hosts despite p95 reduction.",
+    "Observation of two late quartile improvements does not demonstrate mechanism or operator attribution."
+  ],
+  "next_action": {
+    "question_id": "R02",
+    "step": "Use the same immutable stock O1 binary and fixture in a fixed per-batch wall clock cadence and fixed native query schedule (one request each two batches). Repeat fresh LC/RAW/RAW/LC phases with exact progress strata and one-to-one request counts. Reject missed schedule deadlines and A/A drift >25% before claiming a fixed-QPS p95 benefit; study memory/CPU separately.",
+    "stop_condition": "No performance claim if schedule deadlines fail or workload differs; record the complete failure and stop."
+  }
+}
