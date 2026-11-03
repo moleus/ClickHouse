@@ -55,3 +55,25 @@ The 14-day full-range model exposes a negative: daily partitions have slightly m
 ## Independent CI verification
 
 [Minimal GitHub Actions #41622964101](https://github.com/moleus/ClickHouse/actions/runs/41622964101) finished **success**. Inspected decoded job logs: **4/4** unittest cases OK, exact deterministic full 1.33-million-series surrogate output includes 5,196/372 marks for 1d and 5,196/5,208 for 14d. This is still **not** real ClickHouse EXPLAIN or `SelectedMarks`.
+
+## 2026-11-03 native experiment started: source-specific Amdahl gate
+
+[Native month/day stock-O1 ABBA workflow](../../workflows/ts-lab-r15-native-calendar-20261103.yml) is triggered by a workflow-path-only change, run [41625086352](https://github.com/moleus/ClickHouse/actions/runs/41625086352); inspect live outcome before claiming success. [Benchmark source](r15_native_partition_probe.py) uses a **new independent smaller** 14-day ×5,000 series/day (70,000 total) deterministic fixture, same v11 and raw UUID in both layouts, identical one-hour SAMPLES buckets and \`recent_samples_ttl_seconds=0\`. DDL explicitly changes **only** \`PARTITION BY\` of SAMPLES; all other layer engines remain unchanged. Samples are one-point-per-unique-ID; no production/human data. Native A/B/B/A is performed for broad 1/3/7/14d and stage-exact 1/14d after SHOW CREATE, explicit merges, immutable logical ID digest and native output parity.
+
+Pinned [StorageTimeSeriesSelector.cpp lines 678-743](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/StorageTimeSeriesSelector.cpp) builds \`bucket>=rounded_min AND bucket<=max\` **and** min/max actual sample-time predicates before \`id IN(select IDs from TAGS/TimeRanges)\`. This makes an eligible **bucket predicate** source-supported, but the day-partition pruning still depends on ClickHouse's actual KeyCondition/partition-analysis engine. Direct \`EXPLAIN indexes=1\` and \`SelectedMarks\` are the decisive evidence, not source intent.
+
+### End-to-end speed ceiling: why 14x SAMPLES marks need not be 14x PromQL latency
+
+Let \`f\` be the fraction of baseline query cost due to physical SAMPLES work, excluding TAGS, TimeRanges, planner, aggregation and network. Suppose day partitioning makes SAMPLES *exactly* 14x cheaper with zero overhead. The **optimistic** wall speedup is \`1/(1-f+f/14)\`:
+
+| SAMPLES fraction of total work, f | Optimistic whole-query ceiling |
+|---:|---:|
+| 50% | 1.87x |
+| 80% | 3.89x |
+| 90% | 6.09x |
+| 95% | 8.47x |
+| 99% | 12.46x |
+
+For a whole-query 5x gain, \`f>=0.86154\` is necessary in this simplified model; for 10x, \`f>=0.96923\`. New partition overhead and unchanged metadata scans make the true ceiling lower. This experiment must report both **direct SAMPLES marks** and **full native PromQL latency/CPU**, not substitute one for the other. The smaller 70k test proves only layout feasibility; the canonical 1.33m high-churn workload remains an untested follow-up.
+
+**Important**: do not interpret a GitHub Actions green job as a scientific result without reading its artifact, inspecting EXPLAIN, verifying ABBA drift and full native equality. If the first run fails on DDL/parser or setup, keep failure and repair the benchmark, rather than changing multiple variables or calling it a failed engine optimization.
