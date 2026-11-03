@@ -11,7 +11,6 @@ sys.path[:0]=[".github/ts-lab-perf",".github/ts-lab-bench"]
 from bench_granularity_v11 import sql,inner,querylogs
 from bench_bucket_cxx_abca import post
 from bench_filtered_selector_v4_sql import sql_string
-SOURCE="8f3a36846f80d6be5a8604d142e934399f268709476e57bf105e43977f52858"
 # Use the exact canonical frozen manifest SHA from the experiment.
 SOURCE="8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858"
 SIZES={"none":0,"tiny":128,"default":8192,"large":65536}
