@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "question_id": "R31",
+  "primary_claim_id": "R31-timeranges-membership-in-semijoin-v1",
+  "owner": "chatgpt-r31-native-metadata-in-semijoin-20261104",
+  "scope": "E03 alternative internal TimeSeries TAGS/TimeRanges membership plan: replace LEFT ALL JOIN plus matched literal with WHERE id IN (SELECT id FROM TimeRanges WHERE identical time and metric-ID predicates), preserving the original OR exception for IDs outside metric hash range, and compare versus R30 ANY and stock ALL. No changes to R30 strictness claim, R05 mark pruning, R07 layout, R28 admission, R29 E01 source build or R08 semantic oracle; no C++ build before SQL safety gate.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-04",
+  "reason": "R30 showed duplicate rows on the right make ALL slower and cost model inaccurate. IN-set membership could avoid joined output materialization entirely but might add hash-set peak and violate multi-client RSS; this is a separate physical algorithm hypothesis."
+}
