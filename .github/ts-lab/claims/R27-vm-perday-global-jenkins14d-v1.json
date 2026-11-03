@@ -1,0 +1,28 @@
+{
+  "id": "R27-vm-perday-global-jenkins14d-v1",
+  "question": "Does VM per-day inverted index outperform global index under 95k new series per day for 14 days, with one tick and 1/3/7/14d lookbehind?",
+  "owner": "chatgpt-e04-vm-jenkins-14d-20261103",
+  "state": "claimed",
+  "source_sha": "eaf7a68c92c8069a67ae02e601e81453a5e002de",
+  "baseline": "VM 1.134.0 optimized release, global read index via -disablePerDayIndex, same fully indexed data, 1-byte TagFilters cache",
+  "candidate": "Same VM 1.134.0 optimized release and data, default per-day read index, unchanged 1-byte TagFilters cache",
+  "fixture": "Canonical 95k/day 14-day 1,330,000 sparse Jenkins series, SHA256 8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858 generated from original generate_95k_daily_churn_ts.py exact formula, no ClickHouse side effect",
+  "single_variable": "VM -disablePerDayIndex on/off during fresh-process read after default indexed import; all other process flags fixed, import once",
+  "math_bound": "With S=95000 new IDs/day and D days, global posting length N=95k*14; per-day path reads at most D*95k index candidates and unions. 1d gives ~14x candidate reduction before overhead, 14d gives no candidate reduction and may add union cost. End-to-end gain <= fraction of CPU spent in index/metadata search (Amdahl).",
+  "falsifier": "Generator SHA differs from canonical; VM import missing samples; invalid PromQL oracle; index-path trace not expected; A/A p50/CPU drift >=25%; errors/OOM; a misleading cold/warm bias. Filter out invalid cases rather than averaging.",
+  "test_matrix": "ABBA global/day/day/global fresh VM processes same clean-cloned 1.33m/14d storage; broad avg by(stage)(avg_over_time(metric[X])) for 1/3/7/14d, exact stage and branch/project filters for selected windows; 4 warmups+20 measured per query per phase, trace after timing; complete independent analytic numeric oracle for one sample per ID. VM cap raised to 2m only for this scientific test.",
+  "runner_budget": "One GitHub Ubuntu24.04 runner, no builds, <=110 minute timeout, reuse VM artifact #41288854734 and existing import_95k_churn_to_vm.py; self-path push only, no schedules. Limit workload if predeclared memory cap reached: mark invalid, not silent downsample.",
+  "planned_workflow": ".github/workflows/ts-lab-r27-vm-index-jenkins14d-20261103.yml",
+  "dependencies": [
+    "R26 successful source/fixture controlled VM experiment",
+    "E04 source audit",
+    "R03 pinned VM binary",
+    "Jenkins canonical 95k/day fixture"
+  ],
+  "source_commit": "eaf7a68c92c8069a67ae02e601e81453a5e002de",
+  "build_run_id": 41288854734,
+  "archive_sha256": "cd6e109bae85ff7c138d838b32be9a7b3a387a7cf9234f22991da10",
+  "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+  "caveat": "-search.maxUniqueTimeseries=2000000 differs from production 165k policy; evaluate performance, not availability under current cap.",
+  "created_utc": "2026-11-03"
+}
