@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "question_id": "R27",
+  "primary_claim_id": "R27-vm-perday-global-jenkins14d-v1",
+  "owner": "chatgpt-e04-vm-jenkins-14d-20261103",
+  "scope": "Independent E04 follow-up to R26: is default VM v1.134 per-day inverted index faster than global on 1.33M one-sample 95k/day 14d high-churn Jenkins for one-tick [1d,3d,7d,14d] PromQL? Fresh-source indexed VM data clone in GLOBAL/DAY/DAY/GLOBAL ABBA, no ClickHouse modifications. VM -search.maxUniqueTimeseries=2000000 to permit broad queries is test-only. No R26 R01 3d rereun; no E03/R06 CH CBO.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-03",
+  "source_proof": "VM storage.go adjustTimeRange: per-day index used for partial <40d window, global otherwise; index_db.go per-date filter search. Same binary default stored per-day + global indexes after initial import.",
+  "no_overlap": [
+    "R06 E03 native CH planner",
+    "R07 metadata sidecar",
+    "R05 marks",
+    "R25 VM cache",
+    "R26 VM R01 3d fixture"
+  ],
+  "safety": "Only shared lab branch; no new C++ builds, production writes, cron, disruptive CI cancellation. Source/fixture SHA and native results must match and any invalid drift excluded."
+}
