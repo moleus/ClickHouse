@@ -1,0 +1,127 @@
+name: R19 direct TAGS deletion cache orphaned native samples safety
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r19-tags-cache-orphan-safety-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ts-lab-r19-tags-cache-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  r02:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      BINARY_SHA256: f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Source and preflight
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r19cache
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          python3 -m py_compile .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r19_cache_stale_after_tags_gc.py
+          python3 .github/ts-lab/experiments/r19_cache_stale_after_tags_gc.py --help > evidence/r19cache/help.txt
+          git rev-parse HEAD > evidence/r19cache/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r02_small_batch_write_merge.py .github/ts-lab/experiments/r19_cache_stale_after_tags_gc.py > evidence/r19cache/script-sha256.txt
+      - name: Reuse pinned SHA verified O1 binary (no recompilation)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r19cache-art" "$RUNNER_TEMP/r19cache-bin"
+          gh run download 41596421285 -R "$REPO" \
+            --pattern 'tslab-stock-clickhouse-o1-binary-*' \
+            -D "$RUNNER_TEMP/r19cache-art"
+          archive="$(find "$RUNNER_TEMP/r19cache-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r19cache/archive-verify.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r19cache-bin"
+          (cd "$RUNNER_TEMP/r19cache-bin" && sha256sum -c SHA256SUMS) | tee evidence/r19cache/binary-verify.txt
+          test "$(sha256sum "$RUNNER_TEMP/r19cache-bin/clickhouse" | cut -d' ' -f1)" = "$BINARY_SHA256"
+          grep -q 'source=52529f0c711566d696917678bf15e7068772fdde' "$RUNNER_TEMP/r19cache-bin/BUILD_INFO.txt"
+          grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/r19cache-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/r19cache-bin/BUILD_INFO.txt" evidence/r19cache/build-info.txt
+          chmod +x "$RUNNER_TEMP/r19cache-bin/clickhouse"
+          "$RUNNER_TEMP/r19cache-bin/clickhouse" --version | tee evidence/r19cache/version.txt
+      - name: Start isolated ClickHouse with query_log and bounded memory
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r19cache"/{data,tmp,userfiles}
+          cat > "$RUNNER_TEMP/r19cache/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/r19cache/data/</path><tmp_path>$RUNNER_TEMP/r19cache/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/r19cache/userfiles/</user_files_path>
+            <max_server_memory_usage>2800000000</max_server_memory_usage>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions><max_threads>2</max_threads><max_memory_usage>1800000000</max_memory_usage><log_queries>1</log_queries></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <query_log><database>system</database><table>query_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></query_log>
+            <part_log><database>system</database><table>part_log</table><flush_interval_milliseconds>1000</flush_interval_milliseconds></part_log>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/r19cache-bin/clickhouse" server --config-file="$RUNNER_TEMP/r19cache/config.xml" > evidence/r19cache/server.log 2>&1 &
+          echo "$!" > evidence/r19cache/server.pid
+          ready=0
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping > evidence/r19cache/ping.txt 2>/dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then tail -100 evidence/r19cache/server.log; exit 1; fi
+      - name: Delete local inner TAGS with and without cache and verify native visibility
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r19_cache_stale_after_tags_gc.py \
+            --endpoint http://127.0.0.1:18191/ \
+            --out evidence/r19cache/report.json | tee evidence/r19cache/console.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/r19cache/report.json'))
+          assert d['passed'] and not d['errors'],d['errors']
+          assert d['scientific_decision']=='SAFETY_HAZARD_REPRODUCED'
+          assert d['source_sha']=='52529f0c711566d696917678bf15e7068772fdde'
+          assert len(d['modes'])==2
+          for k in ('enabled','disabled'):
+              p=d['modes'][k]
+              assert len(p['steps'])==4
+              assert len(p['query_log'])==3
+              assert all(v['exception_code']==0 for v in p['query_log'].values())
+              assert p['steps'][-1]['physical_sample_points']==3
+              assert p['steps'][-1]['tags_rows']==1
+              assert p['steps'][-1]['native']['result_count']==1
+          enabled=next(x for x in d['modes']['enabled']['steps'] if x['step']=='insert_1')
+          disabled=next(x for x in d['modes']['disabled']['steps'] if x['step']=='insert_1')
+          assert enabled['tags_rows']==0 and enabled['physical_sample_points']==2
+          assert enabled['native']['result_count']==0
+          assert disabled['tags_rows']==1 and disabled['physical_sample_points']==2
+          assert disabled['native']['result_count']==1
+          print('R19_CACHE_SAFETY_VALIDATED',json.dumps({'passed':True,
+             'decision':d['scientific_decision'],'cache_enabled':enabled,
+             'cache_disabled':disabled},separators=(',',':')))
+
+          PY
+      - name: Preserve raw correct and failed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r19-tags-cache-orphan-${{ github.run_id }}
+          path: |
+            evidence/r19cache/*.txt
+            evidence/r19cache/*.log
+            evidence/r19cache/*.json
+            evidence/r19cache/phase-*/report.json
+            evidence/r19cache/phase-*/config.xml
+            evidence/r19cache/phase-*/server.log
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
