@@ -3,6 +3,12 @@
 **Depends on:** E06 frozen fixtures; informs E03/E05.
 **Goal:** explain *why* VictoriaMetrics scans/decodes fewer or different bytes/IDs for the same label/time selector, and determine which techniques transfer to ClickHouse TimeSeries without unacceptable ingest and HA costs.
 
+## Progress: runtime index-path attribution — R25/R26 (2026-11-03)
+
+- [R26 validated same-release VM index path A/B/B/A](../../ts-lab-e04/R26_VM_PERDAY_GLOBAL_RESULTS_20261103.md), [CI #41670634959](https://github.com/moleus/ClickHouse/actions/runs/41670634959): 1-evaluation full native node query global→per-day p50 **11.70→9.00ms (1.30×)**, process CPU **28.54→24.38ms**; broad Pod **21.27→15.62ms (1.36×)**, CPU **38.96→33.44ms**. All four broad primary cases valid; three-tick gains small. Exact nonempty results and querytracer path verified. One namespace 1-tick **excluded** due 47.98% A/A wall drift. **VM-only index-path result, not ClickHouse acceleration.** [Immutable evidence](../../ts-lab/evidence/R26-vm-perday-vs-global-query-index-path-v1/41670634959.json).
+- [R25 cache-capacity diagnostic](../../ts-lab-e04/R25_CACHE_CAPACITY_DIAGNOSTIC_20261103.md), [CI #41669600149](https://github.com/moleus/ClickHouse/actions/runs/41669600149): native parity and source traces complete, but result **INVALID_METHOD** due >25% drift and cache-counter separation. No latency gain promoted; raw artifacts preserved.
+- [VM native source](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.134.0/lib/storage/storage.go#L1623-L1651) proves per-day ↔ global index switch for full-indexDB and >40-day coverage, plus explicit disable flag. Next gate: extend to **14d high churn** and compare actual cache warmth/read/write cost, leaving E03 CBO/R07 metadata owner work separate.
+
 ## Progress: source audit 01 (2026-11-03)
 
 [Source-verified E04 audit](E04-source-audit-20261103.md) committed: VM per-day tag postings, adaptive per-day filter-loop ranking, ID-set caching, TSID+time block lookup, CH existing TAGS text postings and sparse SAMPLES marks, source-derived per-day write-entry lower bound, and links to successful R03/R15/R19/R07 results. **No new benchmark or claimed runtime gain.** Next gated action is a same-run VM index/cache tracer versus CH native TAGS/TimeRanges/SAMPLES CPU attribution, coordinated with R03/E02. R05/R07 keep mark/metadata ownership.
