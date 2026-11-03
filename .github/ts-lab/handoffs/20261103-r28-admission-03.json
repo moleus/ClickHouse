@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "session_id": "r28-admission-capacity-results-20261103-03",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "550d70d609df3601ed6023baf03cf79ce7506464",
+  "last_verified_utc": "2026-11-03T17:28:00Z",
+  "question_id": "R28",
+  "summary": "R28 full native query-slot capacity ABBA PASS: 8-client fresh-server cap8 fails OOM in both replicates; cap2/cap4 each finish 2 full fresh-server replicates of 2 warmup+8 measured waves with exact 266-point PromQL output. This is O1/glibc 4-vCPU 4.8GB synthetic 14d capacity evidence, not production VM superiority.",
+  "completed": [
+    "GitHub CI 41683302083 completed success and scientific decision ACCEPT_FOR_NEXT_GATE",
+    "Verified exact SHA of stock O1 executable f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e and fixture 8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+    "Pinned six fresh server phases 8/2/4/4/2/8 with identical frozen inner parts and native oracle",
+    "Published immutable evidence R28-native-query-slot-admission-v1/41683302083.json and full raw artifact id 13254746843; digest sha256:b1a61285c1b67b86b044bc77f988d07337e2f3aea609a7ecfb4c8e5f6a741409",
+    "Indexed 2 vs4 completed-QPS/latency/RSS/CPU results and both repeated 8-client OOM failures"
+  ],
+  "negative_results": [
+    "Both k8 phases fail Code241 around ~4.68/4.72GB observed process RSS; no valid uncapped completed-run QPS or p99; never fabricate speedup",
+    "2-slot and 4-slot p95 differences are small and client tail latency includes queue; 64 measured requests/phase cannot establish production p99 reliability",
+    "Stock O1 with glibc is not optimized production binary/allocator; no VM comparison, open-loop arrivals, mixed selectors or read-write tests"
+  ],
+  "active_run_ids": [],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+  "relevant_paths": [
+    ".github/ts-lab/evidence/R28-native-query-slot-admission-v1/41683302083.json",
+    ".github/ts-lab-r28/bench_native_admission_capacity.py",
+    ".github/ts-lab-r28/ADMISSION_CAPACITY_MODEL_20261103.md",
+    ".github/workflows/ts-lab-r28-native-capacity-20261103.yml",
+    ".github/ts-lab/INDEX.md"
+  ],
+  "blocked_by": [
+    "E01 equivalent optimized stock O2/3 jemalloc + equal cgroup budget artifact",
+    "Open-loop QPS/queue, mixed selector, write+read and production allocator gates remain unverified"
+  ],
+  "next_action": {
+    "question_id": "R28",
+    "step": "Plan low-cost open-loop arrival and workload timeout fairness test with 2/4/8 slots under verified optimized-jmalloc baseline when available; require fixed offered arrival rate and p95/p99 including queued/rejected requests. Otherwise first review existing E01 stock optimizer artifact to avoid duplicate compilation. Preserve original 41683302083 artifact and don't rerun same closed-loop ABBA.",
+    "stop_condition": "No valid optimized same-compiler artifact, unstable fixture/parity, >25% drift, or process RSS budget error means no production promotion."
+  }
+}
