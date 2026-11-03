@@ -1,0 +1,273 @@
+{
+  "schema_version": 1,
+  "question_id": "R07",
+  "claim_id": "R07-time-day-covering-metadata-v1",
+  "status": "PASS_HELD_OUT_ALIGNED_MULTISAMPLE_NO_INDEX_SQL_ABBA",
+  "run_id": 41634426255,
+  "run_url": "https://github.com/moleus/ClickHouse/actions/runs/41634426255",
+  "job_id": 125911882704,
+  "workflow_commit": "7e129a162e7859ee0693e2e8c517fdb962c96fcf",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "artifact": {
+    "id": 13230315814,
+    "name": "tslab-r07-r01-aligned-41634426255",
+    "zip_sha256": "sha256:f4133a369b4144b823faa79dc3520d6e7479a9215c08a77a72e2e63053de5514",
+    "bytes": 31146,
+    "full_report": "r07-align/report.json",
+    "retention_days": 45
+  },
+  "dataset": {
+    "name": "R01 400-slot3d aligned, source-pinned, distinct from staggered by only timestamps",
+    "fixture_sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+    "series": 28896,
+    "samples": 2488320,
+    "cadence_seconds": [
+      15,
+      60,
+      300
+    ],
+    "life_hours": 3,
+    "node_slots": 400,
+    "aligned_starts": true,
+    "full_id_type": "Tuple(UInt64,UUID)",
+    "samples_bucket_step_seconds": 3600,
+    "source_samples_bucket_rows": 86688,
+    "monthly_partition": true,
+    "additional_sidecar_or_index": false,
+    "physical_before": {
+      "tags": {
+        "name": ".inner_id.tags.e7726ca4-3fa6-4cfb-99b3-8023f4026b27",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 28896,
+          "marks": 5,
+          "bytes": 1486557
+        }
+      },
+      "timeranges": {
+        "name": ".inner_id.timeranges.e7726ca4-3fa6-4cfb-99b3-8023f4026b27",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 28896,
+          "marks": 5,
+          "bytes": 634858
+        }
+      },
+      "samples": {
+        "name": ".inner_id.samples.e7726ca4-3fa6-4cfb-99b3-8023f4026b27",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 86688,
+          "marks": 340,
+          "bytes": 5303391
+        }
+      }
+    },
+    "physical_after": {
+      "tags": {
+        "name": ".inner_id.tags.e7726ca4-3fa6-4cfb-99b3-8023f4026b27",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 28896,
+          "marks": 5,
+          "bytes": 1486557
+        }
+      },
+      "timeranges": {
+        "name": ".inner_id.timeranges.e7726ca4-3fa6-4cfb-99b3-8023f4026b27",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 28896,
+          "marks": 5,
+          "bytes": 634858
+        }
+      },
+      "samples": {
+        "name": ".inner_id.samples.e7726ca4-3fa6-4cfb-99b3-8023f4026b27",
+        "id_column": "Tuple(UInt64, UUID)",
+        "parts": {
+          "part_count": 1,
+          "rows": 86688,
+          "marks": 340,
+          "bytes": 5303391
+        }
+      }
+    }
+  },
+  "method": {
+    "reference": "Unmodified native PromQL avg by(project or namespace)(avg_over_time(metric{filter}[1d or3d])) with same sampled dataset",
+    "candidate": "Custom SQL using ORIGINAL TAGS and SAMPLES: avg per FULL ID after arrayJoin(samples) and (start,end] bounds, then group average",
+    "grid_parity_checks": 18,
+    "distinct_groups_by_case": {
+      "node_broad_1d": 8,
+      "pod_namespace_1d": 1,
+      "pod_broad_1d": 16,
+      "burst15_1d": 4,
+      "node_broad_3d": 8,
+      "pod_broad_3d": 16
+    },
+    "paired_cases": 6,
+    "ABBA": [
+      "native",
+      "sql",
+      "sql",
+      "native"
+    ],
+    "warmups_per_phase": 2,
+    "measured_per_phase": 4,
+    "measured_queries": 96,
+    "all_outputs_nonempty_equal": true,
+    "max_control_drift_pct": 2.33,
+    "source_binary_runner_pinned": true,
+    "no_cpp_build": true
+  },
+  "results": {
+    "node_broad_1d": {
+      "valid_control": true,
+      "control_drift": 0.02210865209266721,
+      "native_over_sql_wall_ratio": 1.034107841311231,
+      "native_p50_client_ms": 66.62549999999999,
+      "sql_p50_client_ms": 64.428,
+      "native_p95_client_ms": 67.77799999999999,
+      "sql_p95_client_ms": 67.6925,
+      "native_cpu_ms": 134.365,
+      "sql_cpu_ms": 78.144,
+      "native_read_rows": 57728,
+      "sql_read_rows": 61600,
+      "native_read_bytes": 33814072,
+      "sql_read_bytes": 29839742,
+      "native_selected_marks": 117,
+      "sql_selected_marks": 117,
+      "native_compressed_read_bytes": 4260069.5,
+      "sql_compressed_read_bytes": 3673908,
+      "native_max_peak_query_memory_bytes": 27985642,
+      "sql_max_peak_query_memory_bytes": 16930873
+    },
+    "pod_namespace_1d": {
+      "valid_control": true,
+      "control_drift": 0.007379018418945277,
+      "native_over_sql_wall_ratio": 1.095243316052438,
+      "native_p50_client_ms": 34.964,
+      "sql_p50_client_ms": 31.923499999999997,
+      "native_p95_client_ms": 35.104,
+      "sql_p95_client_ms": 32.2825,
+      "native_cpu_ms": 58.59525,
+      "sql_cpu_ms": 32.337,
+      "native_read_rows": 93920,
+      "sql_read_rows": 98496,
+      "native_read_bytes": 19621864,
+      "sql_read_bytes": 12754262,
+      "native_selected_marks": 196,
+      "sql_selected_marks": 229,
+      "native_compressed_read_bytes": 4562933.5,
+      "sql_compressed_read_bytes": 3391733,
+      "native_max_peak_query_memory_bytes": 15826455,
+      "sql_max_peak_query_memory_bytes": 9165578
+    },
+    "pod_broad_1d": {
+      "valid_control": true,
+      "control_drift": 0.007179487179487251,
+      "native_over_sql_wall_ratio": 1.9942898538373028,
+      "native_p50_client_ms": 70.19999999999999,
+      "sql_p50_client_ms": 35.200500000000005,
+      "native_p95_client_ms": 71.20349999999999,
+      "sql_p95_client_ms": 36.6195,
+      "native_cpu_ms": 114.96175,
+      "sql_cpu_ms": 41.30225,
+      "native_read_rows": 103392,
+      "sql_read_rows": 99520,
+      "native_read_bytes": 22275464,
+      "sql_read_bytes": 15956446,
+      "native_selected_marks": 233,
+      "sql_selected_marks": 233,
+      "native_compressed_read_bytes": 4614350.25,
+      "sql_compressed_read_bytes": 3413860,
+      "native_max_peak_query_memory_bytes": 28424341,
+      "sql_max_peak_query_memory_bytes": 12337119
+    },
+    "burst15_1d": {
+      "valid_control": true,
+      "control_drift": 0.022471910112359588,
+      "native_over_sql_wall_ratio": 1.2567119734883052,
+      "native_p50_client_ms": 26.166,
+      "sql_p50_client_ms": 20.820999999999998,
+      "native_p95_client_ms": 26.673499999999997,
+      "sql_p95_client_ms": 21.7335,
+      "native_cpu_ms": 35.312,
+      "sql_cpu_ms": 21.14225,
+      "native_read_rows": 53472,
+      "sql_read_rows": 62144,
+      "native_read_bytes": 9174888,
+      "sql_read_bytes": 3266726,
+      "native_selected_marks": 38,
+      "sql_selected_marks": 87,
+      "native_compressed_read_bytes": 3091965,
+      "sql_compressed_read_bytes": 2247580,
+      "native_max_peak_query_memory_bytes": 15819975,
+      "sql_max_peak_query_memory_bytes": 8499322
+    },
+    "node_broad_3d": {
+      "valid_control": true,
+      "control_drift": 0.023281873864464685,
+      "native_over_sql_wall_ratio": 1.1845508495872883,
+      "native_p50_client_ms": 91.917,
+      "sql_p50_client_ms": 77.59649999999999,
+      "native_p95_client_ms": 93.445,
+      "sql_p95_client_ms": 82.5515,
+      "native_cpu_ms": 175.2215,
+      "sql_cpu_ms": 99.608,
+      "native_read_rows": 57728,
+      "sql_read_rows": 61600,
+      "native_read_bytes": 33814072,
+      "sql_read_bytes": 29839742,
+      "native_selected_marks": 117,
+      "sql_selected_marks": 117,
+      "native_compressed_read_bytes": 4328168.75,
+      "sql_compressed_read_bytes": 3673907,
+      "native_max_peak_query_memory_bytes": 72116579,
+      "sql_max_peak_query_memory_bytes": 21505138
+    },
+    "pod_broad_3d": {
+      "valid_control": true,
+      "control_drift": 0.005674416550749551,
+      "native_over_sql_wall_ratio": 2.0872630911918892,
+      "native_p50_client_ms": 90.582,
+      "sql_p50_client_ms": 43.397499999999994,
+      "native_p95_client_ms": 93.073,
+      "sql_p95_client_ms": 49.111999999999995,
+      "native_cpu_ms": 174.00650000000002,
+      "sql_cpu_ms": 58.076,
+      "native_read_rows": 103392,
+      "sql_read_rows": 99520,
+      "native_read_bytes": 22275464,
+      "sql_read_bytes": 15956446,
+      "native_selected_marks": 233,
+      "sql_selected_marks": 233,
+      "native_compressed_read_bytes": 4599815.5,
+      "sql_compressed_read_bytes": 3413857,
+      "native_max_peak_query_memory_bytes": 60949051,
+      "sql_max_peak_query_memory_bytes": 17410164
+    }
+  },
+  "findings": [
+    "Aligning 3h source lifetimes reduces SAMPLES bucket rows from 113760 to86688 and marks from446 to340 while series count and samples stay identical to prior staggered R01 fixture. It is a held-out different physical layout, not an independent production workload.",
+    "pod broad1d native vs SQL p50 70.2ms vs35.2005ms (1.9943x); CPU114.96175ms vs41.30225ms, selected marks both233.",
+    "pod broad3d native vs SQL p50 90.582ms vs43.3975ms (2.0873x); CPU174.0065ms vs58.076ms, selected marks both233.",
+    "node broad3d native vs SQL1.1846x on aligned vs1.474x staggered; other broad cases show smaller but positive gains, so impact is metric/timing dependent.",
+    "Six baseline A/A control drifts under2.33%, all 18 strict separate native-vs-SQL grid parity tests passed, none hidden by errors.",
+    "No additional TAGS or SAMPLES physical index. SQL gains cannot be assigned to fewer marks; the critical path includes native AdaptiveBucketMergingSource, MergeTreeSelect and Expressions, but work_us profiles are not exclusive CPU and cannot alone prove patch safety."
+  ],
+  "limitations": [
+    "Second independent Github-hosted runner: ratios compare only within each run. Do not pool absolute p50 across the two runners or assert synthetic sample size generalizes to production.",
+    "No NaN, staleness marker, duplicate/repeated samples, arbitrary PromQL operator, native histograms, workload HPA, concurrent clients, byte-level query cache, or source C++ planner integration.",
+    "Sample-age lifetime fixed3h, short 3d retention; 14d Jenkins canonical metric query still separate. Cannot claim production benefit.",
+    "Only query memory peak proven; process allocator RSS is not measured as a fresh-process matched delta."
+  ],
+  "next_gate": "Source/math proof of eligibility subset and direct adversarial repeated/NaN/stale-marker query outputs. Treat discrepancies as falsifiers. Avoid C++ builds until exact semantics and O2 production allocator cost gate."
+}
