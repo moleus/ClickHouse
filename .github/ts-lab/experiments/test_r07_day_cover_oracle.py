@@ -14,7 +14,9 @@ class R07DayCoverTests(unittest.TestCase):
     def test_uniform_3h_day_copy_ratio(self):
         result=sum(sampled_days(minute*60,3*3600,60)
                    for minute in range(1440))/1440
-        self.assertEqual(result,1.125)
+        # Real samples start at start+60s, not at series creation.
+        # The 23:59 start has every sample AFTER midnight; 179/1440 cross.
+        self.assertAlmostEqual(result,1+(3*60-1)/1440)
 
     def test_cross_midnight_id_dedup_preserves_avg(self):
         items=[
