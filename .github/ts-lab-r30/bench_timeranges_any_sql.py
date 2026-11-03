@@ -146,19 +146,19 @@ def checked_pair(ids_all, ids_any, selector_all, selector_any, case, runid):
     # DISTINCT membership is the actual input used by the subsequent SAMPLES id IN set.
     ids = {}
     for name, statement in (("all", ids_all), ("any", ids_any)):
-        ids[name] = canonical_result(f"SELECT DISTINCT id FROM ({statement}) ORDER BY id",
+        ids[name] = canonical_result(f"SELECT DISTINCT id FROM ({statement}) ORDER BY id SETTINGS {SETTINGS}",
                                      f"r30_id_{case}_{name}_{runid}")
     if ids["all"] != ids["any"]:
         raise ValueError(f"{case}: membership ID set changed ALL->ANY")
     counts = {}
     for name, statement in (("all", ids_all), ("any", ids_any)):
-        counts[name] = rows(f"SELECT count() AS rows,uniqExact(id) AS ids FROM ({statement})")
+        counts[name] = rows(f"SELECT count() AS rows,uniqExact(id) AS ids FROM ({statement}) SETTINGS {SETTINGS}")
     if int(counts["all"]["ids"]) != int(counts["any"]["ids"]) or int(counts["all"]["rows"]) <= int(counts["any"]["rows"]):
         raise ValueError(f"{case}: no multiplicity reduction or ID mismatch: {counts}")
     # Keep complete SAMPLES array values, IDs and timestamps; compare byte-independent sorted JSON.
     samples = {}
     for name, statement in (("all", selector_all), ("any", selector_any)):
-        samples[name] = canonical_result(f"SELECT id,samples FROM ({statement}) ORDER BY id",
+        samples[name] = canonical_result(f"SELECT id,samples FROM ({statement}) ORDER BY id SETTINGS {SETTINGS}",
                                          f"r30_samples_{case}_{name}_{runid}")
     if samples["all"] != samples["any"]:
         raise ValueError(f"{case}: SAMPLES ID/time/value output changed ALL->ANY")
@@ -190,8 +190,6 @@ def abba(ids_all,ids_any,case,runid):
         trials=[]
         for j in range(7):
             qid=f"r30_abba_{case}_{runid}_{i}_{j}"
-            val=rows(f"SELECT count() AS n,uniqExact(id) AS u FROM ({statement}) "
-                     f"SETTINGS {SETTINGS}") if False else None
             raw = request(f"SELECT count() AS n,uniqExact(id) AS u FROM ({statement}) "
                           f"SETTINGS {SETTINGS} FORMAT JSONEachRow", qid)
             parsed = json.loads(raw)
