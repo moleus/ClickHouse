@@ -1,0 +1,202 @@
+{
+  "schema_version": 1,
+  "question_id": "R30",
+  "primary_claim_id": "R30-time-ranges-any-semi-join-v1",
+  "decision": "PASS_ALL_FIVE_LEVELS_SQL_ONLY",
+  "promotion": "NOT_PROMOTED_NO_PATCHED_NATIVE_CPP",
+  "workflow_url": "https://github.com/moleus/ClickHouse/actions/runs/41716983848",
+  "run_id": 41716983848,
+  "workflow_commit_sha": "a73471894b81102f6dd36ab3068acde010f55ed5",
+  "artifact_id": 13270611732,
+  "artifact_name": "tslab-r30-duplication-curve-evidence",
+  "zip_sha256": "d264d6dd8fd08066eada747ebb673edeb9e722cdd182f9a586a7120710d8e442",
+  "zip_bytes": 353887,
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221",
+  "binary_kind": "pinned O1 laboratory JOIN-override; original native ALL unchanged",
+  "fixture_sha256": "6a81d5b9b218a9e86b3dd4aed4ff68a028458d51f944af0296cf4ebaccb98367",
+  "inserted_only_fixture_sha256": "f8ad35a7c56e153796ccbd39d20515fbef6b480fb108501ab52e555bc26dece8",
+  "fixture": {
+    "series": 2048,
+    "repeated_insert_levels": [
+      1,
+      2,
+      4,
+      8,
+      16
+    ],
+    "metric": "r30_cpu_seconds_total",
+    "physical_table_per_level": true,
+    "same_time_series_tags": true,
+    "full_source_fixture_bytes": 5195151
+  },
+  "protocol": {
+    "pre_insert_invariant": "SYSTEM STOP MERGES per newly created inner TimeRanges target, before first INSERT",
+    "physical_invariant": "2048 distinct IDs and exactly k*2048 TimeRanges rows at level k; fail closed",
+    "parity": "For each level, compare exact sorted ID-set SHA and full (ID,samples) output hash between ALL and ANY",
+    "paired_phases": [
+      "ALL",
+      "ANY",
+      "ANY",
+      "ALL"
+    ],
+    "warmups_per_phase": 3,
+    "measured_per_phase": 4,
+    "drift_threshold": 0.25,
+    "query": "SELECT count() AS n,uniqExact(r30_id) AS u FROM (generated TAGS+TimeRanges ID SQL) SETTINGS join_algorithm=full_sorting_merge,optimize_read_in_order=1,optimize_use_projections=0,max_threads=4",
+    "measurements": "QueryFinish wall, OS CPU virtual time, query memory tracker, read rows/bytes; same O1 source/binary, same frozen parts within each level"
+  },
+  "levels": [
+    {
+      "right_rows_per_id": 1,
+      "physical_timeranges_rows": 2048,
+      "active_timeranges_parts": 1,
+      "output_rows_all": 1024,
+      "output_rows_any": 1024,
+      "exact_parity": true,
+      "read_rows_both": 4096,
+      "read_bytes_both": 352388,
+      "all": {
+        "wall_ms": 6,
+        "cpu_ms": 6.36075,
+        "tracked_memory_peak_bytes": 8587632,
+        "a_a_wall_drift": 0
+      },
+      "any": {
+        "wall_ms": 5,
+        "cpu_ms": 6.16275,
+        "tracked_memory_peak_bytes": 8699701,
+        "a_a_wall_drift": 0
+      },
+      "within_level_effect": {
+        "wall_reduction_pct": 16.666666666666668,
+        "cpu_reduction_pct": 3.1128404669260763,
+        "tracked_memory_change_pct": 1.3050046858086142
+      }
+    },
+    {
+      "right_rows_per_id": 2,
+      "physical_timeranges_rows": 4096,
+      "active_timeranges_parts": 2,
+      "output_rows_all": 2048,
+      "output_rows_any": 1024,
+      "exact_parity": true,
+      "read_rows_both": 6144,
+      "read_bytes_both": 438420,
+      "all": {
+        "wall_ms": 6.5,
+        "cpu_ms": 7.728,
+        "tracked_memory_peak_bytes": 8826626,
+        "a_a_wall_drift": 0.15384615384615385
+      },
+      "any": {
+        "wall_ms": 6,
+        "cpu_ms": 7.19275,
+        "tracked_memory_peak_bytes": 8991241,
+        "a_a_wall_drift": 0
+      },
+      "within_level_effect": {
+        "wall_reduction_pct": 7.6923076923076925,
+        "cpu_reduction_pct": 6.926112836438918,
+        "tracked_memory_change_pct": 1.864982157395136
+      }
+    },
+    {
+      "right_rows_per_id": 4,
+      "physical_timeranges_rows": 8192,
+      "active_timeranges_parts": 4,
+      "output_rows_all": 4096,
+      "output_rows_any": 1024,
+      "exact_parity": true,
+      "read_rows_both": 10240,
+      "read_bytes_both": 610484,
+      "all": {
+        "wall_ms": 8.5,
+        "cpu_ms": 9.88375,
+        "tracked_memory_peak_bytes": 9092868,
+        "a_a_wall_drift": 0.11764705882352941
+      },
+      "any": {
+        "wall_ms": 7,
+        "cpu_ms": 8.2355,
+        "tracked_memory_peak_bytes": 9338271,
+        "a_a_wall_drift": 0
+      },
+      "within_level_effect": {
+        "wall_reduction_pct": 17.647058823529413,
+        "cpu_reduction_pct": 16.676362716580236,
+        "tracked_memory_change_pct": 2.698851451489233
+      }
+    },
+    {
+      "right_rows_per_id": 8,
+      "physical_timeranges_rows": 16384,
+      "active_timeranges_parts": 8,
+      "output_rows_all": 8192,
+      "output_rows_any": 1024,
+      "exact_parity": true,
+      "read_rows_both": 18432,
+      "read_bytes_both": 954612,
+      "all": {
+        "wall_ms": 12.75,
+        "cpu_ms": 14.56425,
+        "tracked_memory_peak_bytes": 9627284,
+        "a_a_wall_drift": 0.0392156862745098
+      },
+      "any": {
+        "wall_ms": 9,
+        "cpu_ms": 10.8405,
+        "tracked_memory_peak_bytes": 10028517,
+        "a_a_wall_drift": 0
+      },
+      "within_level_effect": {
+        "wall_reduction_pct": 29.41176470588235,
+        "cpu_reduction_pct": 25.56774293217982,
+        "tracked_memory_change_pct": 4.167665563828802
+      }
+    },
+    {
+      "right_rows_per_id": 16,
+      "physical_timeranges_rows": 32768,
+      "active_timeranges_parts": 16,
+      "output_rows_all": 16384,
+      "output_rows_any": 1024,
+      "exact_parity": true,
+      "read_rows_both": 34816,
+      "read_bytes_both": 1642868,
+      "all": {
+        "wall_ms": 20.5,
+        "cpu_ms": 23.6365,
+        "tracked_memory_peak_bytes": 13366345.25,
+        "a_a_wall_drift": 0
+      },
+      "any": {
+        "wall_ms": 14,
+        "cpu_ms": 16.85525,
+        "tracked_memory_peak_bytes": 11403505,
+        "a_a_wall_drift": 0
+      },
+      "within_level_effect": {
+        "wall_reduction_pct": 31.70731707317073,
+        "cpu_reduction_pct": 28.689738328432718,
+        "tracked_memory_change_pct": -14.684943515131781
+      }
+    }
+  ],
+  "exploratory_fitted_cpu_cost": {
+    "duplicate_rows_to_cpu_delta_slope_microseconds": 0.43482757896505386,
+    "r_squared": 0.9939122291139981,
+    "method": "Ordinary least squares of five within-level medians; explanatory only, not independent held-out validation"
+  },
+  "negative_outcome": "ANY query memory is higher for k1,k2,k4,k8; only at k16 is it lower.",
+  "supersedes_invalid_pilot": "https://github.com/moleus/ClickHouse/actions/runs/41716512958",
+  "invalid_pilot_record": ".github/ts-lab/evidence/R30-duplication-curve-invalid-41716512958.json",
+  "caveats": [
+    "Only standalone generated SQL ID selector. Native C++ is unmodified; no full end-to-end PromQL patched-binary result.",
+    "Five separate physical tables share the same deterministic label/time generator, but absolute cross-level query times are not paired. Only ALL/ANY within each table is paired.",
+    "One Ubuntu-24.04 hosted runner and one executable; sub-millisecond differences at k1/k2 are not robust cross-runner gains.",
+    "SAMPLES may merge independently of frozen TimeRanges; read/CPU cost is ID-selector SQL only, not SAMPLES.",
+    "No production-like optimized O2/jemalloc build or concurrent clients, ingestion+reads, tenant security or OOM validation.",
+    "Query memory tracker is not resident memory of ClickHouse process."
+  ]
+}
