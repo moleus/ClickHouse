@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "session_id": "r18-2x2-stagger-jemalloc-20261103-03",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "9f2bafcd8699fcd9a2f74d3ddc46b675fbc63aa5",
+  "last_verified_utc": "2026-11-03T12:47:02.570Z",
+  "question_id": "R18",
+  "canonical_claim_id": "R18-timeseries-samples-value-codec-v1",
+  "summary": "On unified lab branch, completed and indexed 4992-request 1/4/8 client stagger-vs-aligned native TimeSeries codec factorial (#41633815009) and 1728-request 24/24 orthogonal ALP x ZSTD1/3 native factorial (#41635457586). Source- and SHA-verified finished independent jemalloc O1 binary #41607779848, linked active runtime with 232 jemalloc bins, but it contains two nonallocator C++ patches. Launched no-recompile patched jemalloc capacity gate #41637869309; no completion evidence at this handoff. No global codec/default or production mutation.",
+  "completed": [
+    "R18 #41633815009 PASS: one runner 4992 native clients 1/4/8, 144 phases, 36 full valid ABBA panels and9 valid repeated outer alignment interactions. SHAs aligned ea9a8d43... and stagger ae85496e..., 28896 labels,2488320 values, 86688->113760 bucket rows. ALP SAMPLES bytes 5303391->5952971 and ZSTD1 3414486->4126572, savings 35.62%->30.68%. At 8-client ALP-only node broad timestamp offset changes p50 492.074->781.375ms and CPU235.002->381.293ms (+62.25%) versus read_rows+16.3% and compressed bytes+9.08%. This is workload timestamp sensitivity, not single-codec CPU causality. Full evidence .github/ts-lab/evidence/R18-codec-start-stagger-concurrency-41633815009.json and R18-timestamp-alignment-cost-41633815009.json, human source .github/ts-lab-r18/START_STAGGER_CODEC_CONCURRENCY_20261103.md. Artifact13230495191 zip SHA a29dc6cdbf6c3594c2deec7ed436853cb2e10b78ef585868adbc0fd206981dce.",
+    "R18 #41635457586 both original and entropy jobs PASS: 1728 native HTTP queries, 24 exact-native ABBA all valid; four effective value codecs ALP+ZSTD3,ALP+ZSTD1,ZSTD3,ZSTD1 on exact RAW UUID v11 schemas, 2.49m points. Source and binary sha pinned 52529f... and f0a2fa... . Patterned SAMPLES bytes 5303391,5550516,3355724,3414486; entropy 19686139,19686139,20216284,20216284. Removing ALP at fixed ZSTD3 saves36.72% patterned bytes but uses2.69% more high-entropy bytes. Entropy namespace CPU111.914->102.548ms (8.37% lower than ALP with A/A drift0.74%), burst15 CPU74.499->66.506ms (-10.73%, drift4.90%). Patterned namespace CPU54.633->54.681ms (neutral). Representative single-query ALP CPU stacks 18/110 namespace, 10/84 burst vs0 samples RAW. Full evidence .github/ts-lab/evidence/R18-alp-zstd-level-factorial-41635457586.json, report .github/ts-lab-r18/ALP_ZSTD_2X2_CPU_AND_STORAGE_20261103.md. Artifacts original13229074259 zip SHA e20fcb428422cff32024512dd23ee45ae627b0297d5aee90293825ebdf3789fa, entropy13229909479 zip SHA 6e4249a82852a528695a7baa314024a20715dd5957fb24fe05d65261c8fab9ae.",
+    "Isolated 2x2 preflight failures #41634612567 wrong escaped backtick before ingest, #41634883798 shadowed R01 selector dict after valid physical codec storage but before query, preserved in M43. Added 5 pure unit tests in .github/ts-lab-r18/test_value_codec_2x2_preflight.py, both successful jobs passed before binary download/fixture generation.",
+    "Independent 3.5h compiled CBO O1 patched jemalloc artifact #41607779848 SUCCESS, published ZIP id13230128180 SHA9e716f524c0802a29d42cc542accc3b388b2766920ae04936687ad101e6e2295; .tar.zst SHA 9c20ccdad5a689765e1945c1af2a9985507c536f7c121229831d987f2a2bd21f; extracted executable SHA26b1577cea637b98a1d0b3c9efc996cd266234bf6ef89bd1912c75c56098eed3; source pin52529f..., LLVM22 O1, ENABLE_JEMALLOC=ON. Local binary starts and system.jemalloc_bins shows232 bins and66039 curregs; system.jemalloc_stats reports jemalloc5.3-RC and nonzero runtime allocations. Immutable provenance .github/ts-lab/evidence/R18-jemalloc-patched-cxx-artifact-readiness-41607779848.json. Critically patched executable includes JOIN override in StorageTimeSeriesSelector.cpp and narrow sum(rate()) fastpath in Converter.cpp, thus NOT a binary-identical pure allocator comparison with stock O1.",
+    "New R18 source/plan .github/ts-lab-r18/JEMALLOC_PATCHED_NATIVE_CAPACITY_GATE_20261103.md, new no-recompile self-path workflow .github/workflows/ts-lab-r18-jemalloc-native-capacity-20261103.yml, #41637869309 still in progress at handoff, active server jemalloc check/stock 3d R18 1/4/8 native semantics under patched O1 allocator. Source benchmark now supports explicit executable SHA and enforces actual sha256 before run, without changing old historical CI.",
+    "Updated shared .github/ts-lab/INDEX.md, .github/ts-lab-cpu/RESEARCH_CHECKPOINT_20261103.md, .github/ts-lab/METHODOLOGY_AND_FAILURES.md M43. No master, production, old branches, CI cancellation or compiler restart."
+  ],
+  "negative_results": [
+    "No global TimeSeries samples.value codec promotion: compressed size winner flips by Float64 entropy, and CPU benefits vary by selector/time layout/concurrency; stock O1 binary cannot prove production behavior.",
+    "Start-alignment R18 has a synthetic time-shift anomaly at boundaries: not a physical continuous 400-active-node simulator; don't attribute CPU +62% solely to array decode, index marks or codec; full native time-series output between different timestamps intentionally differs.",
+    "Earlier two-variable R18 ALP+ZSTD3 vs ZSTD1 namespace CPU+10% is not repeated in pure ALP factor: new fixed-ZSTD3 patterned namespace CPU ~0%. Invalid pilot evidence and control drift must remain visible.",
+    "Jemalloc binary includes 2 nonallocator C++ patches. Even with inactive narrow sum(rate()) and default JOIN semantics on R18 avg queries, stock-O1(glibc) vs patched-O1(jemalloc) cannot isolate allocator cost; need exactly matched source+compiler with only allocator variant.",
+    "Jemalloc operational CI #41637869309 pending; no performance/correctness conclusion before completion, and don't cancel any other agent's workflow.",
+    "Single unpaired bulk writes/merges in R18 are not a steady-state write/merge proof. R02 owns natural writer throughput work, R07 owns SQL rewrite, R10 buckets, R14 grid, R19 metadata/TTL; avoid duplicate ownership."
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "fixture_sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+  "stock_binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "jemalloc_patched_binary_sha256": "26b1577cea637b98a1d0b3c9efc996cd266234bf6ef89bd1912c75c56098eed3",
+  "active_run_ids": [
+    41637869309
+  ],
+  "blocked_by": [
+    "R18 patched jemalloc 4992 native query operational CI #41637869309 running and needs evidence artifact/oracle/physical/controls/OOM checks before promotion. No background agent guarantee; future agents must inspect and record results.",
+    "No matched glibc allocator build with exactly the same two C++ patches and compiler flags, so causal jemalloc vs glibc CPU/memory comparison is not yet established.",
+    "Production-like shuffled value distributions, NaN/Inf and stale/counter data, naturally merging repeated writes and 14-day high-cardinality 8-client memory gate not yet run on matched optimized O2/O3 jemalloc Release.",
+    "Do not edit other owners R02, R07, R10, R14, R19."
+  ],
+  "relevant_paths": [
+    ".github/ts-lab/INDEX.md",
+    ".github/ts-lab-cpu/RESEARCH_CHECKPOINT_20261103.md",
+    ".github/ts-lab/METHODOLOGY_AND_FAILURES.md",
+    ".github/ts-lab/evidence/R18-codec-start-stagger-concurrency-41633815009.json",
+    ".github/ts-lab/evidence/R18-timestamp-alignment-cost-41633815009.json",
+    ".github/ts-lab/evidence/R18-alp-zstd-level-factorial-41635457586.json",
+    ".github/ts-lab/evidence/R18-jemalloc-patched-cxx-artifact-readiness-41607779848.json",
+    ".github/ts-lab-r18/START_STAGGER_CODEC_CONCURRENCY_20261103.md",
+    ".github/ts-lab-r18/ALP_ZSTD_2X2_CPU_AND_STORAGE_20261103.md",
+    ".github/ts-lab-r18/JEMALLOC_PATCHED_NATIVE_CAPACITY_GATE_20261103.md",
+    ".github/workflows/ts-lab-r18-jemalloc-native-capacity-20261103.yml",
+    ".github/ts-lab-r18/bench_codec_stagger_concurrency.py"
+  ],
+  "next_action": {
+    "question_id": "R18",
+    "step": "Refresh unified branch HEAD and claim roots. Fetch GH Actions #41637869309 run, job logs, artifacts; require actual server active jemalloc bins, exact SHA executable, complete 4992 request/36 ABBA/9 interaction gates, no OOM and invariant parts; create new immutable evidence, report, INDEX/checkpoint updates. Even if performance differs from stock #41633815009, do not claim pure allocator effect because the jemalloc executable includes JOIN override and sum(rate()) patches. Determine whether a strictly patch-identical O1 glibc binary already exists in CBO builds before requesting expensive new build. Reuse R02 write tests, R07 semantics, R10 bucket work; no duplicate experiments.",
+    "stop_condition": "No global codec change, no master/old branch/production writes, no cancellation/restart of completed/running C++ builds, no scheduled CI, no provenance-free CPU speedups or false pure jemalloc attribution, no inferred mutex contention from sampling. All tests require exact native PromQL parity, SHA pins, allocator verification and same-runner drift controls."
+  }
+}
