@@ -1,0 +1,113 @@
+name: R11 TimeSeries native PromQL query cache freshness after INSERT
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r11-native-query-cache-staleness-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ts-lab-r11-cache-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  r11:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+      STOCK_O1_BINARY_SHA256: f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Preflight source and script
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r11
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          test "$(git ls-files -s AGENTS.md | cut -d' ' -f1)" = 120000
+          python3 -m py_compile .github/ts-lab/experiments/r11_native_query_cache_freshness.py
+          python3 .github/ts-lab/experiments/r11_native_query_cache_freshness.py --help > evidence/r11/help.txt
+          git rev-parse HEAD > evidence/r11/workflow-head.txt
+          sha256sum .github/ts-lab/experiments/r11_native_query_cache_freshness.py > evidence/r11/script-sha256.txt
+      - name: Reuse stock pinned O1 ClickHouse (no recompilation)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r11-art" "$RUNNER_TEMP/r11-bin"
+          gh run download 41596421285 -R "$REPO" \
+            --pattern 'tslab-stock-clickhouse-o1-binary-*' \
+            -D "$RUNNER_TEMP/r11-art"
+          archive="$(find "$RUNNER_TEMP/r11-art" -name 'clickhouse-stock-clickhouse-o1-linux-amd64.tar.zst' -type f -print -quit)"
+          test -s "$archive"
+          (cd "$(dirname "$archive")" && sha256sum -c ARCHIVE_SHA256SUMS) | tee evidence/r11/archive-verify.txt
+          zstd -dc "$archive" | tar -xf - -C "$RUNNER_TEMP/r11-bin"
+          (cd "$RUNNER_TEMP/r11-bin" && sha256sum -c SHA256SUMS) | tee evidence/r11/binary-verify.txt
+          test "$(sha256sum "$RUNNER_TEMP/r11-bin/clickhouse" | cut -d' ' -f1)" = "$STOCK_O1_BINARY_SHA256"
+          test "$(grep '^source=' "$RUNNER_TEMP/r11-bin/BUILD_INFO.txt")" = \
+               "source=52529f0c711566d696917678bf15e7068772fdde"
+          grep -q 'optimization=O1 unmodified stock source no lab patches' "$RUNNER_TEMP/r11-bin/BUILD_INFO.txt"
+          cp "$RUNNER_TEMP/r11-bin/BUILD_INFO.txt" evidence/r11/build-info.txt
+          chmod +x "$RUNNER_TEMP/r11-bin/clickhouse"
+          "$RUNNER_TEMP/r11-bin/clickhouse" --version | tee evidence/r11/version.txt
+      - name: Start isolated TimeSeries with bounded query cache
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r11"/{data,tmp,userfiles}
+          cat > "$RUNNER_TEMP/r11/config.xml" <<EOF
+          <clickhouse>
+            <logger><level>warning</level><console>true</console></logger>
+            <listen_host>127.0.0.1</listen_host><http_port>18191</http_port><tcp_port>19000</tcp_port>
+            <path>$RUNNER_TEMP/r11/data/</path><tmp_path>$RUNNER_TEMP/r11/tmp/</tmp_path>
+            <user_files_path>$RUNNER_TEMP/r11/userfiles/</user_files_path>
+            <max_server_memory_usage>1500000000</max_server_memory_usage>
+            <query_cache>
+              <max_size_in_bytes>67108864</max_size_in_bytes>
+              <max_entries>128</max_entries>
+              <max_entry_size_in_bytes>1048576</max_entry_size_in_bytes>
+              <max_entry_size_in_rows>10000</max_entry_size_in_rows>
+            </query_cache>
+            <users><default><password></password><networks><ip>127.0.0.1</ip></networks><profile>default</profile><quota>default</quota></default></users>
+            <profiles><default><allow_experimental_time_series_table>1</allow_experimental_time_series_table><enable_time_series_aggregate_functions>1</enable_time_series_aggregate_functions><max_threads>2</max_threads><max_memory_usage>750000000</max_memory_usage><log_queries>1</log_queries></default></profiles>
+            <quotas><default><interval><duration>3600</duration></interval></default></quotas>
+            <default_profile>default</default_profile><default_database>default</default_database>
+          </clickhouse>
+          EOF
+          "$RUNNER_TEMP/r11-bin/clickhouse" server --config-file="$RUNNER_TEMP/r11/config.xml" > evidence/r11/server.log 2>&1 &
+          echo "$!" > evidence/r11/server.pid
+          ready=0
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 1 http://127.0.0.1:18191/ping > evidence/r11/ping.txt 2>/dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then tail -100 evidence/r11/server.log; exit 1; fi
+      - name: Compare native query with cache hit before and after new INSERT
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r11_native_query_cache_freshness.py \
+            --endpoint http://127.0.0.1:18191/ --table tslab_r11_cache \
+            --out evidence/r11/report.json | tee evidence/r11/console.log
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/r11/report.json'))
+          assert d['passed'] and not d['errors'],d['errors']
+          assert d['cached']['before']['value']==1
+          assert d['uncached']['after_insert']['value']==2
+          assert d['cached']['after_drop']['value']==2
+          assert d['scientific_result'] in ('CACHE_STALE_AFTER_INSERT','CACHE_REFRESHED_AFTER_INSERT')
+          print('R11_FINAL',json.dumps({'result':d['scientific_result'],
+            'cached_after_insert':d['cached']['after_insert']['value'],
+            'uncached_after_insert':d['uncached']['after_insert']['value'],
+            'events':d['event_counters']}))
+          PY
+      - name: Persist all results including failed safety gate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r11-query-cache-${{ github.run_id }}
+          path: evidence/r11/
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
