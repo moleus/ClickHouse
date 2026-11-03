@@ -212,6 +212,19 @@ def main():
                     'EXPLAIN PLAN ' + query_for(a.table, case))[:25000]
             except Exception as exc:
                 report.setdefault('explain_errors', {})[case] = str(exc)[:1200]
+            # Force an independent SQL plan over the *same* TimeSeriesSelector
+            # that native PromQL uses internally. This diagnostic is not timed.
+            try:
+                expr = METRIC + '{branch=~"' + CASES[case] + '"}'
+                table_function = (
+                    'timeSeriesSelector(' + quote('default') + ',' + quote(a.table) +
+                    ',' + quote(expr) + ',' + str(BASE-60) + ',' + str(END) + ',' +
+                    quote('samples') + ')')
+                stmt = 'EXPLAIN PLAN indexes=1 SELECT count() FROM ' + table_function
+                report.setdefault('selector_explain', {})[case] = sql(a.endpoint, stmt)[:45000]
+                report.setdefault('selector_plan_query_sha256', {})[case] = hashlib.sha256(stmt.encode()).hexdigest()
+            except Exception as exc:
+                report.setdefault('selector_explain_errors', {})[case] = str(exc)[:1400]
         canonical = report['oracle']
         run = os.environ.get('GITHUB_RUN_ID', 'local')
         for idx, case in enumerate(['literal_IN','compact_MATCH','compact_MATCH','literal_IN']):
