@@ -7,7 +7,7 @@ query. Report active-work, input-starvation, output-backpressure, graph shape,
 and the longest weighted DAG work chain. This chain is NOT wall critical path
 because streaming processors overlap and may process multiple blocks in parallel.
 """
-import argparse,collections,json,os,pathlib,statistics,sys
+import argparse,collections,json,os,pathlib,statistics,sys,time
 sys.path[:0]=[".github/ts-lab-perf",".github/ts-lab-bench"]
 from bench_granularity_v11 import sql,inner,streamed_insert,optimize_table,querylogs,wait_no_merges
 from bench_bucket_cxx_abca import post,normalize_any,assert_same
@@ -92,7 +92,7 @@ def details(ids):
         "SELECT query_id,id,parent_ids,plan_step,plan_step_name,name,"
         "elapsed_us,input_wait_elapsed_us,output_wait_elapsed_us,"
         "input_rows,output_rows FROM system.processors_profile_log "
-        "WHERE query_id IN "+quoted+" FORMAT JSONEachRow")
+        "WHERE query_id IN "+quoted)
     by_q=collections.defaultdict(list)
     for n in proc:by_q[n["query_id"]].append(n)
     out={}
@@ -161,7 +161,14 @@ def main():
                 trials.append({"qid":qid,"client_ms":round(ms,3)})
             report["phases"].append({"phase":phase,"table":table,"trials":trials})
             save(a.output,report)
-        logs={x["query_id"]:x for x in querylogs("tsgraph_"+a.case+"_") if x.get("type")=="QueryFinish"}
+        expected_ids=[x["qid"] for ph in report["phases"] for x in ph["trials"]]
+        for attempt in range(10):
+            logs={x["query_id"]:x for x in querylogs("tsgraph_"+a.case+"_") if x.get("type")=="QueryFinish"}
+            missing=[x for x in expected_ids if x not in logs]
+            if not missing:break
+            print("TSGRAPH_QUERYLOG_RETRY",json.dumps({"attempt":attempt+1,"missing":missing}),flush=True)
+            time.sleep(0.3+0.15*attempt)
+        if missing:raise AssertionError(("Missing QueryFinish after retries",missing))
         for phase in report["phases"]:
             for t in phase["trials"]:
                 log=logs.get(t["qid"])
