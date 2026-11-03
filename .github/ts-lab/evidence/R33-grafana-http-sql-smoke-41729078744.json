@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "question_id": "R33",
+  "decision": "PASS_SMALL_GRAFANA_HTTP_SQL_PARITY",
+  "run_id": 41729078744,
+  "url": "https://github.com/moleus/ClickHouse/actions/runs/41729078744",
+  "workflow_commit": "2cf7adba15f7b6c29af1637fc6e06b30b6080fd5",
+  "artifact_id": 13274743639,
+  "artifact_name": "tslab-r33-grafana-api-parity-smoke",
+  "zip_sha256": "cd8e2254bbabd4253aa6cb696a65031ef19b87474fba1093a03bab715800a66b",
+  "binary_sha256": "5d629ddfda91919402fdf8475ec3da9fe718d48ef386bc51be677264df6dc9ef",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_role": "verified unmodified stock O2 + jemalloc from R29",
+  "fixture": {
+    "metric_name": "jenkins_avs_build_stage_duration",
+    "days": 14,
+    "builds_per_day": 64,
+    "stages_per_build": 38,
+    "series": 34048,
+    "builds": 896,
+    "sha256": "0dd1b8babbd65185ebd3a790b2592b9917a7e7e271d3547813ca0ded616f252b",
+    "bytes": 8774680,
+    "min_stage_branch_choices": 32,
+    "min_stage_project_choices": 8
+  },
+  "correctness": "All output label tuples, millisecond timestamps and numeric values equal for all 8 Prometheus HTTP /query_range requests versus SQL prometheusQueryRange on same O2 binary.",
+  "api": {
+    "label_names": 8,
+    "stage_label_values": 38,
+    "jenkins_job_label_values": 32,
+    "series_match": 30,
+    "instant_aligned_series": 0,
+    "instant_shifted_series": 0
+  },
+  "cases": [
+    {
+      "id": "unfiltered14d_1d",
+      "returned_points": 532,
+      "output_label_sets": 38,
+      "sql_ms": 124.689,
+      "http_ms": 136.875
+    },
+    {
+      "id": "branch_job_regex14d_1d",
+      "returned_points": 532,
+      "output_label_sets": 38,
+      "sql_ms": 45.617,
+      "http_ms": 38.981
+    },
+    {
+      "id": "stage_project_regex14d_1d",
+      "returned_points": 42,
+      "output_label_sets": 3,
+      "sql_ms": 29.421,
+      "http_ms": 30.713
+    },
+    {
+      "id": "negative_result14d_1d",
+      "returned_points": 532,
+      "output_label_sets": 38,
+      "sql_ms": 116.983,
+      "http_ms": 116.794
+    },
+    {
+      "id": "all_branches14d_1d",
+      "returned_points": 532,
+      "output_label_sets": 38,
+      "sql_ms": 127.726,
+      "http_ms": 119.351
+    },
+    {
+      "id": "shifted_6h_14d",
+      "returned_points": 532,
+      "output_label_sets": 38,
+      "sql_ms": 87.091,
+      "http_ms": 83.774
+    },
+    {
+      "id": "last_day_hourly",
+      "returned_points": 950,
+      "output_label_sets": 38,
+      "sql_ms": 52.348,
+      "http_ms": 53.75
+    },
+    {
+      "id": "instant_vector_daily",
+      "returned_points": 73,
+      "output_label_sets": 33,
+      "sql_ms": 66.165,
+      "http_ms": 64.917
+    }
+  ],
+  "interpretation": [
+    "Sparse instant-vector daily with default short lookback produced only 73 points/33 stage label sets, unlike 532 points/38 stages for avg_over_time[1d]. These are not the same PromQL semantics.",
+    "Unfiltered and 2-label regex both return 532 aggregated output points. This DOES NOT imply equal input ID counts, costs or selectivity.",
+    "HTTP routing failed with bare minimal config until explicit prometheus_api_v1 handler; configuring handler fixed db/table and also Grafana custom parameters is rejected. Dynamic query parameters with unbound handler passed."
+  ],
+  "limitations": [
+    "Synthetic but structurally coherent Jenkins build-stage proxy; not actual production Grafana Inspector payload or label census.",
+    "Only one query invocation per transport per selector; timings are illustrative, not controlled A/B performance.",
+    "Same ClickHouse PromQL implementation behind HTTP and SQL; parity is not an independent VictoriaMetrics correctness oracle.",
+    "Full 1.33m/14d validation runs separately, no C++ changes or concurrency claims."
+  ]
+}
