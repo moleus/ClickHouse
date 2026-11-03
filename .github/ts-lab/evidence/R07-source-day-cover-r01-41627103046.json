@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "question_id": "R07",
+  "claim_id": "R07-time-day-covering-metadata-v1",
+  "state": "verified_pure_source_math_not_native",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "method": "replay only generated first/last timestamp for each synthetic R01 400-slot/3-day series and count unique integer UTC sample days; no native DB or stored index",
+  "provenance": {
+    "source_generator": ".github/ts-lab-r01/generate_k8s_churn_fixture.py",
+    "sample_day_oracle": ".github/ts-lab/experiments/r07_day_cover_oracle.py",
+    "tests": ".github/ts-lab/experiments/test_r07_day_cover_oracle.py",
+    "test_commit": "7afe6f2a77235856d1a7d32077b4145978816956",
+    "r01_aligned_fixture_sha256": "ea9a8d43c9e58ed916f1bf43949556d8ed18169ddd14033c293af4cd54c9881d",
+    "r01_staggered_fixture_sha256": "ae85496efcab3417634ac812cbd50a40c4eea297a397b50792efd024838e1b9a",
+    "ci_run_id": 41627103046,
+    "ci_url": "https://github.com/moleus/ClickHouse/actions/runs/41627103046",
+    "ci_result": "SUCCESS",
+    "ci_tests": "12/12 pass; decoded job logs independently checked",
+    "original_failed_run_id": 41626607817,
+    "original_failed_assertion": "3h lifetime, 60s cadence sample-day occupancy equals continuous 1.125; actual 1.1243055555555554 because first sample is start+60s, so start at 23:59 has no sample on prior day",
+    "fixed_ci_run_id": 41626770898
+  },
+  "source_parameters": {
+    "life_seconds": 10800,
+    "days": 3,
+    "node_slots": 400,
+    "lifetimes": 24,
+    "base_utc": "2026-08-04T00:00:00Z",
+    "sample_cadences_seconds": [
+      60,
+      300,
+      15
+    ],
+    "first_sample": "start + cadence - 1s",
+    "last_sample": "start + life - 1s",
+    "stagger_seconds": "(slot*317)%10800",
+    "series_count": 28896,
+    "sample_count": 2488320
+  },
+  "aligned": {
+    "series": 28896,
+    "cover_entries": 28896,
+    "copies_per_series": 1,
+    "series_days_histogram": {
+      "1": 28896
+    },
+    "day_entries": {
+      "0": 9632,
+      "1": 9632,
+      "2": 9632
+    }
+  },
+  "staggered": {
+    "series": 28896,
+    "cover_entries": 32424,
+    "copies_per_series": 1.122093023255814,
+    "series_days_histogram": {
+      "1": 25368,
+      "2": 3528
+    },
+    "day_entries": {
+      "0": 9608,
+      "1": 10808,
+      "2": 10808,
+      "3": 1200
+    }
+  },
+  "conditional_cost_model": {
+    "baseline_metadata_rows_per_query": "approximately 2N TAGS+TimeRanges for a broad query in R15, not a universal read bound",
+    "cover_rows_for_2day_window_uniform_14d": "N*(1.125)*(2/14)",
+    "baseline_metadata_over_cover_rows_ratio": 12.444444444444445,
+    "not_latency_or_native_cpu": true,
+    "incremental_sidecar_write_rows": "approximately 1.125N for 3h series, in ADDITION to original TAGS and TimeRanges; 0.125N is only extra duplicates within sidecar"
+  },
+  "negative_result": "No transactional atomic revision mechanism, no actual ClickHouse SQL sidecar, no native speedup, no multi-tenant ACL proof, no long-lived write/merge budget; this is an oracle model for a restricted metric family only",
+  "next_gate": "Try schema-only read-only SQL sidecar against same stock O1 and synthetic fixture with exact native equality including duplicate day IDs, measure storage/merge CPU and fallback after late insert; reject if native planner cannot exploit day-partitioning or maintenance invalidates budget"
+}
