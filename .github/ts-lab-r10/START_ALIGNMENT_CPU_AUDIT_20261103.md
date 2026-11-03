@@ -109,3 +109,43 @@ exact decoded/expanded bytes and operator CPU: `ReadFromMergeTree`,
 Do not suggest time-bucket tuning from only `SelectedMarks`, and do not
 call OS scheduler wait mutex contention. Keep read/ingest/merge and
 official jemalloc allocator checks separate.
+
+## Pinned selector source confirms where work occurs
+
+Independent source check in ClickHouse at
+`52529f0c711566d696917678bf15e7068772fdde`:
+
+1. [`StorageTimeSeriesSelector.cpp::makeWhereFilterForSamplesTable`](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/StorageTimeSeriesSelector.cpp#L722-L767)
+   prunes **whole bucket rows** using `bucket >= min_bucket`,
+   `bucket <= max_time`, `max_time >= min_time`,
+   `min_time <= max_time`, then `id IN (TAGS candidate IDs)`.
+   The row survives the filter as a unit.
+2. [`makeSelectQueryFromSamplesTable`](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/StorageTimeSeriesSelector.cpp#L797-L870)
+   selects `timeSeriesSliceSortedArray(samples,min_time,max_time)`
+   from the physical SAMPLES table. The `samples` column is an
+   **Array(Tuple(timestamp,value))** already read for that bucket.
+   Sample-level slicing is an expression **after** the physical
+   column read, not a MergeTree index over each array element.
+3. [`TimeSeriesSink.cpp::makeSamplesBlock`](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/TimeSeries/TimeSeriesSink.cpp#L447-L521)
+   builds the single physical array per ID and bucket, so a larger
+   bucket means potentially much more decoded array payload per
+   surviving row. The row-level time bounds can reduce how many buckets
+   are read, but cannot guarantee less element decoding work.
+
+**Mechanistic result:** the optimizer can select fewer marks and fewer
+bucket rows with 10800s and still perform more CPU work decoding/slicing
+the **larger surviving arrays**. The measured
+`pod_namespace` increase in representative
+`MergeTreeSelect(ReadPool)` work 89.2→122.4ms is consistent with this
+source path. The exact share from decompression vs array construction
+vs the `timeSeriesSliceSortedArray` expression is *not* separately
+instrumented, so it remains an attribution hypothesis, not a proven
+single function root cause.
+
+This also explains why the storage bucket step is not an easy query
+setting: [`readImpl`](https://github.com/moleus/ClickHouse/blob/52529f0c711566d696917678bf15e7068772fdde/src/Storages/StorageTimeSeriesSelector.cpp#L1233-L1255)
+reads `samples_bucket_step_seconds` from the TimeSeries **table**
+settings. A second physical representation or the existing
+RecentSamples TTL target would be required for query-specific
+step selection, and would require explicit write/merge/disk controls.
+
