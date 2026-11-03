@@ -48,6 +48,7 @@ jobs:
             .github/ts-lab-r18/bench_samples_value_codec.py \
             .github/ts-lab-r18/generate_value_pattern_fixture.py \
             .github/ts-lab-r18/bench_value_codec_2x2.py \
+            .github/ts-lab-r18/test_value_codec_2x2_preflight.py \
             .github/ts-lab-cpu/bench_cpu_knobs.py \
             .github/ts-lab-layout/bench_metadata_paths.py \
             .github/ts-lab-layout/bench_layout_full.py \
@@ -61,6 +62,7 @@ jobs:
           python3 .github/ts-lab-r18/bench_samples_value_codec.py --help >/dev/null
           python3 .github/ts-lab-r18/generate_value_pattern_fixture.py --help >/dev/null
           python3 .github/ts-lab-r18/bench_value_codec_2x2.py --help >/dev/null
+          python3 -m unittest discover -s .github/ts-lab-r18 -p 'test_value_codec_2x2_preflight.py' -v
           mkdir -p evidence
           git rev-parse HEAD | tee evidence/workflow-commit.txt
           uname -a | tee evidence/runner-kernel.txt
