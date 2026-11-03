@@ -18,7 +18,7 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Fail closed on source patch tests and repository symlink
+      - name: Verify corrected source-only R31 AST rewrite unit tests and symlink
         run: |
           set -euo pipefail
           test "$(readlink AGENTS.md)" = ".claude/CLAUDE.md"
