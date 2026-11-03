@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "question_id": "R19-expired-samples-retained-tags-timeranges-v1",
+  "subexperiment": "unsafe-direct-inner-TAGS-GC-dedup-cache-orphaned-native-samples",
+  "scientific_decision": "SAFETY_HAZARD_REPRODUCED",
+  "ci_status": "success",
+  "verified_utc": "2026-11-03T13:19:00Z",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary": {
+    "run_id": 41596421285,
+    "sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+    "compiler": "LLVM22.1.8",
+    "flags": "O1 unmodified stock glibc"
+  },
+  "source_proof": {
+    "sink": "src/Storages/TimeSeries/TimeSeriesSink.cpp TimeSeriesSink::consumeTagsAndSamples calls tags_deduplication_cache->filterOutWrittenRows before TAGS push, then writes TimeRanges and SAMPLES. onFinish marks written rows only after TAGS write.",
+    "cache": "src/Storages/TimeSeries/TimeSeriesDeduplicationCache.cpp stores a steady-clock entry and filters matching ID hashes on later insert; no invalidation occurs when another SQL mutation directly alters a TAGS inner target.",
+    "docs": "src/Parsers/ParserSystemQuery.cpp ## SYSTEM CLEAR|DROP TIME SERIES CACHES explicitly states caches do not notice changes made to target tables directly and gives SYSTEM DROP TIME SERIES CACHES [ON CLUSTER name] [db.]table syntax.",
+    "system": "src/Interpreters/InterpreterSystemQuery.cpp requires table ID and calls StorageTimeSeries::clearCaches."
+  },
+  "protocol": "Two synthetic independent v11 TimeSeries tables; one tags deduplication cache enabled (104857600B, 3600s expiration), another disabled (0B). Same metric+tags/ID input, one 10.0 sample. ALTER DELETE only on each isolated inner TAGS table with mutations_sync=2 (deliberately unsupported as production metadata cleanup). Reinsert same original ID sample 17.0 while cache is stale; compare sample point count, raw TAGS count, uniqExact(id), and exact native avg-over-time. Then issue table-specific SYSTEM DROP TIME SERIES CACHES and insert same ID at 19.0, compare restoration. No production writes and no C++ build.",
+  "results": {
+    "cache_enabled": {
+      "initial": {
+        "physical_samples": 1,
+        "tags_rows": 1,
+        "tags_unique_ids": 1,
+        "native_value": 10
+      },
+      "post_direct_delete": {
+        "physical_samples": 1,
+        "tags_rows": 0,
+        "tags_unique_ids": 0,
+        "native_visible": false
+      },
+      "after_reinsert_without_cache_reset": {
+        "physical_samples": 2,
+        "tags_rows": 0,
+        "tags_unique_ids": 0,
+        "native_visible": false
+      },
+      "after_table_scoped_cache_reset_and_reinsert": {
+        "physical_samples": 3,
+        "tags_rows": 1,
+        "tags_unique_ids": 1,
+        "native_visible": true,
+        "expected_avg": 15.333333333333332
+      }
+    },
+    "cache_disabled": {
+      "initial": {
+        "physical_samples": 1,
+        "tags_rows": 1,
+        "tags_unique_ids": 1,
+        "native_value": 10
+      },
+      "post_direct_delete": {
+        "physical_samples": 1,
+        "tags_rows": 0,
+        "tags_unique_ids": 0,
+        "native_visible": false
+      },
+      "after_same_id_reinsert": {
+        "physical_samples": 2,
+        "tags_rows": 1,
+        "tags_unique_ids": 1,
+        "native_value": 13.5
+      },
+      "after_third_insert": {
+        "physical_samples": 3,
+        "tags_rows": 2,
+        "tags_unique_ids": 1,
+        "native_visible": true,
+        "expected_avg": 15.333333333333332
+      }
+    },
+    "all_native_correctness_gates_pass": true,
+    "all_queries_nonempty_when_expected": true,
+    "all_6_insert_query_finish_records_valid": true,
+    "physical_replacingmergetree_duplicates_tracked_separately": true
+  },
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41642999590",
+    "run_id": 41642999590,
+    "job_id": 125940975492,
+    "artifact_id": 13233249484,
+    "artifact_zip_sha256": "00a90441976eee03f07afdf0bf382261dc4484d5777b2596af94075a3e90b1f1",
+    "script": ".github/ts-lab/experiments/r19_cache_stale_after_tags_gc.py",
+    "script_commit": "0ec174e49d4e9aa6bd48adc43a5715368cc75835",
+    "workflow": ".github/workflows/ts-lab-r19-tags-cache-orphan-safety-20261103.yml",
+    "workflow_commit": "fb8b546f945a54b4e872bebda706bb7423fde54d"
+  },
+  "negative_preceding_runs": [
+    {
+      "id": 41642319169,
+      "decision": "INVALID_METHOD",
+      "issue": "SYSTEM DROP TIME SERIES CACHES missing table argument, control not complete"
+    },
+    {
+      "id": 41642667408,
+      "decision": "INVALID_METHOD",
+      "issue": "Comparing raw TAGS physical count to one logical ID before ReplacingMergeTree merges; fixed with uniqExact(id)."
+    }
+  ],
+  "scope": "This is a correctly working cache under an unsupported direct inner-table mutation, not a bug in normal TimeSeries inserts. No production cleanup recommendation.",
+  "design_implication": "Any TAGS metadata GC must coordinate all writers/replicas and invalidate tags dedup caches before inserts resume, or avoid deleting TAGS entirely; mixed read/write races and failure recovery remain unproven.",
+  "next_action": {
+    "question_id": "R19",
+    "step": "Test selective removal of stale TimeRanges rows only while leaving TAGS intact, because TimeRanges receives a row on every insert and does not use the TAGS dedup cache. First prove native correctness after expiry and resurrection, then physical read/CPU effect; never apply to production.",
+    "stop_condition": "If active sample output changes, old ID cannot resume, old backfills become visible incorrectly, or replay misses TimeRanges, reject cleanup design."
+  }
+}
