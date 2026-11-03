@@ -325,11 +325,15 @@ def main():
         request("CREATE TABLE r30_ts ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0")
         request("SYSTEM STOP MERGES "+inner_target("timeranges"))
         write_batches_from_fixture(data,SimpleNamespace(series=args.series,updates=args.updates))
-        target=inner_target("timeranges")
         if args.profile=="merged":
-            request("SYSTEM START MERGES "+target)
-            request("OPTIMIZE TABLE "+target+" FINAL")
-            request("SYSTEM STOP MERGES "+target)
+            # A fresh ClickHouse restart does not preserve SYSTEM STOP MERGES.
+            # First merge every inner source to at most one part per partition.
+            # This is a *cold merged* profile, NOT the transient R30 k16 proof.
+            for kind in ("tags","timeranges","samples"):
+                target=inner_target(kind)
+                request("SYSTEM START MERGES "+target)
+                request("OPTIMIZE TABLE "+target+" FINAL")
+                request("SYSTEM STOP MERGES "+target)
         expected_timeranges_rows=5120 if args.profile=="merged" else 66560
         report["profile"]=args.profile
         report["physical"]=physical_census(require_duplicates=args.profile=="unmerged")
