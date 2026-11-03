@@ -98,12 +98,21 @@ def materialize(endpoint,samples):
 
 
 def await_old_retired(endpoint,samples):
+    """TTL correctness is no expired *rows*, not absence of empty system.parts.
+
+    In first CI 41636600724, expired old partition 20260810 was already
+    present with sum(rows)=0 just after INSERT. MATERIALIZE TTL did not remove
+    the empty part immediately. Requiring absence of a zero-row part was a
+    false failure. Preserve its presence in the report for diagnostics.
+    """
     for n in range(30):
         parts=partitions(endpoint,samples)
-        if not any(x['partition_id']=='20260810' for x in parts):
+        old_rows=sum(int(x['rows']) for x in parts
+                     if x['partition_id']=='20260810')
+        if old_rows==0:
             return parts
         time.sleep(.2)
-    raise AssertionError('An expired old sample partition remained after MATERIALIZE TTL')
+    raise AssertionError('Expired old sample ROWS still present after MATERIALIZE TTL')
 
 
 def main():
@@ -149,8 +158,13 @@ def main():
            'timeranges_rows':counts(a.endpoint,'timeranges')}
         report['materialize_ttl_sql_sha256_first']=materialize(a.endpoint,sample_inner)
         after=await_old_retired(a.endpoint,sample_inner)
-        if not any(x['partition_id']=='20261020' for x in after):
-            raise AssertionError('Active live partition was incorrectly deleted')
+        if not any(x['partition_id']=='20261020' and int(x['rows'])==LIVE for x in after):
+            raise AssertionError('Active live sample rows missing after TTL')
+        report['checkpoints']['ttl_zero_row_parts']=[
+            {'partition_id':x['partition_id'],'parts':x['parts'],
+             'rows':x['rows'],'bytes':x['bytes']}
+            for x in after if x['partition_id']=='20260810'
+        ]
         if counts(a.endpoint,'samples')!=LIVE:
             raise AssertionError('Real TTL must leave exactly 16 live sample points')
         first=native(a.endpoint,'post_expire',False)
