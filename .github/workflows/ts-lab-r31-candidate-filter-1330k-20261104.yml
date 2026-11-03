@@ -22,7 +22,7 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Verify fail-closed candidate parser on native AST grammar before fixture ingest
+      - name: Test candidate outer projection alias separately from nested TAGS set
         run: |
           set -euo pipefail
           test "$(readlink AGENTS.md)" = ".claude/CLAUDE.md"
