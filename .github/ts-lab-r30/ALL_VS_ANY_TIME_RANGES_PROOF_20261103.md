@@ -63,6 +63,43 @@ Controls: ALL A/A wall drift 0.68%, ANY A/A 1.98%, no query errors. The 8 per-va
 
 The first necessary condition for an actual production gain is high physical duplicate density. Next negative control must explicitly `OPTIMIZE TABLE TimeRanges FINAL` and compare when the right side has one row per logical ID. After that, only a matched C++ A/B/B/A with native labels/timestamp/value and multi-client memory checks can promote the patch.
 
+## Verified negative control: after FINAL the 16x multiplier disappears
+
+[CI #41715251318](https://github.com/moleus/ClickHouse/actions/runs/41715251318) **PASS**, independent [immutable SHA-verified evidence](../ts-lab/evidence/R30-any-sql-postmerge-41715251318.json). The same single ClickHouse O1 lab binary SHA `3990e373...`, exact fixture SHA `613b3b1f...`, and nested generated SQL from premerge were used before and after a scoped operation:
+
+```sql
+SYSTEM START MERGES default.`.inner_id.timeranges.<test UUID>`;
+OPTIMIZE TABLE default.`.inner_id.timeranges.<test UUID>` FINAL;
+SYSTEM STOP MERGES default.`.inner_id.timeranges.<test UUID>`;
+```
+
+Only the TimeRanges inner table was merged. TAGS and SAMPLES remained unchanged.
+
+| Property | Before FINAL | After FINAL |
+|---|---:|---:|
+| Physical TimeRanges rows | 66560 | 5120 |
+| Unique TimeRanges IDs | 5120 | 5120 |
+| Active TimeRanges parts | 18 | 1 |
+| ALL/ANY output multiplicity, stage | 16:1 | 1:1 |
+| ALL/ANY output multiplicity, project | 16:1 | 1:1 |
+| ALL/ANY output multiplicity, whole | 16:1 | 1:1 |
+
+Exact sorted distinct ID sets and full `(id, samples)` outputs match for ALL versus ANY **and remain equal before versus after** for stage/project/whole.
+
+The same-runner project ID SQL A/B/B/A gave:
+
+| Direct SQL metric | Before ALL | Before ANY | After ALL | After ANY |
+|---|---:|---:|---:|---:|
+| Query wall median of paired phase medians | 84.25ms | 55.50ms | 23.00ms | 20.50ms |
+| CPU | 104.176ms | 75.587ms | 25.862ms | 23.595ms |
+| Tracked memory peak | 26.793MB | 14.268MB | 9.616MB | 9.959MB |
+| read_rows | 70656 | 70656 | 10240 | 10240 |
+| read_bytes | 3421276 | 3421276 | 883564 | 883564 |
+
+Premerge ALL/ANY wall difference `28.75ms` (−34.1%), CPU difference `28.59ms` (−27.4%); postmerge wall difference `2.50ms`, CPU difference `2.27ms`, and ANY now has slightly **higher** peak tracked memory. ALL/ANY postmerge wall drift from mirrored phases was 4.35%/4.88%; 2.5ms is too small to conclude a stable gain. **Causal negative-control result is the collapse of physical and JOIN output multiplicity, not a proof of a global zero-cost cutoff.** Physical bytes scanned also shrink after FINAL, so pre/post absolute latency must NOT be attributed solely to JOIN strictness.
+
+**Next bounded experiment:** [R30 duplicate-density 1/2/4/8/16 within-fixture matrix](../workflows/ts-lab-r30-duplication-curve-20261103.yml), [CI #41716512958](https://github.com/moleus/ClickHouse/actions/runs/41716512958), compares ALL/ANY A/B/B/A **within each frozen table** and requires exact cardinality, full sample output parity, per-mode drift; no compiled C++ and no performance claim until artifact inspection. Cross-level wall is not paired, so use within-level effects only.
+
 ## Strict gates before production-oriented work
 
 1. Prove physical `r_i>1` with `SYSTEM STOP MERGES`, not inferred from write count. Record number of TimeRanges parts, rows, distinct IDs and actual ALL/ANY join output rows. If no duplicate rows, this candidate has no basis.
