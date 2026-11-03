@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "question_id": "R19-expired-samples-retained-tags-timeranges-v1",
+  "subexperiment": "direct-inner-TAGS-deletion-and-cache-stale-safety-partial-first",
+  "scientific_decision": "INVALID_METHOD",
+  "ci_conclusion": "failure",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "valid_partial": {
+    "cache_enabled": {
+      "post_initial": {
+        "tags_rows": 1,
+        "physical_samples": 1,
+        "native_visible": true
+      },
+      "post_direct_inner_tags_delete": {
+        "tags_rows": 0,
+        "physical_samples": 1,
+        "native_visible": false
+      },
+      "post_reinsert_same_id": {
+        "tags_rows": 0,
+        "physical_samples": 2,
+        "native_visible": false
+      }
+    }
+  },
+  "error": "SYSTEM DROP TIME SERIES CACHES without a target table is invalid syntax: Expected one of ON, identifier",
+  "source_proof": "src/Parsers/ParserSystemQuery.cpp documents SYSTEM DROP TIME SERIES CACHES [ON CLUSTER cluster_name] [db.]table; src/TimeSeriesDeduplicationCache.cpp caches successful earlier TAGS rows; clearCaches does not run on direct inner TAGS delete.",
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41642319169",
+    "job_id": 125938668508,
+    "artifact_id": 13232598814,
+    "official_sha256": "44d1d01962bd8dcb46ac79f33db5d786878888acc4f715ba2faf72cd8e80db5c"
+  },
+  "corrected_run": 41642667408,
+  "limitations": [
+    "No disabled-cache control completed in this run.",
+    "Native invisibility for cached direct-table modification is a valid partial observation only; no recovery control yet.",
+    "This is not a supported automatic production cleanup strategy, and not a core TimeSeries INSERT bug."
+  ]
+}
