@@ -1,0 +1,98 @@
+name: R02 aggregate three independent CPU ABBA runner proofs
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r02-reduce-three-runners-20261103.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-r02-reduce-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  aggregate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: moleus/ClickHouse
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify reducer source and artifact pins
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/r02-reduced "$RUNNER_TEMP/r02-reduce"
+          python3 -m py_compile .github/ts-lab/experiments/r02_reduce_cpu_replicates.py
+          python3 .github/ts-lab/experiments/r02_reduce_cpu_replicates.py --help > evidence/r02-reduced/help.txt
+          git rev-parse HEAD > evidence/r02-reduced/git-head.txt
+          sha256sum .github/ts-lab/experiments/r02_reduce_cpu_replicates.py > evidence/r02-reduced/reducer-sha.txt
+          test "$(gh api repos/$REPO/actions/artifacts/13224084337 --jq '.digest')" = \
+            "sha256:dae14fcafa6a28c61f285c75d50874c0e8de12eb89c46999a041ae585d6776ee"
+          test "$(gh api repos/$REPO/actions/artifacts/13224747863 --jq '.digest')" = \
+            "sha256:37eba3245a671cd3766faa4378da593e3d3654a767b3e6147ceeeafef9d57a25"
+          test "$(gh api repos/$REPO/actions/artifacts/13224819045 --jq '.digest')" = \
+            "sha256:da1808c1f14a53ff360d7a2624d789ee0a501670102426332b3c51dbbbd42821"
+      - name: Download original plus two independent-runner exact artifact names
+        run: |
+          set -euo pipefail
+          gh run download 41624336193 -R "$REPO" \
+            -n tslab-r02-process-cpu-96-41624336193 \
+            -D "$RUNNER_TEMP/r02-reduce/original"
+          gh run download 41624764688 -R "$REPO" \
+            -n tslab-r02-process-cpu-replicate-41624764688-one \
+            -D "$RUNNER_TEMP/r02-reduce/one"
+          gh run download 41624764688 -R "$REPO" \
+            -n tslab-r02-process-cpu-replicate-41624764688-two \
+            -D "$RUNNER_TEMP/r02-reduce/two"
+          python3 - <<'PY'
+          import pathlib,os,zipfile
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'r02-reduce'
+          for name in ('original','one','two'):
+              folder=root/name
+              assert (folder/'report.json').is_file(),name
+              path=root/(name+'.zip')
+              with zipfile.ZipFile(path,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=1) as dst:
+                  for src in sorted(folder.rglob('*')):
+                      if src.is_file():
+                          dst.write(src,src.relative_to(folder))
+              print('REPACKED_FOR_REDUCER',name,path.stat().st_size)
+          PY
+          sha256sum "$RUNNER_TEMP/r02-reduce"/*.zip > evidence/r02-reduced/local-repacked-zip-sha256.txt
+          cat > evidence/r02-reduced/source-artifacts.txt <<'EOF'
+          Original: run 41624336193 artifact 13224084337 sha256:dae14fcafa6a28c61f285c75d50874c0e8de12eb89c46999a041ae585d6776ee
+          Runner one: run 41624764688 artifact 13224747863 sha256:37eba3245a671cd3766faa4378da593e3d3654a767b3e6147ceeeafef9d57a25
+          Runner two: run 41624764688 artifact 13224819045 sha256:da1808c1f14a53ff360d7a2624d789ee0a501670102426332b3c51dbbbd42821
+          Note: output report artifact_hashes are hashes of local repacked ZIPs, not official GitHub artifact ZIP digests above.
+          EOF
+      - name: Strict within-runner ratio reduction and independent replication decision
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab/experiments/r02_reduce_cpu_replicates.py \
+            --artifact "$RUNNER_TEMP/r02-reduce/original.zip" \
+            --artifact "$RUNNER_TEMP/r02-reduce/one.zip" \
+            --artifact "$RUNNER_TEMP/r02-reduce/two.zip" \
+            --output evidence/r02-reduced/report.json | tee evidence/r02-reduced/console.log
+          python3 - <<'PY'
+          import json
+          report=json.load(open('evidence/r02-reduced/report.json'))
+          assert report['valid'] and report['decision']=='REPLICATED_LAB_EFFECT'
+          assert report['cpu_write_and_merge_both_replicated']
+          assert report['fixture_sha256']=='dd2dd55ee8fcf3c11c1fef94ebdd54ac8b3a6a53cea6deaae991b3b94c88b931'
+          assert report['physical_bytes']['lc']==6238086
+          assert report['physical_bytes']['raw']==6026894
+          print('R02_REPLICATION_GATE',json.dumps({'valid':True,
+            'decision':report['decision'],'ratios':report['ratios']},separators=(',',':')))
+          PY
+      - name: Preserve only reduced evidence, not 3 raw artifact copies
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r02-three-runner-proof-${{ github.run_id }}
+          path: evidence/r02-reduced/
+          if-no-files-found: error
+          retention-days: 45
+          compression-level: 1
