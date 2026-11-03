@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "question_id": "R21-tags-dedup-cache-working-set-knee-v1",
+  "subexperiment": "same-runner-small-32KiB-cache-fixed-rotate-rotate-fixed-input-order-ABBA",
+  "decision": "INVALID_METHOD_FOR_READ_LATENCY",
+  "ci_conclusion": "failure",
+  "valid_factual_observations": true,
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "binary_sha256": "f0a2fa1f814c58853f43423705cac10ab9df3bfe5887e27ebe9620ba7cb9660e",
+  "fixture_sha256": "052b2058e7adc280a956b083c9af7d2e636eba6ab2607c204e6f676fcc5d1883",
+  "test_matrix": "Same one Ubuntu runner, four fresh unpatched O1 server process phases A0 fixed/B1 rotated/B2 rotated/A3 fixed with identical 32768B tags dedup cache, 12*4096 input rows, identical native project labels/timestamps/numeric oracle, merges stopped on original inner targets. Order is only intended source variable. 3 warmups+6 timed native queries/phase and source-pinned system.events hit/miss metrics.",
+  "valid_facts": {
+    "all_native_numeric_labels_timestamps_correct": true,
+    "all_49152_sample_points_same": true,
+    "cache_hits_per_phase": 2497,
+    "cache_misses_per_phase": 46655,
+    "raw_tags_rows_per_phase": 46655,
+    "native_read_rows_per_phase": 144959,
+    "native_read_bytes_per_phase": 10824906,
+    "whole_process_write_bytes_per_phase": 5427200,
+    "per_phase_tag_compressed_bytes": {
+      "A0": 1570610,
+      "B1": 1571890,
+      "B2": 1571890,
+      "A3": 1570610
+    },
+    "write_cpu_s": {
+      "A0": 0.74,
+      "B1": 0.77,
+      "B2": 0.76,
+      "A3": 0.74
+    },
+    "write_cpu_AA_drift": 0
+  },
+  "invalid_performance": {
+    "native_wall_p50_ms": {
+      "A0": 440.09168,
+      "B1": 397.40342,
+      "B2": 359.73274,
+      "A3": 296.9111
+    },
+    "native_wall_AA_control_drift": 0.388548,
+    "native_cpu_p50_ms": {
+      "A0": 728.1675,
+      "B1": 702.2405,
+      "B2": 621.037,
+      "A3": 513.313
+    },
+    "native_cpu_AA_control_drift": 0.346126,
+    "max_allowed_AA_drift": 0.25,
+    "invalid_reason": "Fixed-order baseline A0/A3 read-wall drift 38.85%, read-CPU drift 34.61%; violates preregistered25% control. Cannot attribute any observed read latency difference to row order. Do not lower drift threshold or pool with prior independent two runners."
+  },
+  "interpretation": "For this exact 4096-ID/12-batch fixed and rotated order fixture, source order did not change cache hit/miss counts or raw TAGS row count; it changed compressed TAGS bytes by just1280 bytes (0.0815%) but the A/A native read drift was far larger, so speed differences are not controlled. No robust row-order effect claimed.",
+  "workflow": {
+    "url": "https://github.com/moleus/ClickHouse/actions/runs/41653813776",
+    "job_id": 125978681310,
+    "artifact_id": 13237534433,
+    "official_sha256": "3055316232a50d740ef37bf989406ec2d25617811c6e2df5049689f83925066b",
+    "script": ".github/ts-lab/experiments/r21_input_order_small_cache_abba.py",
+    "script_commit": "2d64387b384383dcc26361fbc68b8b7cd74acec5",
+    "workflow": ".github/workflows/ts-lab-r21-input-order-controlled-20261103.yml",
+    "workflow_commit": "69db1af64585972bceff8bad4c357e9f4b181711"
+  },
+  "next_action": "Stop duplicate order timing tests absent new explanatory hypothesis. R21 capacity knee remains independently proven in successful CI41652867042. Priority next: source-backed tags cache expiration and natural merges effects under different owner question ID rather than conflate this invalid pilot with speed claim."
+}
