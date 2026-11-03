@@ -1,0 +1,17 @@
+{
+  "id": "R08-matcher-absence-regex-v1",
+  "question": "Does native TimeSeries PromQL preserve absent-vs-empty matcher and full-match regex semantics on a fixed small fixture?",
+  "owner": "chatgpt-github-native-semantics-20261103",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "pinned O1 JOIN-override binary sha256 3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221; build run 41531656434; same executable for every case",
+  "candidate": "native prometheusQueryRange against independent Python matcher oracle, no C++ patch",
+  "fixture": "deterministic small synthetic series including missing, empty, a, ba, distinct group labels; generator seed and fixture sha recorded in evidence",
+  "single_variable": "matcher semantics (=, !=, =~, !~) including omitted labels and regex anchoring; no performance comparison",
+  "math_bound": "For each series s and matcher m, exact expected membership is m(label(s) if present else empty-string); for regex use fullmatch; compare output keys and values with independent oracle, 0 numeric tolerance for integer gauges",
+  "falsifier": "Mismatch in exact (id,timestamp,value) set, duplicate outputs, no nonempty control or runtime exception; preserve counterexample",
+  "test_matrix": "instant native PromQL at fixed UTC step on missing/empty/a/ba/abc tag values; 10 matcher expressions plus multi matchers and empty sets, optional restart/merge",
+  "runner_budget": "local verified binary and small fixture; optional single isolated GitHub ubuntu-24.04 job under 15 min, no C++ rebuild",
+  "planned_workflow": ".github/workflows/ts-lab-r08-native-matcher-semantics-20261103.yml; path-only push, run-unique concurrency",
+  "dependencies": []
+}
