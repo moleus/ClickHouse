@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "session_id": "r12-decoder-rejection-r09-20261103-01",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "c7d356e5682163693f7752b8cb5537593eaaf130",
+  "last_verified_utc": "2026-11-03T10:45:35.385Z",
+  "question_id": "R12",
+  "summary": "Completed exact matched two-existing-binary LLVM22.1.8 O1 native LC UUID decoder performance ABBA across four selectors and independently audited latest upstream source. Stage regression +11.6% p50/+10.7% CPU with 0.11% control drift; unsafe dictionary-adoption C++ prototype REJECTED and excluded from optimization stack. All results committed on unified lab branch, no master/old-branch writes or cancellations.",
+  "completed": [
+    "Root and claim: claims/roots/R12.json and claims/R12-lc-decoder-matched-binaries-v1.json; native Python script and self-path workflow in ts-lab-r12; CI 41620022189 completed SUCCESS as methodology, not optimization. Full report: evidence/R12-lc-decoder-matched-41620022189.json and artifact 13223980393 ZIP SHA256 9b0d8cbd13691383877188be9beaed0e4526493dfa63c7f760fbc085987229dd.",
+    "Exact source SHA52529f0c711566d696917678bf15e7068772fdde, fixture 8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858, control binary SHA3990e373b43396d0faafd8feffe5dd6514bd57c520ec12e89b8e5796d64e6221, experimental binary SHAbcafb369ccbfb063faea9c82694c4b3a527430432a81401225e2a8091a3c2cb9. Common code patches compared exactly, only extra candidate source path SerializationLowCardinality.cpp, same O1/LLVM flags.",
+    "R12 fresh-server each A/B/B/A phase, 2 warmups+6 measured queries/phase, full nonempty native PromQL parity and stable physical LC UUID parts: stage 916.225->1022.784ms, CPU1694.628->1876.203ms (reject), project1795.351->1774.902ms (within drift), regex1956.876->1919.190ms (within drift), whole1370.533->1403.063ms (within drift).",
+    "Added source safety/cost audit .github/ts-lab-r12/LC_FRESH_DICTIONARY_SAFETY_AND_COST_20261103.md, failure ledger M39, CPU checkpoint and updated INDEX and OPTIMIZATION_STACK with REJECT and no stacking/rebuild rule.",
+    "R09 source audit at upstream master a79b6cefb2fafc49d04f357a7edc512e25b93753; selector/sink source blobs match pinned source. Upstream adds public static ColumnLowCardinality::checkIndexesAreLimited and validation on global-dictionary path, but the lab experimental no-global branch remains unsafe. Root/claim and immutable evidence R09-upstream-source-audit-20261103.json recorded. No latest-master compile.",
+    "R10 same runner 2x2 aligned/stagger bucket sensitivity #41619669176 PASS; staggered pod_namespace 3h/1h wall ratio 1.25 vs aligned 0.97, so no global 3h bucket setting. Other agents own R10 changes and R11 query-cache work."
+  ],
+  "negative_results": [
+    "REJECT current experimental LC decoder: 11.6% p50 and 10.7% total query CPU STAGE regression despite matched C++ build and correctly equal native values; known malformed-index bounds bypass and duplicate-key assumption.",
+    "R12 trace_log CPU components/hot_leaves/folded stacks are empty (not zero CPU). Representative stage sum processors work 1664->1666ms differs from median QueryFinish CPU change; no call-site or mutex attribution.",
+    "Project/regex/whole small p50 effects no larger than baseline control drift; not a positive experimental performance result.",
+    "R09 only inspects seven selected source files at snapshot, not a matched latest-master binary benchmark, and does not establish performance changes."
+  ],
+  "active_run_ids": [
+    41607779848
+  ],
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "fixture_sha256": "8f3a36846f80d6be5a8604d142e934399f2687094766c57bf105e43977f52858",
+  "relevant_paths": [
+    ".github/ts-lab/evidence/R12-lc-decoder-matched-41620022189.json",
+    ".github/ts-lab/INDEX.md",
+    ".github/ts-lab/METHODOLOGY_AND_FAILURES.md",
+    ".github/ts-lab/OPTIMIZATION_STACK.md",
+    ".github/ts-lab-cpu/RESEARCH_CHECKPOINT_20261103.md",
+    ".github/ts-lab-r12/LC_FRESH_DICTIONARY_SAFETY_AND_COST_20261103.md",
+    ".github/ts-lab/evidence/R09-upstream-source-audit-20261103.json",
+    ".github/ts-lab/claims/roots/R12.json",
+    ".github/ts-lab/claims/roots/R09.json",
+    ".github/ts-lab/claims/R12-lc-decoder-matched-binaries-v1.json"
+  ],
+  "blocked_by": [
+    "Previously built experimental LC path is source-unsafe for malformed dictionary indexes and duplicate-key assumption; do not merge/rebuild.",
+    "Current jemalloc O1 native JOIN override build run41607779848 still Compile one executable; do not cancel or launch duplicate compile.",
+    "Reopening decoder investigation would need a different guarded C++ design with indexed/duplicate/nullable/malformed and continuous-read correctness gates, plus a cost bound showing why it could beat existing RAW UUID opt-in.",
+    "No production jemalloc benchmark or full VM comparison yet."
+  ],
+  "next_action": {
+    "question_id": "R12",
+    "step": "On restart, refresh GitHub HEAD, all live/queued runs and roots. Treat R12 unguarded decoder as CLOSED REJECT. Verify completed jemalloc build 41607779848 artifact only when available, compare SHA/USE_JEMALLOC before manual allocator proof; do not launch duplicate build. Continue independent R05 physical mark/ID selectivity or R02/R10 steady read+ingest only if corresponding roots/owners leave explicit free scope. Confirm R12 evidence linked from INDEX, failure M39 and optimization stack. If CPU trace attribution is revisited, first establish why trace_log was empty before launching a new experiment.",
+    "stop_condition": "Stop duplicate claims, unsafe C++ promotion, unmatched binary/fixture, missing output parity, A/A drift >25%, memory OOM and unauthorized GitHub writes. No master or production mutations."
+  }
+}
