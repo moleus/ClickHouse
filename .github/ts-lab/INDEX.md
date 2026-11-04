@@ -1,3 +1,9 @@
+## R36 / E05: bounded one-label projection candidate (2026-11-04; UNMEASURED)
+
+- [R36 source proof and comparison contract](../ts-lab-r36/README.md), [canonical claim](claims/roots/R36.json), [source-pinned collector patch](../ts-lab-r36/apply_single_label_intern.py), [R35 versus R36 native runner](../ts-lab-r36/run_phase.py), [147-case guard](../ts-lab-r36/guard_suite.py).
+- [R36 source-matched LLVM22/O2/jemalloc build](https://github.com/moleus/ClickHouse/actions/runs/41787693315) initiated; isolated patch to one collector file plus verified R35 compiler helper. The collector already deduplicates **source group IDs**; R36 interns one **projected label value** across distinct full source group IDs. Bound D <= min(4096,N/8); high-cardinality/multi-label fallback before collector mutation. Source-level object-work bound O(D) instead of up to O(N); **no native CPU, latency or RSS gain has been measured**.
+- Use **R35**, not stock, as the direct control. Next: compile/guards, then fresh-server 1.33m/14d native ABBA, dense and missing-label controls. No master/upstream/production changes.
+
 # TimeSeries performance lab — index
 
 ## R35 / E05: completed native redundant-aggregation elimination (2026-11-04)
