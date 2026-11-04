@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "question_id": "R37",
+  "primary_claim_id": "R37-injective-drop-without-regroup-v1",
+  "owner": "chatgpt-e05-r37-20261104",
+  "scope": "Native PromQL C++ compiler: when a range function has a direct RangeSelector with one nonempty exact __name__ matcher, and R35 cannot defer metric-name removal to an immediate safe aggregator, replace the full duplicate-check GROUP BY in dropMetricName() with a simple direct timeSeriesRemoveTag projection. No new storage, selector, sample read, TimeRanges JOIN, aggregation arithmetic, R34/R36 collector changes or production modifications. R35 stays the source-matched control; run R35 patch first and one additional source-pinned compiler delta.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-04",
+  "hypothesis": "Injective projection (metric,L) -> L cannot merge two different groups if metric is constant; duplicate check GROUP BY can be replaced by a SELECT projection with no regrouping. This extends R35 to root range functions, by(__name__), without, binary and topk parents, while preserving mixed-metric duplicate errors on regex/nonexact selectors.",
+  "baseline": "R35 build 41732238195, binary SHA256 68d6e8f954a44beeb137acea61b0b77afac32cc705e59404413c233b57e6a06b",
+  "candidate": "R35 C++ metric drop plus R37 injective projection-only path",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "decision": "UNMEASURED",
+  "runner_budget": "one new O2/jemalloc cached build and a separate native correctness/speed ABBA; no competing heavy compile lane",
+  "falsifier": "Compile failure, any result mismatch or error-code change on mixed names/staleness/NaN/offset/subquery/roots, plan not losing one aggregation, or no repeatable CPU/wall gain, or memory/RSS regression."
+}
