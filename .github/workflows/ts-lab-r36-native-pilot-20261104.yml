@@ -15,7 +15,7 @@ jobs:
     runs-on: ${{ vars.CH_BENCH_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 120
     env:
-      TS_LAB_ROOT: ${{ runner.temp }}/tslab-r36-pilot
+      TS_LAB_ROOT: /tmp/tslab-r36-pilot
       SOURCE_SHA: 52529f0c711566d696917678bf15e7068772fdde
     steps:
       - uses: actions/checkout@v4
