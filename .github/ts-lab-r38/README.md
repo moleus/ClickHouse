@@ -1,6 +1,21 @@
 # R38 — defer fixed metric-name removal through `without(...)`
 
-**Status: unmeasured C++ research candidate.** R35 direct-control binary SHA256 `68d6e8f954a44beeb137acea61b0b77afac32cc705e59404413c233b57e6a06b`.
+**Status: VALIDATED RESEARCH CANDIDATE for the measured native without(...) query; not production-promoted.** R35 direct-control binary SHA256 `68d6e8f954a44beeb137acea61b0b77afac32cc705e59404413c233b57e6a06b`.
+
+## Verified native A/B/B/A, 2026-11-04
+
+[Immutable R38 evidence](../ts-lab/evidence/R38-native-1330k-local-20261104.json), [source-matched R38 build 41791235811](https://github.com/moleus/ClickHouse/actions/runs/41791235811), [155-case native correctness and physical-plan PASS 41791869622](https://github.com/moleus/ClickHouse/actions/runs/41791869622).
+
+The native `avg without(build,project,branch,job)(avg_over_time(ci_duration[1d]))` query, 1.33m series/14d/532 output points, uses exactly the same frozen RAW_UUID parts with 3,990,000 read rows and 336,024,252 read bytes in all phases. Four fresh servers in sequence R35/R38/R38/R35, two warmups+four measured requests each; every response matches the independent generator-derived oracle. Cgroup 4 CPU quota/4GiB memory, ClickHouse server cap 2.85GB, two query threads. Values are means of within-phase medians, not p95/p99.
+
+| Metric | R35 | R38 | Reduction |
+|---|---:|---:|---:|
+| Elapsed wall | 11,615ms | 7,056.5ms | **39.25%** |
+| Query CPU | 11,498.10ms | 6,952.35ms | **39.53%** |
+| Tracked query memory | 1,416,390,064B | 870,314,648B | **38.55%** |
+| Observed request RSS peaks | 2,049,265,664B | 1,431,579,648B | **30.14%** |
+
+Baseline control drift: wall 1.91%, CPU 2.32%; all query outputs and physical parts equal. R38 is a valid **additional gain compared with R35 on this single native query**. It avoids both the intermediate duplicate-check aggregation and intermediate metric-name group projection. R37 independently saves 32.8% wall on the same logical selector, but the two candidates have **not** been directly compared in one matched ABBA experiment. No production/VM superiority or latency tails claim.
 
 ## Source proof
 
