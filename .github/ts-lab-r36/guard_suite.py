@@ -1,4 +1,4 @@
-"""Native semantic and physical-plan guards for R35. Run stock before r35."""
+"""R36 source-matched guards. Run R35 then R36; compare full native results."""
 import argparse,json,math,re,pathlib,sys
 sys.path.insert(0,str(pathlib.Path(__file__).resolve().parent.parent/'ts-lab-r35'))
 from native import ROOT,START,Server,sql,sha
@@ -30,6 +30,18 @@ queries.update({
  'last_metric_retained':'sum by(__name__,stage)(last_over_time(foo[30s]))',
  'ordinary_name_label':'sum by(stage)(label_replace(avg_over_time(foo[30s]),"__name__","new","stage",".*"))',
 })
+# R36 must run on >=128 different source groups. The four-series R35
+# suite alone exercises only the stock collector fallback.
+queries.update({
+ 'wide_stage': 'avg by(stage)(avg_over_time(wide[30s]))',
+ 'wide_stage_sum': 'sum by(stage)(sum_over_time(wide[30s]))',
+ 'wide_missing': 'sum by(absent_label)(avg_over_time(wide[30s]))',
+ 'wide_high_cardinality': 'sum by(instance)(avg_over_time(wide[30s]))',
+ 'wide_two_labels': 'sum by(stage,instance)(avg_over_time(wide[30s]))',
+ 'wide_without': 'sum without(instance)(avg_over_time(wide[30s]))',
+ 'wide_regex': 'sum by(stage)(avg_over_time(wide{stage=~"stage-(1|2|3)"}[30s]))',
+ 'wide_absent_match': 'sum by(stage)(avg_over_time(wide{stage=""}[30s]))',
+})
 def norm(raw):return sorted([json.loads(x) for x in raw.splitlines() if x],key=lambda x:json.dumps(x,sort_keys=True))
 def equal(a,b):
     if isinstance(a,(int,float)) and isinstance(b,(int,float)):
@@ -38,7 +50,7 @@ def equal(a,b):
     if isinstance(a,list) and isinstance(b,list):return len(a)==len(b) and all(equal(x,y) for x,y in zip(a,b))
     return a==b
 with Server(binary,ROOT/'guard-data'):
-    if args.variant=='stock':
+    if args.variant=='r35':
         sql('DROP TABLE IF EXISTS guard')
         sql('CREATE TABLE guard ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0')
         for metric,instance,stage,values in [
@@ -48,6 +60,14 @@ with Server(binary,ROOT/'guard-data'):
             ('bar','a','s1',['3','3','3','3','3','3','3','3'])]:
             pairs=','.join(f'(toDateTime64({START+(i+1)*10},3),toFloat64({v}))' for i,v in enumerate(values))
             sql(f"INSERT INTO guard (metric_name,tags,samples) SELECT '{metric}',map('stage','{stage}','instance','{instance}'),[{pairs}]")
+        # 512 distinct full-label source groups, 38 stage values plus absence.
+        # 512 unique instances exceed R36's N/8 cardinality cap and use fallback.
+        sql(f"""INSERT INTO guard (metric_name,tags,samples)
+        SELECT 'wide', map('stage', if(number%41=0, '', concat('stage-',toString(number%38))),
+                          'instance',concat('unique-',toString(number)),
+                          'project',concat('project-',toString(number%8))),
+               [(toDateTime64({START+50},3),toFloat64(1+number%101))]
+        FROM numbers(512)""")
     for key,expr in queries.items():
         escaped=expr.replace('\\','\\\\').replace("'","\\'")
         q=f"SELECT * FROM prometheusQueryRange(guard,'{escaped}',{START+20},{START+100},10) SETTINGS output_format_json_quote_denormals=1 FORMAT JSONEachRow"
@@ -55,18 +75,18 @@ with Server(binary,ROOT/'guard-data'):
         except RuntimeError as e:
             m=re.search(r'Code: (\d+)',str(e));entry={'status':'ERROR','code':int(m.group(1)) if m else -1,'error':str(e)[:600]}
         entry['promql']=expr;report['cases'][key]=entry
-    for key in ('avg/avg_over_time','by_metric','single_regex','without','subquery','offset'):
+    for key in ('avg/avg_over_time','by_metric','single_regex','without','subquery','offset','wide_stage','wide_high_cardinality'):
         expr=queries[key];q=f"SELECT * FROM prometheusQueryRange(guard,'{expr}',{START+20},{START+100},10)"
         plan=sql('EXPLAIN PLAN '+q);report['cases'][key]['plan_aggregations']=plan.count('Aggregating')
         report['cases'][key]['plan']=plan
 if args.variant!='stock':
-    control=json.loads((ROOT/'guard-stock.json').read_text())
+    control=json.loads((ROOT/'guard-r35.json').read_text())
     for key,v in report['cases'].items():
         old=control['cases'][key]
         if v['status']!=old['status'] or (v['status']=='ERROR' and v['code']!=old['code']) or (v['status']=='OK' and not equal(v['output'],old['output'])):
             report['errors'].append(key)
-    assert report['cases']['avg/avg_over_time']['plan_aggregations']==control['cases']['avg/avg_over_time']['plan_aggregations']-1,'Fastpath did not remove exactly one aggregate'
-    for key in ('by_metric','single_regex','without','subquery','offset'):
+    assert report['cases']['avg/avg_over_time']['plan_aggregations']==control['cases']['avg/avg_over_time']['plan_aggregations'],'R36 changed aggregation count unexpectedly'
+    for key in ('by_metric','single_regex','without','subquery','offset','wide_stage','wide_high_cardinality'):
         assert report['cases'][key]['plan_aggregations']==control['cases'][key]['plan_aggregations'],key
 report['status']='PASS' if not report['errors'] else 'FAIL'
 (ROOT/f'guard-{args.variant}.json').write_text(json.dumps(report,indent=2,allow_nan=False))
