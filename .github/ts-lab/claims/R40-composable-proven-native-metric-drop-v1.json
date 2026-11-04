@@ -1,0 +1,21 @@
+{
+  "id": "R40-composable-proven-native-metric-drop-v1",
+  "question": "Can the three proven native compiler optimizations R35, R37 and R38 be combined in one binary with stable plans, unchanged semantics and no regressions?",
+  "owner": "chatgpt-e05-r40-20261104",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "R35/R37/R38 pinned optimized independent binary SHA; no stock-only comparison",
+  "candidate": "Apply R35, then R37, then R40 source-pinned guard tweak derived from R38 on the exact R37 blob",
+  "fixture": "1.33m/14d RAW_UUID, 38 stage grouping, without, root, density/counters, NaN, mixed names and offsets",
+  "single_variable": "R35+R37+R38 cumulative compiler patch on applyFunctionOverRange.cpp, no collector, storage or index changes",
+  "math_bound": "Parent aggregation eliminates one full N-group regroup and project as R35/R38; nondefer cases use R37 row preserving projection, not an additional aggregate. No new algorithmic speed gain assumed from composition.",
+  "falsifier": "C++ build failure, any 155+ native output mismatch to correct baseline, altered regex/offset errors, unexpected aggregation plan, repeatable latency/memory regressions over matched controls",
+  "test_matrix": "155 or more native semantic/plan controls plus full by(stage)/without/root native outputs; source-matched ABBA against best relevant previous variant; high cardinality/regex negative controls",
+  "runner_budget": "one O2/jemalloc binary using ccache; one semantic suite; cross-shape native A/B/B/A; no concurrent long builds",
+  "planned_workflow": ".github/workflows/ts-lab-r40-cumulative-compiler-o2-20261104.yml",
+  "dependencies": [
+    "R35",
+    "R37",
+    "R38"
+  ]
+}
