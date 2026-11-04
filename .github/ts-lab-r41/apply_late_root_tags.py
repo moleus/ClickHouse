@@ -15,7 +15,7 @@ FINALIZER = "src/Storages/TimeSeries/PrometheusQueryToSQL/finalizeSQL.cpp"
 EXPECTED_BLOBS = {
     COMPILER: "0c835443a5d63f5dae6d2df02be462697a1ed2e5",
     PIECE: "310deb3cce6b6af5a33a8bec9e6b7ed4946b7234",
-    FINALIZER: "0e1b1f6a5f68ba9f0fbb96bb5aae43e71f14c0a4",
+    FINALIZER: "8f0a2d83dafdc023906f89dc745c97de445fddeb",
 }
 ROOT_OLD = '''        else if (canProjectMetricNameInjectively(node))
         {
