@@ -1,0 +1,21 @@
+{
+  "id": "R42-direct-root-tags-serialization-v1",
+  "question": "Does direct C++ final tag serialization without __name__ improve R41 root native PromQL CPU and RSS relative to SQL arrayFilter?",
+  "owner": "chatgpt-e05-r42-20261104",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "R41 build 41799488038, binary SHA256 1fbf8d81f3d4f730f87578e4fb4f16de593f6fee30370d0afd2fd7c67f8281a2; R40 cumulative already verified",
+  "candidate": "R41 plus C++ function and finalizer select; no extra group-register function; preserved field in SQLQueryPiece",
+  "fixture": "Frozen 1.33m/14d RAW_UUID CI-shaped source, root avg_over_time with stage-1 filter returns 35000 unique full label groups, 160 compatibility cases, dense counter controls",
+  "single_variable": "Replace R41 arrayFilter(timeSeriesGroupToTags) at last output stage with specialized per-query C++ tag serializer",
+  "math_bound": "Remove an extra materialized Array(Tuple) intermediate and its scan for each output group; output construction still O(N*K), no sample read reduction. End-to-end savings uncertain until measured.",
+  "falsifier": "Compilation or registration failure, semantic mismatch in label/timestamp/value/errors, `__name__` unexpectedly retained or absent, worse native CPU/RSS or no reproducible effect vs R41",
+  "test_matrix": "R41/R42 semantic 160-case plus 35k independent root oracle, R41/R42/R42/R41 fresh-server ABBA with 4CPU/4GiB and 2.85GB limit, query CPU, wall, memory tracker, sampled RSS, read rows/bytes equality",
+  "runner_budget": "one source-matched optimized build from R41 ccache; one semantic suite and native fresh-server ABBA R41/R42/R42/R41, including RSS; reject regression or drift",
+  "planned_workflow": ".github/workflows/ts-lab-r42-direct-root-tags-o2-20261104.yml",
+  "dependencies": [
+    "R41",
+    "R40",
+    "R38"
+  ]
+}
