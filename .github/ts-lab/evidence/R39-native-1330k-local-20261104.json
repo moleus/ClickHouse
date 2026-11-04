@@ -1,0 +1,84 @@
+{
+  "experiment_id": "R39-without-projected-tags-intern-v1",
+  "status": "INCONCLUSIVE",
+  "scientific_decision": "INCONCLUSIVE_EFFECT_NEAR_CONTROL_DRIFT",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": {
+    "build": 41791235811,
+    "sha256": "03dcb8ae1fba6d3fd4a41afb608f1af88a1fb7fd16ef6e8c58ae061629a810ea"
+  },
+  "candidate": {
+    "build": 41792846773,
+    "sha256": "d407e2ca29750fa480cba7f895e3109f6ebe2534d2fe3c0313d556f906507e76",
+    "delta": "R38 compiler unchanged, R39 one ContextTimeSeriesTagsCollector.cpp removeTags bounded hash-first interning patch"
+  },
+  "semantic": {
+    "native_case_count": 157,
+    "run": 41793653918,
+    "results": "PASS",
+    "wide_high_churn_groups": 32768,
+    "high_cardinality_fallback": "tested",
+    "compiler_plan": "unchanged"
+  },
+  "fixture": {
+    "series": 1330000,
+    "days": 14,
+    "schema": "RAW_UUID",
+    "same_frozen_parts": true,
+    "query": "avg without(build,project,branch,job)(avg_over_time(ci_duration[1d]))",
+    "output_points": 532,
+    "read_rows_each": 3990000,
+    "read_bytes_each": 336024252
+  },
+  "protocol": "R38/R39/R39/R38 same-host four fresh servers, 2 warmups+4 measured requests per phase, every request independent 532-point generator oracle, complete QueryFinish, 4 CPU quota 4GiB memory 2.85GB server cap and 2 max threads",
+  "metrics": {
+    "wall_ms": {
+      "r38": 6966.25,
+      "r39": 6750.75,
+      "observed_reduction_fraction": 0.030934864525390293,
+      "r38_control_drift_fraction": 0.02691548537591961,
+      "phase_medians": [
+        6872.5,
+        6857,
+        6644.5,
+        7060
+      ]
+    },
+    "cpu_ms": {
+      "r38": 6871.77225,
+      "r39": 6653.9455,
+      "observed_reduction_fraction": 0.031698773194935304,
+      "r38_control_drift_fraction": 0.02649513013182316,
+      "phase_medians": [
+        6780.738,
+        6761.6045,
+        6546.2865,
+        6962.8065
+      ]
+    },
+    "query_memory_bytes": {
+      "r38": 870314880,
+      "r39": 870314670,
+      "reduction_fraction": 2.41291979286018e-7,
+      "phase_medians": [
+        870314264,
+        870314788,
+        870314552,
+        870315496
+      ]
+    },
+    "sampled_rss_bytes": {
+      "r38": 1442837504,
+      "r39": 1451261952,
+      "observed_change_fraction": 0.005838805809139869,
+      "r38_control_drift_fraction": 0.05690333926889663
+    }
+  },
+  "protocol_test_status": "PASS; scientific interpretation INCONCLUSIVE (small effect, relative control drift too large to promote)",
+  "archive": {
+    "filename": "clickhouse-r39-native-evidence-20261104.zip",
+    "sha256": "90d75f22c5e80a02ccaa3f6c8beecbc982ab72dff6b50cc77d780a8af0b6ef74"
+  },
+  "next_falsifier": "Measure removeTags input batch-size histogram and actual fastpath-use rate without high observer overhead. If inactive, retune only with native same-source A/B/B/A and stage high-cardinality negative controls. If active, profile added hash work vs saved temporary projected tags. No production promotion.",
+  "production_master_upstream_changed": false
+}
