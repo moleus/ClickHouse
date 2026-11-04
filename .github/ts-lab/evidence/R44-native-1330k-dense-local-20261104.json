@@ -1,0 +1,167 @@
+{
+  "experiment_id": "R44-inline-singleton-native-20261104",
+  "decision": "REJECT_UNCONDITIONAL; INCONCLUSIVE_SPARSE_LATENCY + 8.86_PERCENT_PROJECT_QUERY_MEMORY_REGRESSION + 32.9_PERCENT_DENSE_CPU_REGRESSION",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": {
+    "name": "R43",
+    "build_run": 41804461799,
+    "binary_sha256": "5bac2b7722bc43b5a48cafbfeff2598997b0b38ac244ff977245986a3bf05c72"
+  },
+  "candidate": {
+    "name": "R44",
+    "build_run": 41805775727,
+    "binary_sha256": "ccc5e7b935fa22aa74bdf2c0847210d5e523a216a74792394b8b30af727b280a",
+    "delta": "Single-Sample optional embedded alongside existing TimeSeries bucket map, spill on second input; no storage/selector/aggregate math change"
+  },
+  "semantic_gate": {
+    "run": 41807197978,
+    "cases": 160,
+    "status": "PASS",
+    "control": "R43 native query errors, complete outputs and physical plans; original failed guard 41806810767 was harness missing fixture, not semantic error"
+  },
+  "sparse": {
+    "protocol": "R43/R44/R44/R43 four fresh processes, each 2 warmups +4 measured queries; same frozen 1.33m/14d RAW_UUID physical parts, independent full fixture-derived output oracle; 4CPU/4GiB cgroup and 2.85GB server cap",
+    "status": "INCONCLUSIVE_DRIFT",
+    "cases": {
+      "whole": {
+        "points": 532,
+        "read_rows": 3990000,
+        "read_bytes": 336024252,
+        "wall_ms": {
+          "r43": 7295.75,
+          "r44": 7199.25,
+          "r43_drift_pct": 8.6
+        },
+        "cpu_ms": {
+          "r43": 7177.718,
+          "r44": 7094.014,
+          "r43_drift_pct": 8.44
+        },
+        "query_memory_bytes": {
+          "r43": 839531163,
+          "r44": 838653715
+        },
+        "sampled_request_rss_bytes": {
+          "r43": 1453784064,
+          "r44": 1409465344
+        }
+      },
+      "without": {
+        "points": 532,
+        "read_rows": 3990000,
+        "read_bytes": 336024252,
+        "wall_ms": {
+          "r43": 7876.25,
+          "r44": 7499.75,
+          "r43_drift_pct": 8.31
+        },
+        "cpu_ms": {
+          "r43": 7750.004,
+          "r44": 7393.834,
+          "r43_drift_pct": 8.39
+        },
+        "query_memory_bytes": {
+          "r43": 839531771,
+          "r44": 838654211
+        },
+        "sampled_request_rss_bytes": {
+          "r43": 1424886784,
+          "r44": 1444961280
+        }
+      },
+      "stage": {
+        "points": 14,
+        "read_rows": 3989152,
+        "read_bytes": 337293196,
+        "wall_ms": {
+          "r43": 730.75,
+          "r44": 616.75,
+          "r43_drift_pct": 51.11
+        },
+        "cpu_ms": {
+          "r43": 649.009,
+          "r44": 553.914,
+          "r43_drift_pct": 51.03
+        },
+        "query_memory_bytes": {
+          "r43": 53505580,
+          "r44": 53505868
+        },
+        "sampled_request_rss_bytes": {
+          "r43": 564937728,
+          "r44": 639986688
+        }
+      },
+      "project": {
+        "points": 532,
+        "read_rows": 3990000,
+        "read_bytes": 337354252,
+        "wall_ms": {
+          "r43": 1305.25,
+          "r44": 1283.75,
+          "r43_drift_pct": 20.57
+        },
+        "cpu_ms": {
+          "r43": 1223.307,
+          "r44": 1203.055,
+          "r43_drift_pct": 20.49
+        },
+        "query_memory_bytes": {
+          "r43": 189403704,
+          "r44": 206181008,
+          "regression_pct": 8.858
+        },
+        "sampled_request_rss_bytes": {
+          "r43": 726562816,
+          "r44": 716263424
+        }
+      }
+    }
+  },
+  "dense": {
+    "query": "avg by(stage)(rate(dense_counter[5m])) via native prometheusQueryRange",
+    "series": 8192,
+    "samples_per_series": 256,
+    "sampling_interval_seconds": 15,
+    "output_points": 532,
+    "read_rows": 32768,
+    "read_bytes_values": [
+      35403640,
+      35405432
+    ],
+    "protocol": "Fresh server R43/R44/R44/R43, 2 warmups and 4/4/6/6 measured per phase, every output matches independent linear counter oracle rate=0.2 within 1e-9. Physical parts identical",
+    "wall_ms": {
+      "r43": 87.25,
+      "r44": 115.75,
+      "regression_pct": 32.66,
+      "r43_drift_pct": 13.18
+    },
+    "cpu_ms": {
+      "r43": 85.5475,
+      "r44": 113.69875,
+      "regression_pct": 32.91,
+      "r43_drift_pct": 13.41
+    },
+    "query_memory_bytes": {
+      "r43": 38675062,
+      "r44": 38675284
+    },
+    "sampled_request_rss_bytes": {
+      "r43": 374735872,
+      "r44": 414318592,
+      "r43_drift_pct": 10.63
+    }
+  },
+  "evidence_archive": {
+    "name": "clickhouse-r44-native-evidence-20261104.tar.gz",
+    "sha256": "e64724dcb39f58d4fba9c1f6c7efe5382374a5158a8ca3c8bd61b1ae1a2bd767",
+    "contents": "Full four sparse native phase JSON, dense four phase reports and response oracles, independent harness sources, physical part and query logs, SHA256SUMS"
+  },
+  "limits": [
+    "No proven end-to-end sparse CPU speedup; control drift high",
+    "Full 160-case semantic PASS does not prove all aggregate-state edge cases",
+    "Dense rate ~33% slower and project memory +8.86%, do not promote",
+    "No production, mixed ingestion, multi-tenant or optimized VictoriaMetrics parity"
+  ],
+  "master_upstream_production_changed": false
+}
