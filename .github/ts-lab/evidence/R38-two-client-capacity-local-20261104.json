@@ -1,0 +1,71 @@
+{
+  "experiment_id": "R38-native-two-client-capacity-20261104",
+  "decision": "ACCEPT_FOR_NEXT_GATE",
+  "scope": "finite 2-client capacity test for exact native without aggregation under 2.85GB ClickHouse server memory cap",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": {
+    "name": "R35",
+    "build_run": 41732238195,
+    "binary_sha256": "68d6e8f954a44beeb137acea61b0b77afac32cc705e59404413c233b57e6a06b"
+  },
+  "candidate": {
+    "name": "R38",
+    "build_run": 41791235811,
+    "binary_sha256": "03dcb8ae1fba6d3fd4a41afb608f1af88a1fb7fd16ef6e8c58ae061629a810ea"
+  },
+  "fixture": {
+    "series": 1330000,
+    "days": 14,
+    "builds_per_day": 2500,
+    "stages_per_build": 38,
+    "schema": "TimeSeries v11 RAW_UUID",
+    "same_frozen_three_parts": true,
+    "query": "avg without(build,project,branch,job)(avg_over_time(ci_duration[1d]))",
+    "expected_result_points": 532
+  },
+  "resources": {
+    "cpu_max": "400000 100000",
+    "cgroup_memory_max_bytes": 4294967296,
+    "clickhouse_server_memory_limit_bytes": 2850000000,
+    "per_query_memory_limit_bytes": 1900000000,
+    "max_threads_per_query": 2
+  },
+  "protocol": "Four fresh-server phases R35/R38/R38/R35; four synchronized two-client waves each, including two warmup waves and two measured waves per phase. Every successful HTTP native query_range response passed the full independent generator-derived oracle. Every attempt, including failures and warmups, recorded. Server RSS sampled 50ms; sampled RSS not a guaranteed process maximum.",
+  "results": {
+    "r35": {
+      "attempted": 16,
+      "succeeded": 6,
+      "failed": 10,
+      "measured_attempted": 8,
+      "measured_succeeded": 2,
+      "measured_failed": 6,
+      "all_error_code": 241,
+      "all_failure_kind": "total-memory-limit-exceeded, OvercommitTracker selected query to stop",
+      "sampled_wave_rss_max_bytes": 2464493568
+    },
+    "r38": {
+      "attempted": 16,
+      "succeeded": 16,
+      "failed": 0,
+      "measured_attempted": 8,
+      "measured_succeeded": 8,
+      "measured_failed": 0,
+      "sampled_wave_rss_max_bytes": 2347425792
+    },
+    "success_oracle": "PASS for all successful requests; full 532 label/time/value points; no successful-output mismatch",
+    "physical_parts": "equal between all phases"
+  },
+  "negative_scope": [
+    "This is not an OOM kill by the kernel.",
+    "Finite stress matrix, not general safe concurrency, p95/p99 or production SLA.",
+    "No read/write/merge, retention, multi-tenant ACL, sharding or optimized VictoriaMetrics parity tested.",
+    "Memory tracker max and sampled RSS are distinct; RSS sampling may miss peaks."
+  ],
+  "raw_archive": {
+    "filename": "clickhouse-r38-two-client-capacity-20261104.zip",
+    "sha256": "a72f5c05649a1b4f6c36d85ee3a5424d2deb995b659890476d3da0787963f852",
+    "contains": "all 32 synchronized request outcomes, errors, exact semantic oracle harness, server sampled RSS waves, phase reports, part census"
+  },
+  "next_gate": "Sustained open-loop mixed selectors with concurrent small remote_write ingest, merges and retention under same 4CPU/4GiB/2.85GB constraints, including non-2-client error and queue-delay tails",
+  "master_upstream_production_changed": false
+}
