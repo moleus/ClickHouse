@@ -1,0 +1,270 @@
+{
+  "experiment_id": "R43-cumulative-small-bucket-map-v1",
+  "decision": "SPLIT_MEMORY_GAIN_REJECT_UNCONDITIONAL_LATENCY",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": {
+    "name": "R40",
+    "build_run": 41797918745,
+    "binary_sha256": "522bbe374eb73727142bcd6239a7beb62a983c2f5a29a7f8b3456446c5536653"
+  },
+  "candidate": {
+    "name": "R43",
+    "build_run": 41804461799,
+    "binary_sha256": "5bac2b7722bc43b5a48cafbfeff2598997b0b38ac244ff977245986a3bf05c72",
+    "change": "Add only source-pinned R34 2-cell initial TimeSeriesBucketsHashTableGrower to R40 cumulative R35/R37/R38 compiler"
+  },
+  "semantic_gate": {
+    "run": 41805684591,
+    "case_count": 160,
+    "status": "PASS",
+    "compares": "complete native outputs, errors and aggregation-plan node counts R40 vs R43"
+  },
+  "fixture": {
+    "series": 1330000,
+    "days": 14,
+    "builds_per_day": 2500,
+    "stages": 38,
+    "schema": "RAW_UUID",
+    "physical_part_census": "exactly same 3 immutable parts in all phases"
+  },
+  "protocol": "R40/R43/R43/R40 fresh-process A/B/B/A, 2 warmups+4 measured native requests per selector and phase, 4 CPU cgroup quota, 4GiB cgroup memory, 2.85GB server memory cap, 2 query threads, every request checked against an independent fixture-derived output oracle; complete phase output and QueryFinish profile preserved",
+  "cases": {
+    "whole": {
+      "promql": "avg by(stage)(avg_over_time(ci_duration[1d]))",
+      "output_points": 532,
+      "read_rows": 3990000,
+      "read_bytes": 336024252,
+      "metrics": {
+        "wall_ms": {
+          "r40": 7474.25,
+          "r43": 6940.5,
+          "reduction_fraction": 0.07141184734254269,
+          "r40_control_drift_fraction": 0.1549,
+          "phase_medians": [
+            6895.5,
+            6677,
+            7204,
+            8053
+          ]
+        },
+        "cpu_ms": {
+          "r40": 7366.5515,
+          "r43": 6836.42,
+          "reduction_fraction": 0.07196467709483867,
+          "r40_control_drift_fraction": 0.1568,
+          "phase_medians": [
+            6789.144,
+            6575.132,
+            7097.708,
+            7943.959
+          ]
+        },
+        "query_memory_bytes": {
+          "r40": 870313390,
+          "r43": 839530563,
+          "reduction_fraction": 0.03536981891086377,
+          "r40_control_drift_fraction": 0,
+          "phase_medians": [
+            870312888,
+            839530427,
+            839530699,
+            870313892
+          ]
+        },
+        "sampled_request_rss_bytes": {
+          "r40": 1451533312,
+          "r43": 1418031104,
+          "reduction_fraction": 0.02308056434050343,
+          "r40_control_drift_fraction": 0.0193,
+          "phase_medians": [
+            1465536512,
+            1422512128,
+            1413550080,
+            1437530112
+          ]
+        }
+      }
+    },
+    "without": {
+      "promql": "avg without(build,project,branch,job)(avg_over_time(ci_duration[1d]))",
+      "output_points": 532,
+      "read_rows": 3990000,
+      "read_bytes": 336024252,
+      "metrics": {
+        "wall_ms": {
+          "r40": 7515.25,
+          "r43": 7332.25,
+          "reduction_fraction": 0.024350487342403748,
+          "r40_control_drift_fraction": 0.0549,
+          "phase_medians": [
+            7309,
+            7137.5,
+            7527,
+            7721.5
+          ]
+        },
+        "cpu_ms": {
+          "r40": 7409.06075,
+          "r43": 7218.8965,
+          "reduction_fraction": 0.025666444967400226,
+          "r40_control_drift_fraction": 0.0582,
+          "phase_medians": [
+            7193.348,
+            7039.475,
+            7398.318,
+            7624.7735
+          ]
+        },
+        "query_memory_bytes": {
+          "r40": 870314456,
+          "r43": 839532155,
+          "reduction_fraction": 0.035369171209078454,
+          "r40_control_drift_fraction": 0,
+          "phase_medians": [
+            870313976,
+            839531723,
+            839532587,
+            870314936
+          ]
+        },
+        "sampled_request_rss_bytes": {
+          "r40": 1487314944,
+          "r43": 1440148480,
+          "reduction_fraction": 0.0317124924954697,
+          "r40_control_drift_fraction": 0.0107,
+          "phase_medians": [
+            1479321600,
+            1476909056,
+            1403387904,
+            1495308288
+          ]
+        }
+      }
+    },
+    "stage": {
+      "promql": "avg by(stage)(avg_over_time(ci_duration{stage=\"stage-1\"}[1d]))",
+      "output_points": 14,
+      "read_rows": 3989152,
+      "read_bytes": 337293196,
+      "metrics": {
+        "wall_ms": {
+          "r40": 685.25,
+          "r43": 733,
+          "reduction_fraction": -0.06968259759211959,
+          "r40_control_drift_fraction": 0.0051,
+          "phase_medians": [
+            683.5,
+            792.5,
+            673.5,
+            687
+          ]
+        },
+        "cpu_ms": {
+          "r40": 613.747,
+          "r43": 642.84775,
+          "reduction_fraction": -0.047414895714358085,
+          "r40_control_drift_fraction": 0.0103,
+          "phase_medians": [
+            610.5915,
+            703.468,
+            582.2275,
+            616.9025
+          ]
+        },
+        "query_memory_bytes": {
+          "r40": 72300964,
+          "r43": 53505916,
+          "reduction_fraction": 0.2599557040484274,
+          "r40_control_drift_fraction": 0,
+          "phase_medians": [
+            72300964,
+            53505580,
+            53506252,
+            72300964
+          ]
+        },
+        "sampled_request_rss_bytes": {
+          "r40": 685428736,
+          "r43": 630046720,
+          "reduction_fraction": 0.08079908689442517,
+          "r40_control_drift_fraction": 0.0322,
+          "phase_medians": [
+            674381824,
+            627292160,
+            632801280,
+            696475648
+          ]
+        }
+      }
+    },
+    "project": {
+      "promql": "avg by(stage)(avg_over_time(ci_duration{project=\"project-1\"}[1d]))",
+      "output_points": 532,
+      "read_rows": 3990000,
+      "read_bytes": 337354252,
+      "metrics": {
+        "wall_ms": {
+          "r40": 1403.25,
+          "r43": 1461.5,
+          "reduction_fraction": -0.04151077854979501,
+          "r40_control_drift_fraction": 0.15,
+          "phase_medians": [
+            1298,
+            1395,
+            1528,
+            1508.5
+          ]
+        },
+        "cpu_ms": {
+          "r40": 1323.87425,
+          "r43": 1366.39275,
+          "reduction_fraction": -0.03211672105564389,
+          "r40_control_drift_fraction": 0.1514,
+          "phase_medians": [
+            1223.6735,
+            1316.9745,
+            1415.811,
+            1424.075
+          ]
+        },
+        "query_memory_bytes": {
+          "r40": 282656912,
+          "r43": 189404144,
+          "reduction_fraction": 0.32991504555883633,
+          "r40_control_drift_fraction": 0,
+          "phase_medians": [
+            282657064,
+            189404536,
+            189403752,
+            282656760
+          ]
+        },
+        "sampled_request_rss_bytes": {
+          "r40": 843200512,
+          "r43": 721378304,
+          "reduction_fraction": 0.14447596540358842,
+          "r40_control_drift_fraction": 0.1525,
+          "phase_medians": [
+            907497472,
+            743974912,
+            698781696,
+            778903552
+          ]
+        }
+      }
+    }
+  },
+  "limits": [
+    "Observed wall/CPU on whole has control drift >15%, no speedup claim",
+    "Narrow stage wall regressed ~6.97% while baseline drift ~0.51%; reject unconditional promotion",
+    "Project timing inconclusive due ~15% control drift; no speed claim",
+    "Memory gains stable and material for narrow series, not necessarily lower peak RSS for all workloads",
+    "No direct 2-client or long-running mixed ingestion/retention/VM parity test on combined binary"
+  ],
+  "raw_archive": {
+    "filename": "clickhouse-r43-native-cumulative-evidence-20261104.tar.gz",
+    "sha256": "0ec315a60db2de4d3278c040d3cdd43266afc7fe08967a0526361b0f2340821c",
+    "contains": "all four measured phase JSONs with native output oracle and query logs, full metric medians, local runner, phase logs and SHA256SUMS"
+  },
+  "master_upstream_production_changed": false
+}
