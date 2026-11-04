@@ -15,7 +15,7 @@ The native `avg without(build,project,branch,job)(avg_over_time(ci_duration[1d])
 | Tracked query memory | 1,416,390,064B | 870,314,648B | **38.55%** |
 | Observed request RSS peaks | 2,049,265,664B | 1,431,579,648B | **30.14%** |
 
-Baseline control drift: wall 1.91%, CPU 2.32%; all query outputs and physical parts equal. R38 is a valid **additional gain compared with R35 on this single native query**. It avoids both the intermediate duplicate-check aggregation and intermediate metric-name group projection. R37 independently saves 32.8% wall on the same logical selector, but the two candidates have **not** been directly compared in one matched ABBA experiment. No production/VM superiority or latency tails claim.
+Baseline control drift: wall 1.91%, CPU 2.32%; all query outputs and physical parts equal. R38 is a valid **additional gain compared with R35 on this single native query**. It avoids both the intermediate duplicate-check aggregation and intermediate metric-name group projection. A separate [direct R37/R38/R38/R37 fresh-process ABBA](../ts-lab/evidence/R38-vs-R37-direct-native-1330k-local-20261104.json) now confirms R38 is **16.12% faster in wall time** and **16.21% lower in query CPU** than R37 on this exact native query; tracked query memory is **36.32% lower** and sampled request RSS peaks **27.62% lower**. R37 wall control drift was 4.55%; the full 532-point oracle and physical reads were unchanged. This is a direct experiment, not subtraction of cross-run percentages. No production/VM superiority or latency tails claim.
 
 ## Source proof
 
