@@ -1,5 +1,5 @@
 name: R42 direct native root tag serializer over R41 O2
-# Second retry after flattening multi-file unified diff output.
+# Rebuild after required documentation for native FunctionFactory registration.
 on:
   push:
     branches: [lab/ts-cbo-adaptive-20261103]
@@ -100,8 +100,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .ccache
-          key: tslab-ccache-Linux-52529f0c711566d696917678bf15e7068772fdde-r41-late-root-tags-o2-41799488038
+          key: tslab-ccache-Linux-52529f0c711566d696917678bf15e7068772fdde-r42-direct-root-tags-o2-41801210062
           restore-keys: |
+            tslab-ccache-Linux-52529f0c711566d696917678bf15e7068772fdde-r42-direct-root-tags-o2-
             tslab-ccache-Linux-52529f0c711566d696917678bf15e7068772fdde-r41-late-root-tags-o2-
             tslab-ccache-Linux-52529f0c711566d696917678bf15e7068772fdde-r40-cumulative-compiler-o2-
             tslab-ccache-Linux-52529f0c711566d696917678bf15e7068772fdde-r37-injective-projection-o2-
