@@ -1,0 +1,121 @@
+{
+  "experiment_id": "R36-bounded-single-label-intern-v1",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "status": "SPLIT_DECISION",
+  "decisions": {
+    "whole": "ACCEPT_FOR_NEXT_GATE",
+    "stage": "REJECT_UNCONDITIONAL",
+    "project": "INCONCLUSIVE_DRIFT",
+    "production": "NOT_PROMOTED"
+  },
+  "candidate_build_run": 41787693315,
+  "candidate_binary_sha256": "e75e19c534ca9b0c41b700b5c19122cecba828b9eaa64246f5afae7a45ca87e8",
+  "baseline_build_run": 41732238195,
+  "baseline_binary_sha256": "68d6e8f954a44beeb137acea61b0b77afac32cc705e59404413c233b57e6a06b",
+  "candidate_source_delta": "R35 compiler patch unchanged plus R36 single-label projection in ContextTimeSeriesTagsCollector.cpp; no R34/R30/R31",
+  "host": {
+    "environment": "local Linux cgroup v2",
+    "cpu_max": "400000 100000",
+    "memory_max_bytes": 4294967296,
+    "server_memory_limit_bytes": 2850000000,
+    "query_memory_limit_bytes": 1900000000,
+    "max_threads": 2
+  },
+  "fixture": {
+    "series": 1330000,
+    "days": 14,
+    "samples_per_series": 1,
+    "builds_per_day": 2500,
+    "stages_per_build": 38,
+    "schema": "TimeSeries v11 RAW_UUID",
+    "generator": ".github/ts-lab-r35/native.py:create_sparse; equivalent local bench.py fixture",
+    "same_physical_parts": true,
+    "physical_parts_count": 3
+  },
+  "protocol": "R35/R36/R36/R35, fresh ClickHouse server processes, same stored physical data, 2 warmups + 4 measured requests per selector per phase. Every warmup and measured response matched the independent fixture-derived oracle with exact labels and timestamps and numeric abs error <1e-10. QueryFinish CPU/read/memory and sampled request RSS peaks. Means of within-phase medians, not p95/p99.",
+  "whole": {
+    "promql": "avg by(stage)(avg_over_time(ci_duration[1d]))",
+    "points": 532,
+    "read_rows_each": 3990000,
+    "read_bytes_each": 336024252,
+    "wall_ms": {
+      "r35": 6743,
+      "r36": 6141.25,
+      "reduction_fraction": 0.089240694,
+      "baseline_control_drift_fraction": 0.035295862,
+      "phase_medians": [
+        6862,
+        6059.5,
+        6223,
+        6624
+      ]
+    },
+    "cpu_ms": {
+      "r35": 6650.487,
+      "r36": 6048.751,
+      "reduction_fraction": 0.09047999,
+      "baseline_control_drift_fraction": 0.033757227,
+      "phase_medians": [
+        6762.738,
+        5973.4145,
+        6124.0875,
+        6538.236
+      ]
+    },
+    "query_memory_bytes": {
+      "r35": 870314046,
+      "r36": 870306024,
+      "reduction_fraction": 0.000009217
+    },
+    "sampled_rss_bytes": {
+      "r35": 1441708032,
+      "r36": 1418639360,
+      "reduction_fraction": 0.016000932,
+      "not_guaranteed_process_peak": true
+    }
+  },
+  "selective": {
+    "stage": {
+      "promql": "avg by(stage)(avg_over_time(ci_duration{stage=\"stage-1\"}[1d]))",
+      "wall_ms_r35": 541,
+      "wall_ms_r36": 591.75,
+      "wall_regression_fraction": 0.0938077634,
+      "cpu_ms_r35": 484.27425,
+      "cpu_ms_r36": 530.0175,
+      "cpu_regression_fraction": 0.0944573245,
+      "baseline_wall_drift_fraction": 0.01478743,
+      "decision": "REJECT_UNCONDITIONAL"
+    },
+    "project": {
+      "promql": "avg by(stage)(avg_over_time(ci_duration{project=\"project-1\"}[1d]))",
+      "wall_ms_r35": 1215,
+      "wall_ms_r36": 1119.25,
+      "observed_wall_reduction_fraction": 0.078806584,
+      "baseline_wall_drift_fraction": 0.106995885,
+      "decision": "INCONCLUSIVE_DRIFT"
+    }
+  },
+  "native_compatibility": {
+    "case_count": 155,
+    "control": "R35",
+    "candidate": "R36",
+    "both_pass": true,
+    "wide_source_group_count": 512,
+    "high_cardinality_fallback_tested": true
+  },
+  "remote_pilot": {
+    "run": 41789371186,
+    "series": 133000,
+    "correctness_passed": true,
+    "decision": "INCONCLUSIVE_DRIFT",
+    "note": "Observed per-case wall/CPU controls drift. This pilot is not evidence of a stable speedup and recorded query-memory changes must not be extrapolated."
+  },
+  "raw_conversation_archive": {
+    "filename": "clickhouse-r36-native-evidence-20261104.zip",
+    "sha256": "351eee54b7402273360005dcf88480e47a393d59c5ecc417314654389436b52b",
+    "contents": "Original local whole/selected phase reports with outputs and QueryFinish measurements, independent oracle source, ABBA summaries and logs.",
+    "public_git_availability": "This archive is delivered in the current chat, not committed as a GitHub artifact."
+  },
+  "limitations": "No production readiness, R34/R36 integration, VM parity, mixed read/write, retention, multi-tenant ACL, distributed evaluation or p95/p99. Stage-only regression requires adaptive fallback or rejection before promotion.",
+  "next_experiment": "Bounded cost-based one-label projection admission: inspect input group counts, tune high-N threshold on held-out whole/stage/project/dense matrix with same R35 control and memory gates. Never enable unconditional R36 in FINAL_STACK."
+}
