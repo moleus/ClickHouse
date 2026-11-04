@@ -1,0 +1,95 @@
+{
+  "experiment_id": "R37-injective-drop-without-regroup-v1",
+  "decision": "ACCEPT_FOR_NEXT_GATE",
+  "promotion": "RESEARCH_CANDIDATE_ONLY",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline_build_run": 41732238195,
+  "baseline_binary_sha256": "68d6e8f954a44beeb137acea61b0b77afac32cc705e59404413c233b57e6a06b",
+  "candidate_build_run": 41789987661,
+  "candidate_binary_sha256": "270766fff7c22007c40d2d6e13f2c76a26587aed7ad605c13b70793f2740c6bc",
+  "candidate_change": "R35 plus R37 one C++ compiler file applyFunctionOverRange.cpp; no R36/R34/R30/R31",
+  "host": {
+    "environment": "isolated Linux cgroup v2",
+    "cpu_max": "400000 100000",
+    "memory_max_bytes": 4294967296,
+    "server_limit_bytes": 2850000000,
+    "query_limit_bytes": 1900000000,
+    "max_threads": 2
+  },
+  "fixture": {
+    "series": 1330000,
+    "days": 14,
+    "builds_per_day": 2500,
+    "stages_per_build": 38,
+    "samples_per_series": 1,
+    "raw_id_type": "Tuple(UInt64,UUID)",
+    "same_frozen_physical_parts": true
+  },
+  "query": "avg without(build,project,branch,job)(avg_over_time(ci_duration[1d])) native prometheusQueryRange; 14 daily steps",
+  "protocol": "R35/R37/R37/R35 fresh ClickHouse processes; same frozen physical parts; two warmups plus four measured requests per phase. Exact labels/timestamps and numerical independent generator-derived oracle for every request. QueryFinish rows complete. Means of within-phase medians; sampled RSS not maximum.",
+  "results": {
+    "output_points": 532,
+    "read_rows_each": 3990000,
+    "read_bytes_each": 336024252,
+    "wall_ms": {
+      "r35": 12088,
+      "r37": 8123.75,
+      "reduction_fraction": 0.3279492058239576,
+      "r35_control_drift_fraction": 0.06775314361350099,
+      "phase_medians": [
+        12497.5,
+        8274,
+        7973.5,
+        11678.5
+      ]
+    },
+    "cpu_ms": {
+      "r35": 11976.64325,
+      "r37": 8026.7175,
+      "reduction_fraction": 0.32980240519395954,
+      "r35_control_drift_fraction": 0.0673285062573773,
+      "phase_medians": [
+        12379.828,
+        8176.675,
+        7876.76,
+        11573.4585
+      ]
+    },
+    "query_memory_bytes": {
+      "r35": 1416389840,
+      "r37": 1366786256,
+      "reduction_fraction": 0.03502113796580186,
+      "phase_medians": [
+        1416390038,
+        1366786810,
+        1366785702,
+        1416389642
+      ]
+    },
+    "sampled_request_rss_bytes": {
+      "r35": 2035899392,
+      "r37": 2025735168,
+      "reduction_fraction": 0.004992498175469762,
+      "phase_medians": [
+        2023182336,
+        2000840704,
+        2050629632,
+        2048616448
+      ]
+    }
+  },
+  "semantic_gate": {
+    "native_cases": 155,
+    "workflow_run": 41790880980,
+    "outcome": "PASS",
+    "positive_plans": "one fewer Aggregating for root range, without, by(__name__), topk, binary",
+    "negative_guards": "regex, mixed-metric duplicate-series errors, offset, subquery unchanged"
+  },
+  "limitations": [
+    "No sustained read/write, retention, ACL, distributed, VictoriaMetrics optimized parity or p95/p99",
+    "Do not multiply R35/R36/R37 isolated speedups",
+    "Observed RSS change is small and not a guaranteed reduction"
+  ],
+  "next_experiment": "Compare R38 immediate without deferral against R35 as direct control; source matched full native ABBA and semantic oracle",
+  "production_master_upstream_changed": false
+}
