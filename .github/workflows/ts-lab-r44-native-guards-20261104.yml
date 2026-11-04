@@ -1,0 +1,81 @@
+name: R44 native 160-case inline singleton vs R43
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r44-native-guards-20261104.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-r44-guard-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  native-guards:
+    runs-on: ${{ vars.CH_BENCH_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 50
+    env:
+      TS_LAB_ROOT: /tmp/tslab-r44-guard
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Python native 160-case preflight
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/ts-lab-r44/guard_suite.py .github/ts-lab-r35/native.py
+          mkdir -p "$TS_LAB_ROOT" evidence
+      - name: Download R43 source-matched baseline
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 41804461799
+          name: tslab-r43-cumulative-smallbucket-o2-binary-bb238382cbc114ef12d30af8862732a7831c5cc9
+          path: ${{ runner.temp }}/r43-artifact
+      - name: Download R44 inline singleton candidate
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 41805775727
+          name: tslab-r44-inline-single-o2-binary-98040cc13d68d0ad5d05989c285be74b6badd70f
+          path: ${{ runner.temp }}/r44-artifact
+      - name: Verify exact binary SHA256 and install
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends zstd
+          for v in r43 r44; do
+            mapfile -t archives < <(find "$RUNNER_TEMP/$v-artifact" -name "clickhouse-$v-*.tar.zst" -type f)
+            test "${#archives[@]}" -eq 1
+            mkdir -p "$RUNNER_TEMP/extract-$v"
+            tar -I unzstd -xf "${archives[0]}" -C "$RUNNER_TEMP/extract-$v"
+            (cd "$RUNNER_TEMP/extract-$v" && sha256sum -c SHA256SUMS)
+            sha256sum "$RUNNER_TEMP/extract-$v/clickhouse" | tee "evidence/$v-sha256.txt"
+            "$RUNNER_TEMP/extract-$v/clickhouse" --version | tee "evidence/$v-version.txt"
+          done
+          echo "5bac2b7722bc43b5a48cafbfeff2598997b0b38ac244ff977245986a3bf05c72  $RUNNER_TEMP/extract-r43/clickhouse" | sha256sum -c -
+          echo "ccc5e7b935fa22aa74bdf2c0847210d5e523a216a74792394b8b30af727b280a  $RUNNER_TEMP/extract-r44/clickhouse" | sha256sum -c -
+          mkdir -p "$TS_LAB_ROOT/r43-cumulative-smallbucket-o2/bin" "$TS_LAB_ROOT/r44-inline-single-o2/bin"
+          cp "$RUNNER_TEMP/extract-r43/clickhouse" "$TS_LAB_ROOT/r43-cumulative-smallbucket-o2/bin/clickhouse"
+          cp "$RUNNER_TEMP/extract-r44/clickhouse" "$TS_LAB_ROOT/r44-inline-single-o2/bin/clickhouse"
+      - name: R43 native 160-case reference
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-r44/guard_suite.py r43 | tee evidence/r43.log
+          cp "$TS_LAB_ROOT/guard-r43.json" evidence/
+      - name: R44 exact semantic errors and plan parity
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-r44/guard_suite.py r44 | tee evidence/r44.log
+          cp "$TS_LAB_ROOT/guard-r44.json" evidence/
+      - name: Upload all native evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r44-native-guards-${{ github.sha }}
+          path: |
+            evidence/
+            ${{ env.TS_LAB_ROOT }}/guard-*.json
+          compression-level: 4
+          retention-days: 45
+          if-no-files-found: warn
