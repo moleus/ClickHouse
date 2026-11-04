@@ -1,0 +1,21 @@
+{
+  "id": "R41-root-late-name-projection-v1",
+  "question": "Can native root exact-metric range functions skip intermediate projected group registration and remove the metric name directly from final tag-array output?",
+  "owner": "chatgpt-e05-r41-20261104",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "R40 cumulative compiled candidate R35+R37+R38; same source LLVM22.1.8 O2 jemalloc",
+  "candidate": "R40 plus three-file late tag-array projection; compute final tags by filtering only '__name__' from group tag arrays, no ContextTimeSeriesTagsCollector register",
+  "fixture": "1.33m/14d RAW_UUID CI stages and dense counter with root rate/avg; root by-name negative controls; stale NaN and mixed-metric error",
+  "single_variable": "Deferred-to-output tag removal bit in SQLQueryPiece and root finalizer only",
+  "math_bound": "Projection registration from up to N projected group hash lookups/copies to 0 for root exact-name path, but output still filters N tag arrays; native performance unknown",
+  "falsifier": "Any incorrect __name__ preservation/removal, duplicate semantics, SQL syntax/type error, negative-plan changes, loss in root-rate sparse/dense controls or no native improvement under drift gate",
+  "test_matrix": "R40 native semantic guard suite + root avg_over_time/rate under SQL output range/instant; R40/R41/R41/R40 matched native oracle, 4CPU/4GiB and 2.85GB; density, regex, offset, no __name__ removal when retained",
+  "runner_budget": "one compile after R40 O2 cached; 155+ native checks; native root stage/whole ABBA vs R40; all per-query CPU/RSS; stop if no measured win",
+  "planned_workflow": ".github/workflows/ts-lab-r41-late-root-tags-o2-20261104.yml",
+  "dependencies": [
+    "R40",
+    "R37",
+    "R38"
+  ]
+}
