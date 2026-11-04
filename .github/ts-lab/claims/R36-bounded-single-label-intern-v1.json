@@ -1,0 +1,20 @@
+{
+  "id": "R36-bounded-single-label-intern-v1",
+  "question": "Can bounded interning of projected one-label values reduce native PromQL aggregation CPU and memory after R35?",
+  "owner": "chatgpt-e05-r36-single-label-20261104",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "R35 single-metric deferral, O2 jemalloc LLVM22.1.8, workflow run 41732238195, SHA256 68d6e8f954a44beeb137acea61b0b77afac32cc705e59404413c233b57e6a06b",
+  "candidate": "R35 plus only bounded single-label projection fast path in ContextTimeSeriesTagsCollector.cpp",
+  "fixture": "R35 deterministic 1,330,000-series 14d CI fixture; 2500 builds/day, 38 stages/build; 8192 dense counters x256 samples for negative control",
+  "single_variable": "R36 one-label interned projection collector implementation added to R35",
+  "math_bound": "With N original unique label groups and D distinct values of one retained label, projected tag object creations fall from up to O(N) to O(D) for a complete bounded fast path; it does not reduce sample reads, per-series range computation or N input row index mapping. Faster end-to-end response is not established.",
+  "falsifier": "C++ compile fails, any output mismatch including missing/empty tags, offsets or NaNs, or no repeatable native CPU/latency gain or memory/RSS regression against R35 under A/B/B/A.",
+  "test_matrix": "Exact 1.33m/14d native avg by(stage)(avg_over_time(ci_duration[1d])); R35 147 native guards; dense rate, absent/empty label, high-cardinality fallback, one/four/eight-client tests.",
+  "runner_budget": "One source-matched optimized candidate build and later one matched A/B/B/A measurement; do not cancel existing CI.",
+  "planned_workflow": ".github/workflows/ts-lab-r36-single-label-o2-20261104.yml",
+  "dependencies": [
+    "R35",
+    "R08"
+  ]
+}
