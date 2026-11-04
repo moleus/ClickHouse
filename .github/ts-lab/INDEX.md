@@ -1,9 +1,13 @@
 # TimeSeries performance lab — index
 
 
-## R38 / E05: exact metric-name deferral through without aggregation (2026-11-04)
+## R39 / E05: bounded without-tag interning (2026-11-04; UNMEASURED)
 
-- [R38 source proof and experiment gates](../ts-lab-r38/README.md), [canonical root](claims/roots/R38.json), [one-guard R35 compiler patch](../ts-lab-r38/apply_without_deferral.py), [O2/jemalloc build 41791235811](https://github.com/moleus/ClickHouse/actions/runs/41791235811), [155-case native semantic and plan PASS 41791869622](https://github.com/moleus/ClickHouse/actions/runs/41791869622). The outer without() already removes __name__; R38 removes R35's extra parent.without exclusion for a direct exact metric range. It defers the entire name projection to the parent, unlike R37 which still projects name per row. Native full 1.33m A/B/B/A performance **not yet published**. No R37/R36 or master/production changes.
+- [Source-backed R39 experiment and guards](../ts-lab-r39/README.md), [canonical root](claims/roots/R39.json), [collision-safe bounded C++ collector patch](../ts-lab-r39/apply_without_intern.py), [source-matched build 41792846773](https://github.com/moleus/ClickHouse/actions/runs/41792846773). R39 keeps R38's verified compiler diff and changes only `ContextTimeSeriesTagsCollector::removeTags`: hash retained sorted tag pairs before allocation; full comparison on collisions; intern at most min(4096,N/8) projected tag groups for N>=16384; fallback before collector mutation. **No compiled/native gain claimed yet.** Validate 32768 unique full groups and dense/high-cardinality fallbacks, then compare R38/R39/R39/R38. No R36/R37 inclusion.
+
+## R38 / E05: native fixed-metric name deferral through without (2026-11-04; VALIDATED RESEARCH CANDIDATE)
+
+- [Immutable 1.33m native A/B/B/A](evidence/R38-native-1330k-local-20261104.json), [mechanism and reproduction](../ts-lab-r38/README.md), [one-guard C++ patch](../ts-lab-r38/apply_without_deferral.py), [O2/jemalloc build 41791235811](https://github.com/moleus/ClickHouse/actions/runs/41791235811), [155 native semantic/plan PASS 41791869622](https://github.com/moleus/ClickHouse/actions/runs/41791869622). R38 allows R35's exact-metric injectivity proof to defer name removal through immediate `without(...)`; the parent removes `__name__` itself, avoiding any intermediate projected groups or duplicate-check aggregate. In native `avg without(build,project,branch,job)(avg_over_time(ci_duration[1d]))` on 1.33m/14d RAW_UUID: R35 wall11615ms→R38 7056.5ms (**−39.25%**), CPU11498.10→6952.35ms (**−39.53%**), query memory1.416GB→0.870GB (**−38.55%**), sampled request peak RSS2.049GB→1.432GB (−30.14%, not a guaranteed max). R35/R38/R38/R35 fresh-server ABBA: two warmups+four measured per phase, R35 wall control drift1.91%, all 532 points independent-oracle equal; same3.99m read rows/336024252 bytes, unchanged physical parts,4CPU/4GiB cgroup,2.85GB server cap. **ACCEPT_FOR_NEXT_GATE only; no production or VM parity claim**, not a direct R37-vs-R38 head-to-head, no R36 combination.
 
 ## R37 / E05: native injective metric-name projection (2026-11-04; VALIDATED RESEARCH CANDIDATE)
 
