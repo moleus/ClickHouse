@@ -1,8 +1,12 @@
 # TimeSeries performance lab — index
 
-## R41 / E05 — root-only late metric-name projection (2026-11-04; UNMEASURED)
+## R42 / E05 — direct C++ root tag-array serialization (2026-11-04; UNMEASURED)
 
-- [R41 semantic proof, failure gates and reproduction](../ts-lab-r41/README.md), [source-pinned three-file patch](../ts-lab-r41/apply_late_root_tags.py), [root](claims/roots/R41.json), [optimized build](https://github.com/moleus/ClickHouse/actions/runs/41799488038). R41 builds on the verified R40 cumulative compiler. For a root range function with direct single exact nonempty metric name, keep group IDs until the last output stage and remove `__name__` from output tag tuples. This avoids N transient projected-group registrations while leaving sample reads and native range rollups unchanged. Source compilation and full R40-vs-R41 native output+performance **not complete**. Earlier two failed workflow attempts were patch-helper errors, not ClickHouse semantic failures. Do not promote from compilation alone.
+- [R42 source proof, C++ helper and native gates](../ts-lab-r42/README.md), [canonical root](claims/roots/R42.json), [source-pinned direct tag serializer](../ts-lab-r42/apply_direct_root_tags.py), [optimized candidate build](https://github.com/moleus/ClickHouse/actions/runs/41801868345). R42 keeps R40/R41 cumulative compiler and root exact-name proof but replaces `arrayFilter(...,timeSeriesGroupToTags(group))` with a stateful C++ function that directly emits all labels except `__name__`. Native semantics, benchmark and RSS **not yet validated**. First compiler run failed because FunctionFactory registration lacked documentation; this is fixed and the build reruns. No master/upstream/production change.
+
+## R41 / E05 — root exact-metric late projection (2026-11-04; NATIVE PILOT PASS, RSS REGRESSION)
+
+- [R41 measured full native 35k-point ABBA evidence](evidence/R41-native-root-35k-local-20261104.json), [source proof and reproduction](../ts-lab-r41/README.md), [optimized pinned LLVM22.1.8 O2/jemalloc build 41799488038](https://github.com/moleus/ClickHouse/actions/runs/41799488038), [160 native output/plan guards PASS 41800693590](https://github.com/moleus/ClickHouse/actions/runs/41800693590). On frozen 1.33m/14d RAW_UUID source and root `avg_over_time(ci_duration{stage="stage-1"}[1d])` returning 35,000 independent-oracle verified output points, four fresh-server R40/R41/R41/R40 phases show wall795.25→644ms (**observed −19.0%**), query CPU712.28→577.93ms (**−18.9%**), tracked memory75.62→72.24MB (**−4.47%**); R40 control wall drift11.76%. Sampled request peak RSS **regressed** 406→440MB (+8.3%); do not promote as production or general gain until repeated with low drift and RSS issue resolved. Exact physical parts, 3,989,152 read rows, 337,293,196 read bytes, every output equal. All R36/R39 exclusions preserved.
 
 ## R40 / E05 — cumulative native compiler R35 + R37 + R38 (2026-11-04; NATIVE SEMANTIC PASS)
 
