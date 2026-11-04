@@ -1,0 +1,81 @@
+{
+  "experiment_id": "R38-direct-vs-R37-native-1330k-v1",
+  "decision": "ACCEPT_FOR_NEXT_GATE",
+  "baseline": {
+    "name": "R37",
+    "binary_sha256": "270766fff7c22007c40d2d6e13f2c76a26587aed7ad605c13b70793f2740c6bc",
+    "build_run": 41789987661
+  },
+  "candidate": {
+    "name": "R38",
+    "binary_sha256": "03dcb8ae1fba6d3fd4a41afb608f1af88a1fb7fd16ef6e8c58ae061629a810ea",
+    "build_run": 41791235811
+  },
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "query": "avg without(build,project,branch,job)(avg_over_time(ci_duration[1d]))",
+  "fixture": "1.33m/14d, 2500 builds/day x38 stages, same 3 frozen RAW_UUID physical parts",
+  "native_protocol": "R37/R38/R38/R37 fresh-process ABBA, each phase two warmups+four measured requests, complete independent generator oracle for each request, QueryFinish and read rows/bytes",
+  "resources": {
+    "cpu_max": "400000 100000",
+    "cgroup_memory_bytes": 4294967296,
+    "server_memory_limit_bytes": 2850000000,
+    "max_threads": 2
+  },
+  "outcome": {
+    "output_points": 532,
+    "read_rows_each": 3990000,
+    "read_bytes_each": 336024252,
+    "wall_ms": {
+      "r37": 8609.5,
+      "r38": 7221.75,
+      "reduction_fraction": 0.1611882223125617,
+      "r37_control_drift_fraction": 0.045531099366978335,
+      "phase_medians": [
+        8805.5,
+        7505,
+        6938.5,
+        8413.5
+      ]
+    },
+    "cpu_ms": {
+      "r37": 8495.41225,
+      "r38": 7118.38,
+      "reduction_fraction": 0.16209128050260302,
+      "r37_control_drift_fraction": 0.040751818724276696,
+      "phase_medians": [
+        8668.514,
+        7403.3,
+        6833.46,
+        8322.3105
+      ]
+    },
+    "query_memory_bytes": {
+      "r37": 1366786336,
+      "r38": 870315152,
+      "reduction_fraction": 0.3632397917094775,
+      "phase_medians": [
+        1366786810,
+        870315320,
+        870314984,
+        1366785862
+      ]
+    },
+    "sampled_rss_bytes": {
+      "r37": 2037106688,
+      "r38": 1474387968,
+      "reduction_fraction": 0.27623429018951806,
+      "not_guaranteed_max": true,
+      "phase_medians": [
+        2039623680,
+        1486086144,
+        1462689792,
+        2034589696
+      ]
+    }
+  },
+  "constraints": [
+    "No downstream tail-latency SLA, ongoing ingestion or optimized VictoriaMetrics comparison",
+    "R38 is better for measured without query, not all query shapes",
+    "R39 collector prototype separate and unmeasured"
+  ]
+}
