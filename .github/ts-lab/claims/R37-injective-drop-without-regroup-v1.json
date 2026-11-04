@@ -1,0 +1,20 @@
+{
+  "id": "R37-injective-drop-without-regroup-v1",
+  "question": "Can exact metric-name selectors drop __name__ after a range function with a row-preserving projection instead of a duplicate-check GROUP BY, even without a safe parent aggregation?",
+  "owner": "chatgpt-e05-r37-20261104",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "Pinned R35 O2/jemalloc binary 68d6e8f954a44beeb137acea61b0b77afac32cc705e59404413c233b57e6a06b, run 41732238195",
+  "candidate": "R35 unchanged + one compiler-only R37 injective projection helper",
+  "fixture": "Source-matched R35 155 native semantic cases and 1.33m/14d RAW_UUID fixture; targeted root, without and by(__name__) cases",
+  "single_variable": "Replace dropMetricName's GROUP BY + duplicate check with row-preserving projection only when a direct exact nonempty metric-name selector proves injectivity and R35 does not defer to its parent.",
+  "math_bound": "For N unique full tag groups and G evaluation steps, remove N additional grouping states and countForEach/anyForEach G-step work; retain N per-series rollups and N necessary projected tag IDs. End-to-end gain is not yet measured.",
+  "falsifier": "Nonidentical PromQL labels/timestamps/numerics, mixed-metric duplicate check not retained, negative offset/subquery/regex plan changed, source mismatch, or no native CPU gain on held-out workloads.",
+  "test_matrix": "155 inherited R35/R36 correctness controls plus root avg_over_time/rate, by(__name__), without, topk, binary, empty/NaN/stale and mixed-metric error; matched R35 versus R37 O2 ABI 1.33m and dense control.",
+  "runner_budget": "At most one source-matched C++ build, then a single pilot ABBA; no cancellation or production changes.",
+  "planned_workflow": ".github/workflows/ts-lab-r37-injective-projection-o2-20261104.yml",
+  "dependencies": [
+    "R35",
+    "R08"
+  ]
+}
