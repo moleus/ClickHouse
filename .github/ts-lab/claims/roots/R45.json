@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "question_id": "R45",
+  "primary_claim_id": "R45-compact-variant-singleton-state-v1",
+  "owner": "chatgpt-e05-r45-20261104",
+  "created_utc": "2026-11-04",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "scope": "C++ TimeSeries aggregate-state representation on R44 cumulative R43+singleton: replace `State{TimeSeriesBucketsMap<Bucket> buckets; optional<SingleSample> singleton;}` with exclusive `std::variant<monostate,SingleSample,TimeSeriesBucketsMap<Bucket>>`. No simultaneous storage of empty map object and inline sample; single sample avoids map allocation; 2+ inputs spill to existing R34 map. Original wire format, derived timeSeries*ToGrid functions and native R40 compiler unchanged. Exact source-pinned one-header-only experiment, no master/upstream/production.",
+  "allowed_support_claims": [],
+  "hypothesis": "R44's extra singleton member can increase aggregator state size and negate savings. Union-like variant eliminates simultaneous map+singleton object, reducing per-series state size while keeping the allocation-free sparse one-sample path, and may reduce CPU/RSS and memory in full native PromQL.",
+  "baseline": "R44 build 41805775727, SHA256 ccc5e7b935fa22aa74bdf2c0847210d5e523a216a74792394b8b30af727b280a; R43 controls and native full ABBA recorded",
+  "candidate": "R45 = R44 with variant-backed compact state and exact merge/serialize/deserialize/finalization dispatch, one C++ header file",
+  "guards": [
+    "160 native PromQL results and plan equality vs R44 plus R43; independent 1.33m/14d full oracle for by, without, stage, project",
+    "dense 8192x256 rate/avg sample tests, duplicate/out-of-order, staleness, NaN, Inf, partial state merge, serialization format same",
+    "Zero/one/multiple samples, bucket key zero, selective scan, scalar/array samples, no empty-bucket invariants violated",
+    "R43/R45 fresh-process ABBA with fixed physical parts and 4CPU/4GiB/2.85GB limits, p50/CPU/mem/RSS; reject narrow regressions"
+  ],
+  "decision": "UNMEASURED",
+  "falsifier": "C++ build failure, native semantic mismatch/aggregation-state deserialize failure or repeatable narrow CPU regression/no memory win",
+  "runner_budget": "One isolated O2/jemalloc compile with ccache from R44; native 160-case guards then full ABBA and dense control; no production writes"
+}
