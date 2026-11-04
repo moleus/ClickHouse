@@ -1,9 +1,9 @@
 # TimeSeries performance lab — index
 
 
-## R39 / E05: bounded without-tag interning (2026-11-04; UNMEASURED)
+## R39 / E05: bounded without-tag interning (2026-11-04; INCONCLUSIVE)
 
-- [Source-backed R39 experiment and guards](../ts-lab-r39/README.md), [canonical root](claims/roots/R39.json), [collision-safe bounded C++ collector patch](../ts-lab-r39/apply_without_intern.py), [source-matched build 41792846773](https://github.com/moleus/ClickHouse/actions/runs/41792846773). R39 keeps R38's verified compiler diff and changes only `ContextTimeSeriesTagsCollector::removeTags`: hash retained sorted tag pairs before allocation; full comparison on collisions; intern at most min(4096,N/8) projected tag groups for N>=16384; fallback before collector mutation. **No compiled/native gain claimed yet.** Validate 32768 unique full groups and dense/high-cardinality fallbacks, then compare R38/R39/R39/R38. No R36/R37 inclusion.
+- [Measured native 1.33m/14d A/B/B/A evidence](evidence/R39-native-1330k-local-20261104.json), [source proof and next diagnostic](../ts-lab-r39/README.md), [source-pinned C++ patch](../ts-lab-r39/apply_without_intern.py), [O2/jemalloc build 41792846773](https://github.com/moleus/ClickHouse/actions/runs/41792846773), [157-case native oracle PASS 41793653918](https://github.com/moleus/ClickHouse/actions/runs/41793653918). R39 hashes retained sorted tag pairs before allocating projected objects for N>=16384, collision checks exact pairs, capped D<=min(4096,N/8) and pre-registration fallback. Native R38/R39/R39/R38 on frozen 1.33m/14d: wall6966.25→6750.75ms (**observed −3.09%**) with R38 wall drift2.69%; CPU6871.77→6653.95ms (**observed −3.17%**) with control drift2.65%; tracked query memory ~870.315MB unchanged. All 532 points and read rows/bytes match. **INCONCLUSIVE, DO NOT PROMOTE**. Diagnose actual removeTags block sizes and branch activation with low observer overhead before another expensive compilation. No R36/R37 integration.
 
 ## R38 / E05: native fixed-metric name deferral through without (2026-11-04; VALIDATED RESEARCH CANDIDATE)
 
