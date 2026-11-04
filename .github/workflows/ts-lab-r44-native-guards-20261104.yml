@@ -1,4 +1,5 @@
 name: R44 native 160-case inline singleton vs R43
+# Rerun with R43 fixture creator, fixed after initial harness-only failure.
 on:
   push:
     branches: [lab/ts-cbo-adaptive-20261103]
