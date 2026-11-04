@@ -190,7 +190,7 @@ ADDMANY_OLD = "state->buckets[sample_class.bucket_index].addMany(timestamps + i,
 ADDMANY_NEW = "state->addSamples(sample_class.bucket_index, timestamps + i, values + i, count);"
 
 def git_blob(raw: bytes) -> str:
-    return hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\\0" + raw).hexdigest()
+    return hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()
 
 def replace_exact(s, old, new, name):
     hits = s.count(old)
