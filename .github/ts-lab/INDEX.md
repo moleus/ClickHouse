@@ -1,9 +1,13 @@
 # TimeSeries performance lab — index
 
 
-## R37 / E05: injective metric-name projection for root and non-deferred range functions (2026-11-04)
+## R38 / E05: exact metric-name deferral through without aggregation (2026-11-04)
 
-- [Source proof, native gates](../ts-lab-r37/README.md), [canonical root](claims/roots/R37.json), [source-pinned R37 compiler patch](../ts-lab-r37/apply_injective_projection.py), [build 41789987661](https://github.com/moleus/ClickHouse/actions/runs/41789987661). Validated R35 source patch is the same-source O2/jemalloc control; R37 adds only a row-preserving SELECT metric-name projection when fixed exact __name__ makes the drop injective but R35 cannot defer it to the parent. This removes the duplicate-check GROUP BY for root rate/avg_over_time and without/by(__name__)/topk/binary parents. **UNMEASURED pending native oracle and ABBA**; not a production win or R36 integration.
+- [R38 source proof and experiment gates](../ts-lab-r38/README.md), [canonical root](claims/roots/R38.json), [one-guard R35 compiler patch](../ts-lab-r38/apply_without_deferral.py), [O2/jemalloc build 41791235811](https://github.com/moleus/ClickHouse/actions/runs/41791235811), [155-case native semantic and plan PASS 41791869622](https://github.com/moleus/ClickHouse/actions/runs/41791869622). The outer without() already removes __name__; R38 removes R35's extra parent.without exclusion for a direct exact metric range. It defers the entire name projection to the parent, unlike R37 which still projects name per row. Native full 1.33m A/B/B/A performance **not yet published**. No R37/R36 or master/production changes.
+
+## R37 / E05: native injective metric-name projection (2026-11-04; VALIDATED RESEARCH CANDIDATE)
+
+- [Immutable 1.33m/14d native A/B/B/A result](evidence/R37-native-1330k-local-20261104.json), [source proof and reproduction](../ts-lab-r37/README.md), [source-pinned C++ compiler patch](../ts-lab-r37/apply_injective_projection.py), [O2/jemalloc build 41789987661](https://github.com/moleus/ClickHouse/actions/runs/41789987661), [155 native compatibility and plan PASS 41790880980](https://github.com/moleus/ClickHouse/actions/runs/41790880980). R37 avoids duplicate-check GROUP BY on single exact metric-name range functions when R35 cannot defer metric drop. In the exact native `avg without(build,project,branch,job)(avg_over_time(ci_duration[1d]))` 1.33m/14d query: R35 wall 12088ms vs R37 8123.75ms (**−32.8%**), CPU 11976.64 vs 8026.72ms (**−33.0%**), tracked query memory 1.4164 vs 1.3668GB (**−3.5%**). Four fresh-process R35/R37/R37/R35 phases (2 warmups+4 measured per phase), 4CPU/4GiB quota, 2.85GB server cap, 532 independent-oracle output points and identical 3.99m inner read rows/336024252 bytes. R35 wall control drift 6.78%; candidate scope **research only**, not production, VM parity or p95/p99. No R36 integration.
 
 ## R36 / E05: native one-label projection (2026-11-04; SPLIT DECISION)
 
