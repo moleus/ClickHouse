@@ -1,5 +1,14 @@
 # TimeSeries performance lab — index
 
+## R41 / E05 — root-only late metric-name projection (2026-11-04; UNMEASURED)
+
+- [R41 semantic proof, failure gates and reproduction](../ts-lab-r41/README.md), [source-pinned three-file patch](../ts-lab-r41/apply_late_root_tags.py), [root](claims/roots/R41.json), [optimized build](https://github.com/moleus/ClickHouse/actions/runs/41799488038). R41 builds on the verified R40 cumulative compiler. For a root range function with direct single exact nonempty metric name, keep group IDs until the last output stage and remove `__name__` from output tag tuples. This avoids N transient projected-group registrations while leaving sample reads and native range rollups unchanged. Source compilation and full R40-vs-R41 native output+performance **not complete**. Earlier two failed workflow attempts were patch-helper errors, not ClickHouse semantic failures. Do not promote from compilation alone.
+
+## R40 / E05 — cumulative native compiler R35 + R37 + R38 (2026-11-04; NATIVE SEMANTIC PASS)
+
+- [R40 mechanism and limits](../ts-lab-r40/README.md), [source-pinned integration helper](../ts-lab-r40/apply_cumulative.py), [R40 root](claims/roots/R40.json), [optimized LLVM22.1.8 O2/jemalloc build 41797918745](https://github.com/moleus/ClickHouse/actions/runs/41797918745), SHA256 `522bbe374eb73727142bcd6239a7beb62a983c2f5a29a7f8b3456446c5536653`. Changes only `applyFunctionOverRange.cpp`: R35 by-parent deferral, R38 without-parent deferral, and R37 fallback injective projection for root/other parents. [155-case native differential output and physical-plan PASS 41798916172](https://github.com/moleus/ClickHouse/actions/runs/41798916172) against R35, R37 and R38 on the same fixture. Local 1.33m/14d whole `by(stage)` and `without(...)` returned all 532 independent-oracle points exactly. The initial CI harness failed because the plan list lacked `wide_without`; corrected, no C++ changes. **Integration verified; no new cross-shape cumulative speedup claimed**. Excludes R36 (narrow regression), R39 (inconclusive), and R34 (unpaired). Do not infer p95/p99, VM parity or production readiness.
+
+
 
 ## R39 / E05: bounded without-tag interning (2026-11-04; INCONCLUSIVE)
 
