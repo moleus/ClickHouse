@@ -1,0 +1,20 @@
+{
+  "id": "R39-without-projected-tags-intern-v1",
+  "question": "Can R38 native without aggregation intern projected tag sets before allocating copies for each source group?",
+  "owner": "chatgpt-e05-r39-20261104",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "R38 fixed-metric without deferral, O2 jemalloc LLVM22.1.8, run 41791235811, binary SHA256 03dcb8ae1fba6d3fd4a41afb608f1af88a1fb7fd16ef6e8c58ae061629a810ea",
+  "candidate": "R38 + source-pinned bounded retained-tag hashing/dedup in ContextTimeSeriesTagsCollector::removeTags(vector); no R36/37/R34",
+  "fixture": "R38 1.33m/14d RAW_UUID CI fixture, 2500 builds/day and 38 stages/build, plus 155-case native guard and high-cardinality/absent-tag cases",
+  "single_variable": "Avoid construction and hashing of a new projected TagNamesAndValues for each unique full input group when multiple groups yield the same projected group in removeTags",
+  "math_bound": "O(N) original rows still scanned for retained tags, but newly allocated projected tag vectors and collector registrations reduce from up to N to D, capped at min(4096,N/8) projected tags. Hash collisions require full exact retained-tag equality. If D exceeds cap, use R38 collector fallback with no partial state mutation.",
+  "falsifier": "Compile failure, any native output/error mismatch or hash-collision wrong grouping, nonactivated fastpath, memory regression, stage/project query regressions, open-loop ingest/merge failure or no repeatable matched native speedup",
+  "test_matrix": "R38 vs R39 155 native compatibility cases plus 32k distinct source groups grouped by 38 stage labels and high-cardinality fallback; 1.33m/14d without native, 2 warmups+4 reps each R38/R39/R39/R38, other selectors/dense control",
+  "runner_budget": "one isolated O2/jemalloc build, one native pilot, no cancellation of active jobs",
+  "planned_workflow": ".github/workflows/ts-lab-r39-without-intern-o2-20261104.yml",
+  "dependencies": [
+    "R38",
+    "R08"
+  ]
+}
