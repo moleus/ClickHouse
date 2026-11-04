@@ -79,7 +79,7 @@ with Server(binary,ROOT/'guard-data'):
         expr=queries[key];q=f"SELECT * FROM prometheusQueryRange(guard,'{expr}',{START+20},{START+100},10)"
         plan=sql('EXPLAIN PLAN '+q);report['cases'][key]['plan_aggregations']=plan.count('Aggregating')
         report['cases'][key]['plan']=plan
-if args.variant!='stock':
+if args.variant=='r36':
     control=json.loads((ROOT/'guard-r35.json').read_text())
     for key,v in report['cases'].items():
         old=control['cases'][key]
