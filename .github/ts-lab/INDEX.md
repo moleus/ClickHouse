@@ -1,8 +1,8 @@
 # TimeSeries performance lab — index
 
-## R42 / E05 — direct C++ root tag-array serialization (2026-11-04; UNMEASURED)
+## R42 / E05 — direct C++ root tag serialization (2026-11-04; NO_PROVEN_GAIN)
 
-- [R42 source proof, C++ helper and native gates](../ts-lab-r42/README.md), [canonical root](claims/roots/R42.json), [source-pinned direct tag serializer](../ts-lab-r42/apply_direct_root_tags.py), [optimized candidate build](https://github.com/moleus/ClickHouse/actions/runs/41801868345). R42 keeps R40/R41 cumulative compiler and root exact-name proof but replaces `arrayFilter(...,timeSeriesGroupToTags(group))` with a stateful C++ function that directly emits all labels except `__name__`. Native semantics, benchmark and RSS **not yet validated**. First compiler run failed because FunctionFactory registration lacked documentation; this is fixed and the build reruns. No master/upstream/production change.
+- [Full 1.33m/14d native R41/R42/R42/R41 evidence](evidence/R42-native-root-35k-local-20261104.json), [source proof and reproducibility](../ts-lab-r42/README.md), [source-pinned C++ serializer](../ts-lab-r42/apply_direct_root_tags.py), [O2/jemalloc build 41801868345](https://github.com/moleus/ClickHouse/actions/runs/41801868345), [160 native semantic/plan PASS 41803649288](https://github.com/moleus/ClickHouse/actions/runs/41803649288). R42 replaces R41's `arrayFilter(timeSeriesGroupToTags(group))` with a direct C++ tag output function. Same 35k full independent-oracle points, 3,989,152 read rows/337,293,196 bytes, physical parts and 4CPU/4GiB/2.85GB envelope. R41 wall638→R42 642.5ms (**+0.7%**, R41 drift1.25%); CPU568.15→575.68ms (**+1.33%**, drift2.70%); query memory 72.239→72.220MB negligible; observed RSS431→411MB (−4.7%) within 7.17% RSS drift. **NO_PROVEN_GAIN / DO_NOT_PROMOTE.** No master/upstream/production change.
 
 ## R41 / E05 — root exact-metric late projection (2026-11-04; NATIVE PILOT PASS, RSS REGRESSION)
 
