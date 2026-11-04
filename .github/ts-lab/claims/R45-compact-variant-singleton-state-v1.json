@@ -1,0 +1,22 @@
+{
+  "id": "R45-compact-variant-singleton-state-v1",
+  "question": "Can a compact exclusive singleton/map state avoid R44's state-size overhead and produce a real cumulative native memory+CPU improvement?",
+  "owner": "chatgpt-e05-r45-20261104",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "R44 build 41805775727, SHA256 ccc5e7b935fa22aa74bdf2c0847210d5e523a216a74792394b8b30af727b280a; R43 controls and native full ABBA recorded",
+  "candidate": "R45 = R44 with variant-backed compact state and exact merge/serialize/deserialize/finalization dispatch, one C++ header file",
+  "fixture": "R43 same frozen 1.33m/14d RAW_UUID, 4 PromQL selectors and dense 8192x256 rate",
+  "single_variable": "R44 inline singleton and hash map stored in exclusive std::variant rather than simultaneous fields; unchanged source-pinned compiler",
+  "math_bound": "Memory of State changes from sizeof(Map)+sizeof(optional<Sample>) (R44) to max(sizeof(Map),sizeof(Sample))+tag; no heap map allocated for empty/single state. Time complexity similar; savings require native measurement.",
+  "falsifier": "C++ build failure, native semantic mismatch/aggregation-state deserialize failure or repeatable narrow CPU regression/no memory win",
+  "test_matrix": "R44 and R43 semantic/error/plan differential, serialized singleton cross-compatibility, R43/R45 repeated same-part native queries with CPU, memory, RSS and drift",
+  "runner_budget": "One isolated O2/jemalloc compile with ccache from R44; native 160-case guards then full ABBA and dense control; no production writes",
+  "planned_workflow": ".github/workflows/ts-lab-r45-compact-singleton-o2-20261104.yml",
+  "dependencies": [
+    "R40",
+    "R34",
+    "R43",
+    "R44"
+  ]
+}
