@@ -117,7 +117,15 @@ ADD_INCLUDE = '''#include <Functions/FunctionFactory.h>
 #include <Columns/ColumnTuple.h>
 '''
 ADD_REGISTER = '''    factory.registerFunction<FunctionTimeSeriesGroupToTags>(documentation);
-    factory.registerFunction<FunctionTimeSeriesGroupToTagsWithoutName>();
+
+    FunctionDocumentation::Description direct_description = R"(
+Returns the registered group tags without __name__, for use by the native PromQL root finalizer.
+This function does not register a new group and reads only the current query's tags collector.
+)";
+    FunctionDocumentation::Syntax direct_syntax = "timeSeriesGroupToTagsWithoutName(group)";
+    FunctionDocumentation direct_documentation =
+        {direct_description, direct_syntax, arguments, {}, returned_value, {}, introduced_in, category};
+    factory.registerFunction<FunctionTimeSeriesGroupToTagsWithoutName>(direct_documentation);
 '''
 def blob(b):
     return hashlib.sha1(b"blob " + str(len(b)).encode() + b"\0" + b).hexdigest()
