@@ -1,6 +1,21 @@
 # R42 — direct native output tags for root exact-name range queries
 
-**Status: unmeasured research candidate.** Compare only against the independently tested R41 binary. No production promotion.
+**Status: 160-case native semantic PASS, measured NO_PROVEN_GAIN / DO_NOT_PROMOTE.**
+
+## Completed native experiment — 2026-11-04
+
+- [Immutable A/B/B/A experiment](../ts-lab/evidence/R42-native-root-35k-local-20261104.json), [successful R42 O2/jemalloc build 41801868345](https://github.com/moleus/ClickHouse/actions/runs/41801868345), binary SHA256 `5563d0d37e12d8fbc8270923284804b6c9b5522a177618ade26534c7050b0cff`, [160-case native semantic and plan PASS 41803649288](https://github.com/moleus/ClickHouse/actions/runs/41803649288).
+- Same 1.33m / 14d RAW_UUID physical parts. Exact native `avg_over_time(ci_duration{stage="stage-1"}[1d])` returns 35,000 fixture-derived output points, all checked on *each* warmup and measured query, same 3,989,152 read rows and 337,293,196 read bytes.
+- R41/R42/R42/R41 fresh-server A/B/B/A, 2 warmups+6 measured requests per phase, 4 CPU quota, 4 GiB cgroup, ClickHouse 2.85 GB server cap, max_threads=2. Mean of within-phase medians.
+
+| Metric | R41 | R42 | Observed change | R41 control drift |
+|---|---:|---:|---:|---:|
+| Wall | 638.0ms | 642.5ms | **+0.71%** | 1.25% |
+| Query CPU | 568.15ms | 575.68ms | **+1.33%** | 2.70% |
+| Tracked query memory | 72,238,661B | 72,220,053B | −0.026% | approximately 0 |
+| Sampled request RSS peaks | 431,377,408B | 411,090,944B | −4.7% | 7.17% |
+
+The differences in wall, CPU and sampled RSS are smaller than reference drift. R42's direct serializer passes correctness but **does not provide a reproducible native speed or RSS gain** here. Mark `NO_PROVEN_GAIN / DO_NOT_PROMOTE`, not a cumulative win. No storage/collector or production change.
 
 ## Source mechanism
 
