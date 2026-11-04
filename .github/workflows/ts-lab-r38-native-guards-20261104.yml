@@ -1,0 +1,82 @@
+name: R38 native 155-case differential oracle and without deferral plan gates
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r38-native-guards-20261104.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-r38-guard-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  native-guards:
+    runs-on: ${{ vars.CH_BENCH_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 40
+    env:
+      TS_LAB_ROOT: /tmp/tslab-r38-guard
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Source and Python preflight
+        run: |
+          set -euo pipefail
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          python3 -m py_compile .github/ts-lab-r38/guard_suite.py .github/ts-lab-r35/native.py
+          mkdir -p "$TS_LAB_ROOT" evidence
+      - name: Download pinned R35 O2 baseline
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 41732238195
+          name: tslab-r35-metric-drop-o2-binary-49eb57195e808efb818a3517bc15bc8706e51e03
+          path: ${{ runner.temp }}/r35-artifact
+      - name: Download pinned R38 O2 candidate
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 41791235811
+          name: tslab-r38-without-deferral-o2-binary-0386d9d55fb1de9bb0955689e15c53e4f076d096
+          path: ${{ runner.temp }}/r38-artifact
+      - name: Verify source-matched binaries
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends zstd
+          for v in r35 r38; do
+            mapfile -t archives < <(find "$RUNNER_TEMP/$v-artifact" -name "clickhouse-$v-*.tar.zst" -type f)
+            test "${#archives[@]}" -eq 1
+            mkdir -p "$RUNNER_TEMP/extract-$v"
+            tar -I unzstd -xf "${archives[0]}" -C "$RUNNER_TEMP/extract-$v"
+            (cd "$RUNNER_TEMP/extract-$v" && sha256sum -c SHA256SUMS)
+            sha256sum "$RUNNER_TEMP/extract-$v/clickhouse" | tee "evidence/$v-binary.sha256"
+            "$RUNNER_TEMP/extract-$v/clickhouse" --version | tee "evidence/$v-version.txt"
+          done
+          echo "68d6e8f954a44beeb137acea61b0b77afac32cc705e59404413c233b57e6a06b  $RUNNER_TEMP/extract-r35/clickhouse" | sha256sum -c -
+          echo "03dcb8ae1fba6d3fd4a41afb608f1af88a1fb7fd16ef6e8c58ae061629a810ea  $RUNNER_TEMP/extract-r38/clickhouse" | sha256sum -c -
+          mkdir -p "$TS_LAB_ROOT/r35-metric-drop-o2/bin" "$TS_LAB_ROOT/r38-without-deferral-o2/bin"
+          cp "$RUNNER_TEMP/extract-r35/clickhouse" "$TS_LAB_ROOT/r35-metric-drop-o2/bin/clickhouse"
+          cp "$RUNNER_TEMP/extract-r38/clickhouse" "$TS_LAB_ROOT/r38-without-deferral-o2/bin/clickhouse"
+      - name: R35 native reference oracle, including 512 unique groups
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-r38/guard_suite.py r35 | tee evidence/r35.log
+          cp "$TS_LAB_ROOT/guard-r35.json" evidence/
+      - name: R38 native output and without plan parity
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-r38/guard_suite.py r38 | tee evidence/r38.log
+          cp "$TS_LAB_ROOT/guard-r38.json" evidence/
+      - name: Upload oracle reports even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r38-native-guards-${{ github.sha }}
+          path: |
+            evidence/
+            ${{ env.TS_LAB_ROOT }}/guard-*.json
+          compression-level: 5
+          retention-days: 45
+          if-no-files-found: warn
