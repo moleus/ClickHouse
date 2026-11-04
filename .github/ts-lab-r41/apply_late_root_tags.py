@@ -64,7 +64,7 @@ FINALIZER_HELPER = '''namespace
     }
 
     [[noreturn]] void throwCannotFinalize'''
-TAG_EXPRESSION = 'tags = makeASTFunction("timeSeriesGroupToTags", make_intrusive<ASTIdentifier>(ColumnNames::Group));'
+TAG_EXPRESSION = '                tags = makeASTFunction("timeSeriesGroupToTags", make_intrusive<ASTIdentifier>(ColumnNames::Group));'
 
 def git_blob(raw):
     return hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()
@@ -83,7 +83,7 @@ def patch(src):
     finalizer = replace_once(src[FINALIZER], FINALIZER_ANCHOR, FINALIZER_HELPER, FINALIZER)
     if finalizer.count(TAG_EXPRESSION) != 4:
         raise ValueError(f"Expected four finalizer tag expressions, found {finalizer.count(TAG_EXPRESSION)}")
-    finalizer = finalizer.replace(TAG_EXPRESSION, 'tags = outputGroupTags(result);')
+    finalizer = finalizer.replace(TAG_EXPRESSION, '                tags = outputGroupTags(result);')
     out[FINALIZER] = finalizer
     return out
 
