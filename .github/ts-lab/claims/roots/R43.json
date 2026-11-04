@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "question_id": "R43",
+  "primary_claim_id": "R43-cumulative-small-bucket-map-v1",
+  "owner": "chatgpt-e05-r43-20261104",
+  "created_utc": "2026-11-04",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "scope": "Combine R40 verified native compiler R35+R37+R38 with R34 validated safe 2-cell start for TimeSeriesBucketsHashTableGrower. Exact same pinned source, LLVM22.1.8 O2 jemalloc, same RAW_UUID parts. Two C++ files only: applyFunctionOverRange.cpp and AggregateFunctionTimeseriesBase.h; no R36/R39/R41/R42, no data layout or collector change.",
+  "hypothesis": "R34's reduced initial bucket capacity removes wasted hash cells for 1.33m mostly singleton bucket AGF states. Its benefit was measured only isolated; cumulative R40+R34 native may reduce total tracked query memory and allow higher concurrency. TimeSeries agg state and native output must remain exact, dense controls must not regress.",
+  "baseline": "R40 binary 522bbe374eb73727142bcd6239a7beb62a983c2f5a29a7f8b3456446c5536653 build 41797918745",
+  "candidate": "R43 = source-pinned R34 helper then R35/R37/R40 compiler helpers",
+  "guards": [
+    "Native oracle 155 cases versus R40, including counter reset, NaN/Inf/stale, offsets, topk, regex, mixed metric error",
+    "dense 8192 x256 x15s rate independent oracle; stddev etc",
+    "single bucket map grows safely; one empty cell at 2, 3/4 fill above 2; merge state and serialization states preserved",
+    "full native 1.33m/14d A/B/B/A by-stage, without and narrow stage control, same physical parts",
+    "no main/upstream/production changes"
+  ],
+  "decision": "UNMEASURED",
+  "falsifier": "compile failure, any native/error mismatch, dense correctness or latency regression, or no reproducible full native memory win after drift control",
+  "runner_budget": "One optimized O2/jemalloc candidate build using pinned ccache and ABBA same server limits; no concurrent CI jobs"
+}
