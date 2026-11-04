@@ -1,6 +1,25 @@
 # R44 — inline singleton TimeSeries bucket state
 
-**Status: C++ research candidate, not yet native-validated or performance-measured. Do not promote.**
+**Status: REJECT UNCONDITIONAL. 160-case native semantic PASS, 1.33m sparse A/B/B/A shows no proven speedup, project tracked query memory +8.86%, and dense rate query CPU +32.91%. Do not promote.**
+
+## Completed native results (2026-11-04)
+
+[Immutable R44 source-matched 1.33m + dense evidence](../ts-lab/evidence/R44-native-1330k-dense-local-20261104.json), [R44 build 41805775727](https://github.com/moleus/ClickHouse/actions/runs/41805775727), [160 native output/errors/plan PASS 41807197978](https://github.com/moleus/ClickHouse/actions/runs/41807197978).
+
+R43/R44/R44/R43, 4 fresh servers under 4CPU/4GiB/2.85GB, exact same 1.33m/14d RAW_UUID physical parts and complete fixture-generated oracle for every native result, two warmups+four measured requests per query each phase.
+
+| Native query | R43 query memory | R44 | R43 wall | R44 wall | R43 drift |
+|---|---:|---:|---:|---:|---:|
+| Whole by(stage) | 839.531MB | 838.654MB | 7295.75ms | 7199.25ms | 8.60% |
+| Whole without | 839.532MB | 838.654MB | 7876.25ms | 7499.75ms | 8.31% |
+| stage-only | 53.506MB | 53.506MB | 730.75ms | 616.75ms | **51.11%** |
+| project-only | 189.404MB | **206.181MB (+8.86%)** | 1305.25ms | 1283.75ms | **20.57%** |
+
+Sparse wall/CPU differences are not robust relative to control drift, and project query memory regressed. **Reject unconditional R44 promotion.**
+
+Dense negative control: `avg by(stage)(rate(dense_counter[5m]))` over 8192 series ×256 samples/series at 15s; every one of 532 points matches independent analytic rate 0.2 ±1e-9. Four fresh R43/R44/R44/R43 phases: wall **87.25→115.75ms (+32.66%)**, CPU **85.55→113.70ms (+32.91%)**; baseline CPU control drift13.41%; query memory unchanged at38.675MB. This confirms a major dense regression for the tested workload. Do not confuse floating-point bitwise variation with failure of the 1e-9 analytic oracle.
+
+R45 investigates an exclusive variant-based compact state, so `Map` and `SingleSample` never occupy separate members simultaneously; its value must be measured directly, and R44's regression must not be inherited.
 
 ## Mechanism
 
