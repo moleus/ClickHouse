@@ -1,0 +1,98 @@
+{
+  "experiment_id": "R42-direct-root-tags-serialization-v1",
+  "decision": "NO_PROVEN_GAIN_DO_NOT_PROMOTE",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": {
+    "name": "R41",
+    "build_run": 41799488038,
+    "binary_sha256": "1fbf8d81f3d4f730f87578e4fb4f16de593f6fee30370d0afd2fd7c67f8281a2"
+  },
+  "candidate": {
+    "name": "R42",
+    "build_run": 41801868345,
+    "binary_sha256": "5563d0d37e12d8fbc8270923284804b6c9b5522a177618ade26534c7050b0cff",
+    "delta": "R41 arrayFilter(groupToTags) replaced by per-query C++ function timeSeriesGroupToTagsWithoutName(group); only timeSeriesGroupToTags.cpp and finalizeSQL.cpp changed"
+  },
+  "native_semantics": {
+    "run": 41803649288,
+    "cases": 160,
+    "status": "PASS",
+    "compares": "complete native outputs, errors, aggregation-plan node counts vs R41"
+  },
+  "test_protocol": "R41/R42/R42/R41, four fresh server processes, 2 warmups+6 measured requests per phase, 4CPU quota/4GiB memory cgroup, ClickHouse server cap 2.85GB, query max_threads=2, strict independent fixture-derived oracle for every 35000-point full native output",
+  "fixture": {
+    "series": 1330000,
+    "days": 14,
+    "builds_per_day": 2500,
+    "stages_per_build": 38,
+    "query": "avg_over_time(ci_duration{stage=\"stage-1\"}[1d]) via prometheusQueryRange",
+    "output_points": 35000,
+    "read_rows_all": 3989152,
+    "read_bytes_all": 337293196,
+    "same_frozen_physical_parts": true
+  },
+  "metrics": {
+    "wall_ms": {
+      "r41": 638,
+      "r42": 642.5,
+      "reduction_fraction": -0.007053291536050166,
+      "r41_control_drift_fraction": 0.012539184952978056,
+      "phase_medians": [
+        634,
+        603,
+        682,
+        642
+      ]
+    },
+    "cpu_ms": {
+      "r41": 568.146,
+      "r42": 575.67625,
+      "reduction_fraction": -0.013254075536921928,
+      "r41_control_drift_fraction": 0.027005382419307646,
+      "phase_medians": [
+        560.4745,
+        538.7115,
+        612.641,
+        575.8175
+      ]
+    },
+    "query_memory_bytes": {
+      "r41": 72238661,
+      "r42": 72220053,
+      "reduction_fraction": 0.0002575905995820804,
+      "r41_control_drift_fraction": 0.000001328928286752159,
+      "phase_medians": [
+        72238613,
+        72220245,
+        72219861,
+        72238709
+      ]
+    },
+    "sampled_request_rss_bytes": {
+      "r41": 431377408,
+      "r42": 411090944,
+      "reduction_fraction": 0.0470271822858187,
+      "r41_control_drift_fraction": 0.07173122983760893,
+      "phase_medians": [
+        415905792,
+        426098688,
+        396083200,
+        446849024
+      ],
+      "caveat": "sampled process request peaks at 50ms, not hard maximum"
+    }
+  },
+  "output_sha256": "892adc4c83da73e7bd037c69bf22d7edf7c3a131ba265f6677b30bd1c6a3f755",
+  "archived_evidence": {
+    "filename": "clickhouse-r42-native-root-evidence-20261104.tar.gz",
+    "sha256": "bcc4ef1c7b1e23a02514399eeb7f815177d890cab62a0b7ace645b8ce599076f",
+    "contents": "four full phase JSONs with per-query timings and oracle hash, phase logs, local runner and reducer"
+  },
+  "limits": [
+    "No proven CPU/wall speedup, observed change is smaller than reference control drift",
+    "Memory tracker decrease is ~19kB, not material",
+    "RSS difference is smaller than control RSS drift; no established RSS win",
+    "No production mixed read/write or VM parity tests"
+  ],
+  "production_master_upstream_changed": false
+}
