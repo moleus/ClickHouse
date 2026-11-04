@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "question_id": "R36",
+  "primary_claim_id": "R36-bounded-single-label-intern-v1",
+  "owner": "chatgpt-e05-r36-single-label-20261104",
+  "scope": "E05 native TimeSeries query execution: optimize ContextTimeSeriesTagsCollector::removeAllTagsExcept(vector, one-label) by interning distinct retained tag values, avoiding per-input-series projected tag object/hash registration. Batch source group lookups under short shared locks; use bounded UInt16 indices, unique-value cap and conservative fallback. Reuse pinned R35 metric-name deferral as the candidate baseline; do not alter storage, selector, native range aggregation, R34, R30/R31 or metadata JOINs.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-04",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "hypothesis": "For N input groups and D distinct values of one retained label (D much smaller than N), project and intern each output label set once, then map N input rows through bounded indices; expected new tag objects O(D), instead of O(N) for all-unique source groups.",
+  "guards": ["one label", "at least 128 input groups", "distinct retained tag values <= min(4096, N/8)", "fallback before collector mutation on overflow", "no repeated label construction on cache hit", "original method for all other cases"],
+  "baseline": "R35 O2 jemalloc build 41732238195",
+  "candidate": "R35 plus one collector-function change, same pinned source and toolchain",
+  "decision": "UNMEASURED",
+  "falsifier": "native output mismatch, different error handling, compilation failure, no stable speed/CPU gain or memory/RSS regression on 1.33m/14d and dense high-cardinality controls",
+  "runner_budget": "one source-matched candidate build and one ABBA benchmark, no competing compile lane",
+  "dependencies": ["R35", "R08"]
+}
