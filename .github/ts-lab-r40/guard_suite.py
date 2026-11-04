@@ -73,7 +73,7 @@ with Server(binary,ROOT/'guard-data'):
         except RuntimeError as e:
             m=re.search(r'Code: (\d+)',str(e));entry={'status':'ERROR','code':int(m.group(1)) if m else -1,'error':str(e)[:600]}
         entry['promql']=expr;report['cases'][key]=entry
-    for key in ('avg/avg_over_time','by_metric','single_regex','without','subquery','offset','wide_stage','wide_high_cardinality','root_range','topk','binary'):
+    for key in ('avg/avg_over_time','by_metric','single_regex','without','subquery','offset','wide_stage','wide_high_cardinality','wide_without','root_range','topk','binary'):
         expr=queries[key];q=f"SELECT * FROM prometheusQueryRange(guard,'{expr}',{START+20},{START+100},10)"
         plan=sql('EXPLAIN PLAN '+q);report['cases'][key]['plan_aggregations']=plan.count('Aggregating')
         report['cases'][key]['plan']=plan
