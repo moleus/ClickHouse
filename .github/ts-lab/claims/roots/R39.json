@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "question_id": "R39",
+  "primary_claim_id": "R39-without-projected-tags-intern-v1",
+  "owner": "chatgpt-e05-r39-20261104",
+  "scope": "E05 native TimeSeries collector: bounded duplicate-elimination of projected tag sets in ContextTimeSeriesTagsCollector::removeTags(vector, tags_to_remove) used by without aggregation. Compute exact hash of retained tag names/values from original immutable groups without copying on each input group; intern only distinct projected tag sets; handle CityHash collisions with full equality. Cap distinct values and use original transformTags fallback before collector mutation. R38 without-deferral C++ patch is source-matched baseline; do not include R36 removeAllTagsExcept, R37 root projection, R34 sparse map, JOIN/schema/ingest changes.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-04",
+  "hypothesis": "For N original unique label groups and D distinct outputs after without removal, current transformTags may create O(N) shared_ptr tag vectors and hash N times; hash-first bounded interning only materializes O(D) tag vectors and registers O(D) groups. Per-input retained-tag scanning remains O(N*K).",
+  "guards": [
+    "N>=16384 and D<=min(4096,N/8)",
+    "fallback before collector mutation on cap hit",
+    "full sorted tag equality check for hash collisions",
+    "no persistent caches or source tag mutation",
+    "all other cases use stock collector"
+  ],
+  "baseline": "R38 O2/jemalloc binary build 41791235811; native exact-metric without deferral",
+  "candidate": "R38 plus one collector function patch in ContextTimeSeriesTagsCollector.cpp",
+  "runner_budget": "one source-matched O2/jemalloc candidate build then 155-case native semantic and 1.33m/14d ABBA; no production writes or concurrent compile overlap",
+  "decision": "UNMEASURED"
+}
