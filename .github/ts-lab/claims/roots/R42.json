@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "question_id": "R42",
+  "primary_claim_id": "R42-direct-root-tags-serialization-v1",
+  "owner": "chatgpt-e05-r42-20261104",
+  "scope": "Native PromQL R41 root exact-metric result serialization optimization: eliminate SQL arrayFilter applied to full timeSeriesGroupToTags output. Add narrow query-context C++ function timeSeriesGroupToTagsWithoutName(UInt64) that serializes labels excluding '__name__' directly into Array(Tuple(String,String)); call it only from R41 finalizer when metric_name_deferred_to_output=true. Same R40/R41 C++ compiler, pinned source LLVM22.1.8 Release O2 jemalloc. No changes to storage, range aggregation, selectors, R34/R36/R39. Only groupToTags.cpp and finalizeSQL.cpp additional C++ diffs after R41.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-04",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "hypothesis": "R41 root finalizer's generic arrayFilter materializes a full tag-array column and filtered tag-array column. A direct stateful C++ serializer skips __name__ while populating output columns, eliminating two-stage work and transient allocations; no intermediate group registration as in R41. Should reduce CPU and sampled RSS for large result sets.",
+  "guards": [
+    "Root exact nonempty metric name proof inherited from R41; do not use for mixed regex/non-exact, nested or functions retaining name",
+    "Output labels sorted/unique as in original context collector; no modifying input tag storage or group IDs",
+    "stateful per-query context, no constant folding; identical tag-array type and input argument UInt64",
+    "fully check 160+ native PromQL cases against R41, full 35000-point root oracle; negative mixed metric, NaN/stale, offset/subquery"
+  ],
+  "baseline": "R41 build 41799488038, binary SHA256 1fbf8d81f3d4f730f87578e4fb4f16de593f6fee30370d0afd2fd7c67f8281a2; R40 cumulative already verified",
+  "candidate": "R41 plus C++ function and finalizer select; no extra group-register function; preserved field in SQLQueryPiece",
+  "decision": "UNMEASURED",
+  "runner_budget": "one source-matched optimized build from R41 ccache; one semantic suite and native fresh-server ABBA R41/R42/R42/R41, including RSS; reject regression or drift",
+  "falsifier": "Compilation or registration failure, semantic mismatch in label/timestamp/value/errors, `__name__` unexpectedly retained or absent, worse native CPU/RSS or no reproducible effect vs R41"
+}
