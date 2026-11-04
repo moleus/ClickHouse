@@ -1,8 +1,8 @@
 # TimeSeries performance lab — index
 
-## R44 / E05 — inline single-sample TimeSeries state (2026-11-04; C++ BUILD PASS, SEMANTICS AND PERF PENDING)
+## R44 / E05 — inline singleton TimeSeries aggregate state (2026-11-04; REJECT REGRESSIONS)
 
-- [R44 C++ source proof, spill and wire-format guards](../ts-lab-r44/README.md), [exact C++ source patch](../ts-lab-r44/apply_inline_single.py), [claim root](claims/roots/R44.json), [O2/jemalloc build 41805775727](https://github.com/moleus/ClickHouse/actions/runs/41805775727), binary SHA256 `ccc5e7b935fa22aa74bdf2c0847210d5e523a216a74792394b8b30af727b280a`. R44 keeps R43's R40 compiler and R34 2-cell hash map but stores the first (bucket index, timestamp, value) directly in each aggregate state, avoiding map allocation until a second sample; merge and serialized bytes use the original bucket format. Full native oracle/dense rate and R43/R44/R44/R43 timing **pending**. Not a production candidate.
+- [R44 full native 1.33m/14d sparse and 8192×256 dense results](evidence/R44-native-1330k-dense-local-20261104.json), [source proof, regression and limits](../ts-lab-r44/README.md), [pinned C++ state helper](../ts-lab-r44/apply_inline_single.py), [O2 build 41805775727](https://github.com/moleus/ClickHouse/actions/runs/41805775727), [160 native output/errors/plans PASS 41807197978](https://github.com/moleus/ClickHouse/actions/runs/41807197978). R44 adds a singleton sample alongside the R43 2-cell map and spills on second input. On matched R43/R44/R44/R43 1.33m/14d: whole tracked memory 839.531→838.654MB (~0.1%), but project tracked memory **189.404→206.181MB (+8.86%)**. Sparse wall differences smaller than control drift or high drift (stage baseline drift 51%). Dense native rate over 8192×256: **CPU 85.55→113.70ms (+32.91%)**, reference CPU drift13.41%, full 532-point analytic oracle PASS. **REJECT unconditional R44**, no production. R45 compact state must be validated separately.
 
 ## R43 / E05 — cumulative R40 plus R34 sparse bucket grower (2026-11-04; MEMORY PASS, STAGE REGRESSION)
 
