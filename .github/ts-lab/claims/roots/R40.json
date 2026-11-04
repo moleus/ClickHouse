@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "question_id": "R40",
+  "primary_claim_id": "R40-composable-proven-native-metric-drop-v1",
+  "owner": "chatgpt-e05-r40-20261104",
+  "scope": "E05 exact source-matched native PromQL compiler cumulative stack: R35 safe parent by, R38 safe parent without, R37 injective no-regroup projection for root/by-name/binary/topk. One source file applyFunctionOverRange.cpp, LLVM22.1.8 O2 jemalloc. Explicitly exclude R36 (regressed stage), R39 (inconclusive), R34 (unpaired), selector/storage/schema changes. Validate against R35, R37 and R38 binary with independent PromQL oracle; baseline comparison for each query is its best proven matching variant.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-04",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "hypothesis": "A single compiler can combine R35/R38 exact-metric parent deferral with R37's fallback projection without semantic conflicts, preserving R35 by(stage), R38 without and R37 root/by(__name__) plans. This is an integration and regression result, not automatically a new speedup.",
+  "baseline": "R35 build 41732238195, R37 41789987661 and R38 41791235811",
+  "candidate": "Apply R35, then R37, then R40 source-pinned guard tweak derived from R38 on the exact R37 blob",
+  "guards": [
+    "147+ native compatibility cases against all three existing binaries",
+    "same exact single metric proof, no offset/subquery, collision/error behavior on mixed names",
+    "A/B/B/A same host and physical parts on by(stage), without(stage) and root cases",
+    "no master/production writes"
+  ],
+  "decision": "UNMEASURED",
+  "falsifier": "C++ build failure, any 155+ native output mismatch to correct baseline, altered regex/offset errors, unexpected aggregation plan, repeatable latency/memory regressions over matched controls",
+  "runner_budget": "one O2/jemalloc binary using ccache; one semantic suite; cross-shape native A/B/B/A; no concurrent long builds"
+}
