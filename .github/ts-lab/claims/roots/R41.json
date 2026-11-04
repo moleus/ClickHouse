@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "question_id": "R41",
+  "primary_claim_id": "R41-root-late-name-projection-v1",
+  "owner": "chatgpt-e05-r41-20261104",
+  "scope": "Native PromQL root range function optimization on cumulative R40 compiler: for a direct RangeSelector with a single exact non-empty __name__ and no parent AST node, defer metric-name stripping from per-series vector-grid group-ID collector to the final result serialization. In finalizer, filter __name__ from output tags after timeSeriesGroupToTags(group), preserving sorted labels and injectivity, with no projected group-registration, no changed sample reads. Change only SQLQueryPiece.h, applyFunctionOverRange.cpp and finalizeSQL.cpp; baseline R40 source-matched O2 jemalloc. Not R36/R39/R34 or data layout changes.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-04",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "hypothesis": "For root rate/avg_over_time(fixed_metric{labels}[window]), R37 currently registers an additional projected group for every source series. The root result never reuses group IDs downstream. Removing __name__ only in final tag-array generation avoids those intermediate group registrations, hashes and locks while keeping PromQL output identical.",
+  "guards": [
+    "Only root node, direct exact non-empty metric name, range funcs whose implementation drops the metric name",
+    "Never for first/last_over_time that retain name, mixed names, regex, subquery, offset, nested arithmetic or aggregations",
+    "No duplicate exception suppressed unless injectivity proven; clear deferred flag when not root",
+    "Full native result and plan guards for instant/range output, NaN/stale/empty and mixed name negative"
+  ],
+  "baseline": "R40 cumulative compiled candidate R35+R37+R38; same source LLVM22.1.8 O2 jemalloc",
+  "candidate": "R40 plus three-file late tag-array projection; compute final tags by filtering only '__name__' from group tag arrays, no ContextTimeSeriesTagsCollector register",
+  "decision": "UNMEASURED",
+  "runner_budget": "one compile after R40 O2 cached; 155+ native checks; native root stage/whole ABBA vs R40; all per-query CPU/RSS; stop if no measured win",
+  "falsifier": "Any incorrect __name__ preservation/removal, duplicate semantics, SQL syntax/type error, negative-plan changes, loss in root-rate sparse/dense controls or no native improvement under drift gate"
+}
