@@ -1,4 +1,5 @@
 name: R40 cumulative compiler R35 R37 R38 native oracle and plans
+# Rerun after correcting guard script plan capture for wide_without.
 on:
   push:
     branches: [lab/ts-cbo-adaptive-20261103]
