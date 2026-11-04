@@ -1,0 +1,82 @@
+name: R39 native 157-case collision-safe without tag interning
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r39-native-guards-20261104.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-r39-guard-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  native-guards:
+    runs-on: ${{ vars.CH_BENCH_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 40
+    env:
+      TS_LAB_ROOT: /tmp/tslab-r39-guard
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Source and Python preflight
+        run: |
+          set -euo pipefail
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          python3 -m py_compile .github/ts-lab-r39/guard_suite.py .github/ts-lab-r35/native.py
+          mkdir -p "$TS_LAB_ROOT" evidence
+      - name: Download pinned R38 O2 baseline
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 41791235811
+          name: tslab-r38-without-deferral-o2-binary-0386d9d55fb1de9bb0955689e15c53e4f076d096
+          path: ${{ runner.temp }}/r38-artifact
+      - name: Download pinned R39 O2 candidate
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 41792846773
+          name: tslab-r39-without-intern-o2-binary-84121e7d0041d167bb630251e937be3fe478c08d
+          path: ${{ runner.temp }}/r39-artifact
+      - name: Verify source-matched binaries
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends zstd
+          for v in r38 r39; do
+            mapfile -t archives < <(find "$RUNNER_TEMP/$v-artifact" -name "clickhouse-$v-*.tar.zst" -type f)
+            test "${#archives[@]}" -eq 1
+            mkdir -p "$RUNNER_TEMP/extract-$v"
+            tar -I unzstd -xf "${archives[0]}" -C "$RUNNER_TEMP/extract-$v"
+            (cd "$RUNNER_TEMP/extract-$v" && sha256sum -c SHA256SUMS)
+            sha256sum "$RUNNER_TEMP/extract-$v/clickhouse" | tee "evidence/$v-binary.sha256"
+            "$RUNNER_TEMP/extract-$v/clickhouse" --version | tee "evidence/$v-version.txt"
+          done
+          echo "03dcb8ae1fba6d3fd4a41afb608f1af88a1fb7fd16ef6e8c58ae061629a810ea  $RUNNER_TEMP/extract-r38/clickhouse" | sha256sum -c -
+          echo "d407e2ca29750fa480cba7f895e3109f6ebe2534d2fe3c0313d556f906507e76  $RUNNER_TEMP/extract-r39/clickhouse" | sha256sum -c -
+          mkdir -p "$TS_LAB_ROOT/r38-without-deferral-o2/bin" "$TS_LAB_ROOT/r39-without-intern-o2/bin"
+          cp "$RUNNER_TEMP/extract-r38/clickhouse" "$TS_LAB_ROOT/r38-without-deferral-o2/bin/clickhouse"
+          cp "$RUNNER_TEMP/extract-r39/clickhouse" "$TS_LAB_ROOT/r39-without-intern-o2/bin/clickhouse"
+      - name: R38 native reference oracle including 32768 source groups
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-r39/guard_suite.py r38 | tee evidence/r38.log
+          cp "$TS_LAB_ROOT/guard-r38.json" evidence/
+      - name: R39 exact full-result comparison and physical-plan parity
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-r39/guard_suite.py r39 | tee evidence/r39.log
+          cp "$TS_LAB_ROOT/guard-r39.json" evidence/
+      - name: Upload oracle reports even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r39-native-guards-${{ github.sha }}
+          path: |
+            evidence/
+            ${{ env.TS_LAB_ROOT }}/guard-*.json
+          compression-level: 5
+          retention-days: 45
+          if-no-files-found: warn
