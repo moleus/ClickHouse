@@ -17,6 +17,20 @@ The native `avg without(build,project,branch,job)(avg_over_time(ci_duration[1d])
 
 Baseline control drift: wall 1.91%, CPU 2.32%; all query outputs and physical parts equal. R38 is a valid **additional gain compared with R35 on this single native query**. It avoids both the intermediate duplicate-check aggregation and intermediate metric-name group projection. A separate [direct R37/R38/R38/R37 fresh-process ABBA](../ts-lab/evidence/R38-vs-R37-direct-native-1330k-local-20261104.json) now confirms R38 is **16.12% faster in wall time** and **16.21% lower in query CPU** than R37 on this exact native query; tracked query memory is **36.32% lower** and sampled request RSS peaks **27.62% lower**. R37 wall control drift was 4.55%; the full 532-point oracle and physical reads were unchanged. This is a direct experiment, not subtraction of cross-run percentages. No production/VM superiority or latency tails claim.
 
+## Two-client native capacity gate (2026-11-04)
+
+[Immutable R35/R38 two-client capacity evidence](../ts-lab/evidence/R38-two-client-capacity-local-20261104.json). Fresh servers in order R35/R38/R38/R35, each with four synchronized two-client waves (two warmups, two measured), identical physical 1.33m/14d RAW_UUID data, full independent 532-point oracle on all successful requests. 4 CPU quota, 4GiB cgroup memory, ClickHouse server memory cap 2.85GB, two query threads and a 1.9GB per-query memory cap.
+
+| | R35 | R38 |
+|---|---:|---:|
+| All attempted requests including warmups | 16 | 16 |
+| Successful requests | 6 | **16** |
+| Failed requests | 10 | **0** |
+| Successful measured requests excluding warmups | 2/8 | **8/8** |
+| Failure cause | Ten ClickHouse `Code 241` total-memory-limit errors with OvercommitTracker selecting a query to stop | None |
+
+These were ClickHouse memory-limit exceptions, **not kernel OOM kills**. All successful full native results exactly match the independent oracle. This confirms a capacity gain only for two simultaneous whole-metric `without` requests in this memory envelope; it is not a general safe concurrency value or steady mixed-ingestion production proof.
+
 ## Source proof
 
 R35 already proved the injectivity of `(exact_metric_name, other_labels) -> other_labels` after a per-series range function, and removes redundant duplicate-check GROUP BY when an immediate `by(...)` parent discards the metric name. R35 explicitly refused `without` parents.
