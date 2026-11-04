@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "question_id": "R38",
+  "primary_claim_id": "R38-defer-exact-metric-through-without-v1",
+  "owner": "chatgpt-e05-r38-20261104",
+  "scope": "Native PromQL compiler R35 source-matched extension: allow injective exact-name range function metric-name deferral through the immediate one-argument without(labels) aggregation, when the removed-label list does NOT mention __name__. The parent already removes __name__; avoid both intermediate duplicate-check aggregation and per-row metric-name tag projection. One C++ guard deletion in applyFunctionOverRange.cpp beyond R35. No R36/R37, R34, schema, selector or storage changes.",
+  "allowed_support_claims": [],
+  "created_utc": "2026-11-04",
+  "hypothesis": "The immediate without operator removes __name__ itself when metric_name_dropped=false (transformGroupASTForAggregationOperator.cpp). Under a direct exact single metric, the extra range-function dropMetricName() is redundant and injective. This can skip a full regrouping unlike R37's row-preserving projection.",
+  "baseline": "R35 O2 jemalloc SHA256 68d6e8f954a44beeb137acea61b0b77afac32cc705e59404413c233b57e6a06b",
+  "candidate": "R35 plus one local guard change allowing without, no R37",
+  "decision": "UNMEASURED",
+  "runner_budget": "one isolated O2/jemalloc cached build; then native 155-case compatibility and full 1.33m without A/B/B/A",
+  "falsifier": "Any output or error-code mismatch, root/by_metric/regex/offset plan changes, native without plan does not lose one aggregate, or no stable speedup under matched resource envelope."
+}
