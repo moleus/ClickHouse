@@ -18,5 +18,6 @@
   ],
   "decision": "UNMEASURED",
   "falsifier": "compile failure, any native/error mismatch, dense correctness or latency regression, or no reproducible full native memory win after drift control",
-  "runner_budget": "One optimized O2/jemalloc candidate build using pinned ccache and ABBA same server limits; no concurrent CI jobs"
+  "runner_budget": "One optimized O2/jemalloc candidate build using pinned ccache and ABBA same server limits; no concurrent CI jobs",
+  "allowed_support_claims": []
 }
