@@ -1,6 +1,21 @@
 # R39: bounded projected-tag interning for native without(...)
 
-**Status: built C++ candidate, native semantic gate PASS (157 cases). Full native performance A/B/B/A against R38 is in progress; no speed claim.**
+**Status: INCONCLUSIVE performance. 157-case native semantic gate PASS; matched 1.33m/14d ABBA had a ~3% observed effect close to its ~2.7% control drift, so R39 is NOT PROMOTED.**
+
+## Completed native 1.33m comparison (2026-11-04)
+
+[Immutable measured evidence](../ts-lab/evidence/R39-native-1330k-local-20261104.json), [R39 optimized build 41792846773](https://github.com/moleus/ClickHouse/actions/runs/41792846773), [R38/R39 157 native compatibility PASS](https://github.com/moleus/ClickHouse/actions/runs/41793653918).
+
+R38/R39/R39/R38 matched fresh processes, 2 warmups+4 measured queries each, same 1.33m/14d RAW_UUID parts under 4-CPU/4GiB/2.85GB server limit; every 532-point `avg without(build,project,branch,job)(avg_over_time(ci_duration[1d]))` result matches the independent oracle, with identical3.99m read rows and336024252 read bytes.
+
+| Metric | R38 | R39 | Change |
+|---|---:|---:|---:|
+| Wall | 6966.25ms | 6750.75ms | observed −3.09%, R38 drift 2.69% |
+| Query CPU | 6871.77ms | 6653.95ms | observed −3.17%, R38 drift 2.65% |
+| Query memory | 870,314,880B | 870,314,670B | unchanged |
+| Observed request RSS peaks | 1,442,837,504B | 1,451,261,952B | +0.58%, not robust |
+
+This is **INCONCLUSIVE**, not a confirmed speedup or a negative correctness result. The small possible improvement is close to control drift. Do not combine with R38 or R36 in `FINAL_STACK`. Before another compile, measure a low-overhead histogram of `removeTags` input vector sizes and fastpath activation rates; the path requires at least16384 groups per call. If most blocks are smaller, R39 has no opportunity and its small observed effect may be noise.
 
 ## Baseline and intervention
 
