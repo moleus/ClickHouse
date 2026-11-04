@@ -1,10 +1,15 @@
-## R36 / E05: bounded one-label projection candidate (2026-11-04; UNMEASURED)
-
-- [R36 source proof and comparison contract](../ts-lab-r36/README.md), [canonical claim](claims/roots/R36.json), [source-pinned collector patch](../ts-lab-r36/apply_single_label_intern.py), [R35 versus R36 native runner](../ts-lab-r36/run_phase.py), [147-case guard](../ts-lab-r36/guard_suite.py).
-- [R36 source-matched LLVM22/O2/jemalloc build](https://github.com/moleus/ClickHouse/actions/runs/41787693315) initiated; isolated patch to one collector file plus verified R35 compiler helper. The collector already deduplicates **source group IDs**; R36 interns one **projected label value** across distinct full source group IDs. Bound D <= min(4096,N/8); high-cardinality/multi-label fallback before collector mutation. Source-level object-work bound O(D) instead of up to O(N); **no native CPU, latency or RSS gain has been measured**.
-- Use **R35**, not stock, as the direct control. Next: compile/guards, then fresh-server 1.33m/14d native ABBA, dense and missing-label controls. No master/upstream/production changes.
-
 # TimeSeries performance lab — index
+
+
+## R37 / E05: injective metric-name projection for root and non-deferred range functions (2026-11-04)
+
+- [Source proof, native gates](../ts-lab-r37/README.md), [canonical root](claims/roots/R37.json), [source-pinned R37 compiler patch](../ts-lab-r37/apply_injective_projection.py), [build 41789987661](https://github.com/moleus/ClickHouse/actions/runs/41789987661). Validated R35 source patch is the same-source O2/jemalloc control; R37 adds only a row-preserving SELECT metric-name projection when fixed exact __name__ makes the drop injective but R35 cannot defer it to the parent. This removes the duplicate-check GROUP BY for root rate/avg_over_time and without/by(__name__)/topk/binary parents. **UNMEASURED pending native oracle and ABBA**; not a production win or R36 integration.
+
+## R36 / E05: native one-label projection (2026-11-04; SPLIT DECISION)
+
+- [Measured 1.33m/14d native evidence](evidence/R36-native-1330k-local-20261104.json), [source and reproduction](../ts-lab-r36/README.md), [source-pinned patch](../ts-lab-r36/apply_single_label_intern.py), [O2/jemalloc build 41787693315](https://github.com/moleus/ClickHouse/actions/runs/41787693315). Same exact physical parts and full independent oracle; local 4CPU/4GiB fresh-process R35/R36/R36/R35, 2 warmups+4 measured per phase. Whole-metric wall 6743→6141ms (−8.9%), CPU 6650→6049ms (−9.0%), memory ~870.31MB unchanged; 3.53% wall control drift. **ACCEPT_FOR_NEXT_GATE only for the broad selector**.
+- Critical negative control: `stage=stage-1` wall 541→592ms (**+9.4% regression**, baseline drift1.48%), CPU +9.4%. Project observed −7.9% wall but stock drift10.7%: INCONCLUSIVE. The [133k CI pilot 41789371186](https://github.com/moleus/ClickHouse/actions/runs/41789371186) passed 155-case native compatibility and outputs but failed timing drift gate. **REJECT unconditional R36 promotion**; investigate bounded adaptive dispatch, never multiply R35/R36 or R34 gains without a separate matched build.
+
 
 ## R35 / E05: completed native redundant-aggregation elimination (2026-11-04)
 
