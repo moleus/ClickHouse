@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "question_id": "R44",
+  "primary_claim_id": "R44-inlined-single-sample-timeseries-state-v1",
+  "owner": "chatgpt-e05-r44-20261104",
+  "created_utc": "2026-11-04",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "scope": "Cumulative R43 R40+R34 compiler with a new inline singleton sample fastpath inside AggregateFunctionTimeseriesBase.h for all timeSeries*ToGrid derived functions. Keep original hash map and serialization wire format for 0,2+ samples or merged/deserialized dense states. Exact direct one-bucket/one-sample state avoids any hash allocation per series. No storage, query, tags, index, R36/R39/R41/R42 changes.",
+  "allowed_support_claims": [],
+  "hypothesis": "On sparse CI-shaped native queries with 1 sample per series, bucket-map allocation per aggregate state is avoidable. Hold one (bucket index,timestamp,value) in the aggregate state; spill to the existing R34 hash map on second sample. Native full 1.33m/14d can reduce memory and CPU beyond R43 without changing semantics or on-disk layout.",
+  "baseline": "R43 cumulative R40+R34 optimized build (under construction), same LLVM22.1.8 Release O2 jemalloc",
+  "candidate": "R44 = R43 plus reversible one-sample inline storage in AggregateFunctionTimeseriesBase.h; no other changes",
+  "guards": [
+    "All native 160 cases against R43, including NaN/Inf/stale, duplicate timestamps, offsets, subquery, multi metric error and group-by variants",
+    "dense 8192 series ×256 samples at 15s, independent analytic rate oracle with resets/out-of-order cases",
+    "Single-sample and dense aggregate state same serialization version bytes; deserialize/merge fallback works",
+    "Check spillage same bucket and different bucket, key 0, single/zero samples, parallel merges",
+    "A/B/B/A same frozen 1.33m series/14d RAW_UUID and cgroup limits; negative latency controls",
+    "No master/upstream/production changes"
+  ],
+  "decision": "UNMEASURED",
+  "falsifier": "Compile/link failure, any native oracle or serialization mismatch, large regression on dense selectors, or no repeatable memory+CPU win beyond R43",
+  "runner_budget": "One R43-cached O2 binary, native guards and matched 4-phase same host benchmark. Require R43 gates before promotion."
+}
