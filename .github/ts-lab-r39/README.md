@@ -1,10 +1,11 @@
 # R39: bounded projected-tag interning for native without(...)
 
-**Status: UNMEASURED C++ candidate. No native performance improvement is claimed until measured against R38.**
+**Status: built C++ candidate, native semantic gate PASS (157 cases). Full native performance A/B/B/A against R38 is in progress; no speed claim.**
 
 ## Baseline and intervention
 
 - Baseline: R38 [verified source-matched build 41791235811](https://github.com/moleus/ClickHouse/actions/runs/41791235811), exact source `52529f0c711566d696917678bf15e7068772fdde`, LLVM 22.1.8, Release O2 and jemalloc.
+- [R39 compiled optimized binary 41792846773](https://github.com/moleus/ClickHouse/actions/runs/41792846773), SHA256 `d407e2ca29750fa480cba7f895e3109f6ebe2534d2fe3c0313d556f906507e76`; [157-case native semantic PASS 41793653918](https://github.com/moleus/ClickHouse/actions/runs/41793653918), exact R38-vs-R39 outputs and unchanged plans.
 - R38 compiler already uses R35's safe parent deferral for `without(...)`. R39 keeps **both** R35 and R38 compiler patches unchanged and modifies only `ContextTimeSeriesTagsCollector.cpp`, the `removeTags(vector, removed_labels)` call site.
 - [Canonical root](../ts-lab/claims/roots/R39.json), [primary claim](../ts-lab/claims/R39-without-projected-tags-intern-v1.json), [source-pinned C++ helper](apply_without_intern.py), [isolated build](../workflows/ts-lab-r39-without-intern-o2-20261104.yml), [R38/R39 full native guard](guard_suite.py).
 - This is separate from R36, which optimized **one retained label via removeAllTagsExcept**, and from R37 which optimized a different compiler path. Do not combine isolated gains.
