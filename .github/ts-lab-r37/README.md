@@ -1,6 +1,23 @@
 # R37: injective metric-name projection without duplicate-check GROUP BY
 
-**Status: C++ research candidate; native performance not yet proven.** Build: [41789987661](https://github.com/moleus/ClickHouse/actions/runs/41789987661).
+**Status: VALIDATED RESEARCH CANDIDATE for the measured without(...) selector; native full-query gain reproduced in fresh-process A/B/B/A. Production release NOT approved.** Build: [41789987661](https://github.com/moleus/ClickHouse/actions/runs/41789987661).
+
+## Completed full native result — 2026-11-04
+
+[Immutable experiment summary](../ts-lab/evidence/R37-native-1330k-local-20261104.json) and [155-case native oracle CI](https://github.com/moleus/ClickHouse/actions/runs/41790880980). R35 and R37 are pinned to the same source, LLVM 22.1.8, Release O2 and jemalloc; R37 changes only `applyFunctionOverRange.cpp`. The user-provided raw evidence archive in the originating chat contains phase reports with complete native output, query logs, independent Python fixture oracle and physical part census.
+
+Full 1.33m-series, 14-day `avg without(build,project,branch,job)(avg_over_time(ci_duration[1d]))`, 532 full oracle-matched output points, unchanged 3,990,000 physical read rows and 336,024,252 read bytes. Four fresh server processes in order R35/R37/R37/R35. Two warmups and four measured requests per phase. Same RAW_UUID parts, 4 CPU quota, 4GiB memory cgroup, 2.85GB server memory cap, two query threads.
+
+| Metric | R35 | R37 | Change |
+|---|---:|---:|---:|
+| Wall time, mean of phase medians | 12088ms | 8123.75ms | **−32.79%** |
+| Query CPU, mean of phase medians | 11976.64ms | 8026.72ms | **−32.98%** |
+| Tracked query memory | 1,416,389,840 B | 1,366,786,256 B | **−3.50%** |
+| Mean observed request RSS peaks | 2,035,899,392 B | 2,025,735,168 B | −0.50%; not a guaranteed maximum |
+
+Control drift: R35 wall 6.78%, query CPU 6.73%. Every native output matches the independent fixture-derived oracle. All query-log rows and physical part identifiers were verified. This is a new win **relative to R35 for this one query**; do not multiply with R36's distinct whole-metric improvement or infer p95/p99.
+
+Secondary experiment R38 may avoid even the intermediate row-preserving projection for the immediate `without(...)` case. R37 already eliminates full regrouping; R38 is a separate opt-in candidate.
 
 ## Why this is new relative to R35
 
