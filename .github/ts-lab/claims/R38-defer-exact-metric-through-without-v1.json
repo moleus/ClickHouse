@@ -1,0 +1,20 @@
+{
+  "id": "R38-defer-exact-metric-through-without-v1",
+  "question": "Can native PromQL skip R35's range-function metric-name projection when immediate without(...) already removes the name?",
+  "owner": "chatgpt-e05-r38-20261104",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "R35 binary SHA256 68d6e8f954a44beeb137acea61b0b77afac32cc705e59404413c233b57e6a06b build 41732238195",
+  "candidate": "R35 plus one C++ guard deletion of parent.without, no R36/R37",
+  "fixture": "1.33m RAW UUID / 14d Jenkins fixture plus 155 native semantic guard cases; avg without(build,project,branch,job)(avg_over_time(ci_duration[1d]))",
+  "single_variable": "Allow canDeferMetricNameRemoval to accept parent.without when its labels do not contain __name__ and all other R35 proof conditions hold",
+  "math_bound": "Avoid N per-row metric-name projections and one N-group countForEach/anyForEach duplicate-check state. The immediate without does its existing tag removal. No reduction in sample reads, selector resolution or per-series range aggregation.",
+  "falsifier": "Any native result/plan guard mismatch, additional error or memory-limit failure, no repeated same-source performance improvement in R35/R38/R38/R35, or invalid drift.",
+  "test_matrix": "R35 155-case oracle plus without positive; mixed metric regex, offset, subquery, by metric, root negative; whole and filtered 1.33m/14d without, dense counter without, 1/2 client memory.",
+  "runner_budget": "one isolated optimized candidate build and reuse 4CPU/4GiB/2.85GB native ABBA",
+  "planned_workflow": ".github/workflows/ts-lab-r38-without-deferral-o2-20261104.yml",
+  "dependencies": [
+    "R35",
+    "R08"
+  ]
+}
