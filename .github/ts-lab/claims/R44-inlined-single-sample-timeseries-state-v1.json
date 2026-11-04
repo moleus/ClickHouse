@@ -1,0 +1,21 @@
+{
+  "id": "R44-inlined-single-sample-timeseries-state-v1",
+  "question": "Can inlining one aggregate input sample into each C++ TimeSeries grid state avoid millions of sparse map allocations without changing native PromQL semantics?",
+  "owner": "chatgpt-e05-r44-20261104",
+  "state": "claimed",
+  "source_sha": "52529f0c711566d696917678bf15e7068772fdde",
+  "baseline": "R43 cumulative R40+R34 optimized build (under construction), same LLVM22.1.8 Release O2 jemalloc",
+  "candidate": "R44 = R43 plus reversible one-sample inline storage in AggregateFunctionTimeseriesBase.h; no other changes",
+  "fixture": "R43 frozen 1.33m/14d RAW_UUID and dense 8192x256 counter, 160-case native oracle, direct aggregate state serialize/deserialize cases",
+  "single_variable": "R43 header gets inline one-sample state with spill on second sample; compiler/data unchanged",
+  "math_bound": "N singleton hash-map allocation eliminated, but N aggregate states gain a constant-size inline optional record. Main query still must read all rows and emit evaluation grid. Memory and speed changes are hypotheses.",
+  "falsifier": "Compile/link failure, any native oracle or serialization mismatch, large regression on dense selectors, or no repeatable memory+CPU win beyond R43",
+  "test_matrix": "R43/R44 native differential, exact per-sample stale/duplicate/out-of-order controls, 1.33m full query ABBA, dense counter, memory tracker/RSS/CPU, format compatibility",
+  "runner_budget": "One R43-cached O2 binary, native guards and matched 4-phase same host benchmark. Require R43 gates before promotion.",
+  "planned_workflow": ".github/workflows/ts-lab-r44-inlined-single-sample-o2-20261104.yml",
+  "dependencies": [
+    "R43",
+    "R40",
+    "R34"
+  ]
+}
