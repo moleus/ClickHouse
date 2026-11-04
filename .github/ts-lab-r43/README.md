@@ -1,6 +1,19 @@
 # R43 — verified native compiler plus R34 sparse bucket-map grower
 
-**Status: source-matched optimized build and 160-case native semantic gate PASS; full 1.33m same-host A/B/B/A is in progress. No performance gain is claimed until controls complete.**
+**Status: 160 native compatibility cases PASS; verified query-memory reduction, NARROW SELECTOR SPEED REGRESSION; REJECT UNCONDITIONAL PROMOTION.**
+
+## Completed cumulative native A/B/B/A, 2026-11-04
+
+[Immutable full result](../ts-lab/evidence/R43-native-1330k-local-20261104.json). R40/R43/R43/R40, four fresh processes, two warmups and four measured native requests per selector, 4 CPU / 4GiB cgroup / 2.85GB server memory, same frozen 1.33m/14d RAW_UUID physical parts. Every native query returned the complete independent fixture oracle with unchanged physical read rows/bytes.
+
+| Query | R40 tracked query memory | R43 | Change | Observed wall change / control drift |
+|---|---:|---:|---:|---|
+| whole `avg by(stage)` | 870.31MB | 839.53MB | **−3.54%** | −7.14%; control drift 15.49%, inconclusive |
+| whole `avg without(...)` | 870.31MB | 839.53MB | **−3.54%** | −2.44%; control drift 5.49%, inconclusive |
+| `stage="stage-1"` | 72.30MB | 53.51MB | **−26.0%** | **+6.97% regression**; control drift only 0.51% |
+| `project="project-1"` | 282.66MB | 189.40MB | **−32.99%** | +4.15%, control drift 15.0%, inconclusive |
+
+The memory reduction is real for this fixture but the tight narrow stage control found a latency regression. **Do not promote R43 unconditionally.** R44 tests a better singleton bucket representation on this baseline; it must prove both memory and CPU benefits before stacking or capacity claims. Sampled RSS is not a hard max. No production-readiness or optimized VictoriaMetrics claim.
 
 ## Composition
 
