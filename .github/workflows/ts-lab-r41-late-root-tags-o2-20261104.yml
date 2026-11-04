@@ -1,4 +1,5 @@
 name: R41 native late root metric tag projection with cumulative compiler O2
+# Rerun after narrowing finalizer replacement to case branches, not the helper.
 on:
   push:
     branches: [lab/ts-cbo-adaptive-20261103]
