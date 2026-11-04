@@ -1,0 +1,81 @@
+name: R41 native root late tags 160-case semantic and plan guards
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r41-native-guards-20261104.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-r41-native-guards-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  native-guards:
+    runs-on: ${{ vars.CH_BENCH_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 45
+    env:
+      TS_LAB_ROOT: /tmp/tslab-r41-guard
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify immutable workflow and Python scripts
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/ts-lab-r41/guard_suite.py .github/ts-lab-r35/native.py
+          mkdir -p "$TS_LAB_ROOT" evidence
+      - name: Download verified R40 cumulative baseline
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 41797918745
+          name: tslab-r40-cumulative-compiler-o2-binary-75ebe4413ad804580d9d5a5dec8fbba104362fc2
+          path: ${{ runner.temp }}/r40-artifact
+      - name: Download source-matched R41 late-root candidate
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 41799488038
+          name: tslab-r41-late-root-tags-o2-binary-3e322d16ec68cc65cfd08edc29c49599d8093274
+          path: ${{ runner.temp }}/r41-artifact
+      - name: Verify binary hashes and build identities
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends zstd
+          for v in r40 r41; do
+            mapfile -t archives < <(find "$RUNNER_TEMP/$v-artifact" -name "clickhouse-$v-*.tar.zst" -type f)
+            test "${#archives[@]}" -eq 1
+            mkdir -p "$RUNNER_TEMP/extract-$v"
+            tar -I unzstd -xf "${archives[0]}" -C "$RUNNER_TEMP/extract-$v"
+            (cd "$RUNNER_TEMP/extract-$v" && sha256sum -c SHA256SUMS)
+            sha256sum "$RUNNER_TEMP/extract-$v/clickhouse" | tee "evidence/$v-sha256.txt"
+            "$RUNNER_TEMP/extract-$v/clickhouse" --version | tee "evidence/$v-version.txt"
+          done
+          echo "522bbe374eb73727142bcd6239a7beb62a983c2f5a29a7f8b3456446c5536653  $RUNNER_TEMP/extract-r40/clickhouse" | sha256sum -c -
+          echo "1fbf8d81f3d4f730f87578e4fb4f16de593f6fee30370d0afd2fd7c67f8281a2  $RUNNER_TEMP/extract-r41/clickhouse" | sha256sum -c -
+          mkdir -p "$TS_LAB_ROOT/r40-cumulative-compiler-o2/bin" "$TS_LAB_ROOT/r41-late-root-tags-o2/bin"
+          cp "$RUNNER_TEMP/extract-r40/clickhouse" "$TS_LAB_ROOT/r40-cumulative-compiler-o2/bin/clickhouse"
+          cp "$RUNNER_TEMP/extract-r41/clickhouse" "$TS_LAB_ROOT/r41-late-root-tags-o2/bin/clickhouse"
+      - name: R40 native 160-case reference
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-r41/guard_suite.py r40 | tee evidence/r40-guard.log
+          cp "$TS_LAB_ROOT/guard-r40.json" evidence/
+      - name: R41 native output, failure and plan parity
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-r41/guard_suite.py r41 | tee evidence/r41-guard.log
+          cp "$TS_LAB_ROOT/guard-r41.json" evidence/
+      - name: Upload native evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r41-native-guard-${{ github.sha }}
+          path: |
+            evidence/
+            ${{ env.TS_LAB_ROOT }}/guard-*.json
+          compression-level: 4
+          retention-days: 45
+          if-no-files-found: warn
