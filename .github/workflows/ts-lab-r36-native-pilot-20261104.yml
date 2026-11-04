@@ -1,0 +1,115 @@
+name: R36 source matched R35 native guard and 133k ABBA pilot
+on:
+  push:
+    branches: [lab/ts-cbo-adaptive-20261103]
+    paths: ['.github/workflows/ts-lab-r36-native-pilot-20261104.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tslab-r36-native-pilot-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  verify-and-benchmark:
+    runs-on: ${{ vars.CH_BENCH_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 120
+    env:
+      TS_LAB_ROOT: ${{ runner.temp }}/tslab-r36-pilot
+      SOURCE_SHA: 52529f0c711566d696917678bf15e7068772fdde
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Preflight research branch and Python scripts
+        run: |
+          set -euo pipefail
+          test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
+          python3 -m py_compile .github/ts-lab-r36/guard_suite.py .github/ts-lab-r36/run_phase.py .github/ts-lab-r36/reduce_abba.py .github/ts-lab-r35/native.py
+          mkdir -p "$TS_LAB_ROOT" evidence
+          echo "cpu=$(cat /sys/fs/cgroup/cpu.max)" | tee evidence/runner.txt
+          echo "memory=$(cat /sys/fs/cgroup/memory.max)" | tee -a evidence/runner.txt
+          nproc | tee -a evidence/runner.txt
+          df -h . | tee -a evidence/runner.txt
+      - name: Download verified R35 baseline binary (run 41732238195)
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 41732238195
+          name: tslab-r35-metric-drop-o2-binary-49eb57195e808efb818a3517bc15bc8706e51e03
+          path: ${{ runner.temp }}/r35-artifact
+      - name: Download source-matched R36 candidate (run 41787693315)
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 41787693315
+          name: tslab-r36-single-label-o2-binary-97fb89483b5ecb2e8187c811a8cc0bbf3b7b8576
+          path: ${{ runner.temp }}/r36-artifact
+      - name: Extract, check hashes, and identify binaries
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends zstd
+          for variant in r35 r36; do
+            mapfile -t archives < <(find "$RUNNER_TEMP/$variant-artifact" -name "clickhouse-$variant-*.tar.zst" -type f)
+            test "${#archives[@]}" -eq 1
+            mkdir -p "$RUNNER_TEMP/extract-$variant"
+            tar --use-compress-program=unzstd -xf "${archives[0]}" -C "$RUNNER_TEMP/extract-$variant"
+            (cd "$RUNNER_TEMP/extract-$variant" && sha256sum -c SHA256SUMS)
+            sha256sum "$RUNNER_TEMP/extract-$variant/clickhouse" | tee "evidence/$variant-binary.sha256"
+            "$RUNNER_TEMP/extract-$variant/clickhouse" --version | tee "evidence/$variant-version.txt"
+          done
+          echo "68d6e8f954a44beeb137acea61b0b77afac32cc705e59404413c233b57e6a06b  $RUNNER_TEMP/extract-r35/clickhouse" | sha256sum -c -
+          mkdir -p "$TS_LAB_ROOT/r35-metric-drop-o2/bin" "$TS_LAB_ROOT/r36-single-label-o2/bin"
+          cp "$RUNNER_TEMP/extract-r35/clickhouse" "$TS_LAB_ROOT/r35-metric-drop-o2/bin/clickhouse"
+          cp "$RUNNER_TEMP/extract-r36/clickhouse" "$TS_LAB_ROOT/r36-single-label-o2/bin/clickhouse"
+          chmod +x "$TS_LAB_ROOT"/r*/bin/clickhouse
+      - name: Native R35 oracle and physical-plan controls (156 cases)
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-r36/guard_suite.py r35 | tee evidence/r35-guard.log
+          cp "$TS_LAB_ROOT/guard-r35.json" evidence/
+      - name: Native R36 comparison; exercise 512 distinct source groups
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-r36/guard_suite.py r36 | tee evidence/r36-guard.log
+          cp "$TS_LAB_ROOT/guard-r36.json" evidence/
+      - name: Prepare deterministic 133k source-matched RAW UUID native dataset
+        run: |
+          set -euo pipefail
+          PYTHONPATH=.github/ts-lab-r35 python3 - <<'PY'
+          import json
+          from native import ROOT, Server, census, create_sparse
+          with Server(ROOT / 'r35-metric-drop-o2/bin/clickhouse', ROOT / 'native-pilot'):
+              total = create_sparse(builds=250)
+              print("INSERTED", total, flush=True)
+              assert total == 133000
+              (ROOT / 'pilot-parts.json').write_text(json.dumps(census(), indent=2))
+          PY
+          cp "$TS_LAB_ROOT/pilot-parts.json" evidence/
+      - name: Same-host fresh-process native R35/R36/R36/R35
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-r36/run_phase.py r35 60 --builds 250 --work native-pilot --cases stage,project,whole --label r36pilot --reps 4
+          python3 .github/ts-lab-r36/run_phase.py r36 61 --builds 250 --work native-pilot --cases stage,project,whole --label r36pilot --reps 4
+          python3 .github/ts-lab-r36/run_phase.py r36 62 --builds 250 --work native-pilot --cases stage,project,whole --label r36pilot --reps 4
+          python3 .github/ts-lab-r36/run_phase.py r35 63 --builds 250 --work native-pilot --cases stage,project,whole --label r36pilot --reps 4
+      - name: Strict full-result and physical-read reducer
+        run: |
+          set -euo pipefail
+          python3 .github/ts-lab-r36/reduce_abba.py \
+            "$TS_LAB_ROOT/r36pilot-r35-60.json" "$TS_LAB_ROOT/r36pilot-r36-61.json" \
+            "$TS_LAB_ROOT/r36pilot-r36-62.json" "$TS_LAB_ROOT/r36pilot-r35-63.json" \
+            --output evidence/r36-pilot-result.json | tee evidence/reduction.log
+      - name: Upload all available outputs including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tslab-r36-native-pilot-${{ github.sha }}
+          path: |
+            evidence/
+            ${{ env.TS_LAB_ROOT }}/guard-*.json
+            ${{ env.TS_LAB_ROOT }}/r36pilot-*.json
+          compression-level: 4
+          retention-days: 45
+          if-no-files-found: warn
