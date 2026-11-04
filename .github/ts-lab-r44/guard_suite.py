@@ -54,7 +54,7 @@ def equal(a,b):
     if isinstance(a,list) and isinstance(b,list):return len(a)==len(b) and all(equal(x,y) for x,y in zip(a,b))
     return a==b
 with Server(binary,ROOT/'guard-data'):
-    if args.variant=='r40':
+    if args.variant=='r43':
         sql('DROP TABLE IF EXISTS guard')
         sql('CREATE TABLE guard ENGINE=TimeSeries SETTINGS recent_samples_ttl_seconds=0')
         for metric,instance,stage,values in [
