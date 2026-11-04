@@ -38,5 +38,27 @@
     "Censored harness-timeout attempts as successful measurements or kernel OOMs"
   ],
   "next_dependent_experiment": "Sustained open-loop mixed-selector read/write/merge load under the same finite resource budget, with tenant/ACL and retention gates. Keep R34/R35 cumulative integration separate and source-matched.",
-  "production_master_upstream_changed": false
+  "production_master_upstream_changed": false,
+  "schema_version": 1,
+  "session_id": "r35-native-completed-20261104",
+  "status": "handoff",
+  "branch": "lab/ts-cbo-adaptive-20261103",
+  "branch_head": "a944672f53c575c1eae9051b449f8c568c4b8651",
+  "last_verified_utc": "2026-11-04T06:45:00Z",
+  "summary": "R35 completed native candidate, same-source O2/jemalloc verified with native semantic guards and ABBA; production and VictoriaMetrics performance parity are not established.",
+  "negative_results": [
+    "R32 finalizer-only experiment had no reliable native speedup",
+    "R34 sparse-map change was measured separately and gains cannot be multiplied with R35",
+    "No production mixed traffic, ingestion, retention, tenant or distributed validation yet"
+  ],
+  "active_run_ids": [],
+  "blocked_by": [
+    "Sustained mixed read/write benchmark",
+    "Tenant ACL and distributed execution correctness gate"
+  ],
+  "next_action": {
+    "question_id": "R35",
+    "step": "Validate sustained mixed native selector reads concurrent with remote-write ingest, merges and retention, including tenant and distributed guards.",
+    "stop_condition": "Reject production promotion if any native output differs from oracle, memory caps fail, or tail latency and CPU regress."
+  }
 }
