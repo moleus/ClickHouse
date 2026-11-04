@@ -27,8 +27,10 @@ jobs:
           test "$(readlink AGENTS.md)" = .claude/CLAUDE.md
           python3 -m py_compile .github/ts-lab-r36/guard_suite.py .github/ts-lab-r36/run_phase.py .github/ts-lab-r36/reduce_abba.py .github/ts-lab-r35/native.py
           mkdir -p "$TS_LAB_ROOT" evidence
-          echo "cpu=$(cat /sys/fs/cgroup/cpu.max)" | tee evidence/runner.txt
-          echo "memory=$(cat /sys/fs/cgroup/memory.max)" | tee -a evidence/runner.txt
+          echo "cpu_v2=$(cat /sys/fs/cgroup/cpu.max 2>/dev/null || true)" | tee evidence/runner.txt
+          echo "cpu_v1_quota=$(cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us 2>/dev/null || true)" | tee -a evidence/runner.txt
+          echo "memory_v2=$(cat /sys/fs/cgroup/memory.max 2>/dev/null || true)" | tee -a evidence/runner.txt
+          echo "memory_v1=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null || true)" | tee -a evidence/runner.txt
           nproc | tee -a evidence/runner.txt
           df -h . | tee -a evidence/runner.txt
       - name: Download verified R35 baseline binary (run 41732238195)
