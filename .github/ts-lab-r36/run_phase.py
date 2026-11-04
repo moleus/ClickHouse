@@ -39,9 +39,17 @@ p.add_argument('--reps',type=int,default=6);p.add_argument('--builds',type=int,d
 p.add_argument('--work',default='native-data');p.add_argument('--cases',default='stage,project,whole');p.add_argument('--label',default='phase');args=p.parse_args()
 paths={'stock':'r29-stock-o2','r32':'r32-onebucket-o2','r34':'r34-sparse-map-o2','r35':'r35-metric-drop-o2','r36':'r36-single-label-o2'}
 binary=ROOT/paths[args.variant]/'bin/clickhouse'
+def read_cgroup(*paths):
+    for path in paths:
+        try:return pathlib.Path(path).read_text().strip()
+        except (FileNotFoundError, PermissionError):pass
+    return "unavailable"
+
 report={'variant':args.variant,'phase':args.phase,'binary_sha256':sha(binary),'queries':{},'errors':[],
-        'started_unix':time.time(),'cpu_max':pathlib.Path('/sys/fs/cgroup/cpu.max').read_text(),
-        'memory_max':pathlib.Path('/sys/fs/cgroup/memory.max').read_text(),
+        'started_unix':time.time(),
+        'cpu_max':read_cgroup('/sys/fs/cgroup/cpu.max','/sys/fs/cgroup/cpu/cpu.cfs_quota_us'),
+        'memory_max':read_cgroup('/sys/fs/cgroup/memory.max','/sys/fs/cgroup/memory/memory.limit_in_bytes'),
+        'cpu_affinity':len(os.sched_getaffinity(0)) if hasattr(os,'sched_getaffinity') else os.cpu_count(),
         'query_threads':2,'builds_per_day':args.builds}
 output=ROOT/f'{args.label}-{args.variant}-{args.phase}.json'
 try:
