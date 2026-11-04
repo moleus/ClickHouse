@@ -104,8 +104,8 @@ def main():
     results=patch(originals)
     patch_path=Path(args.out)
     patch_path.parent.mkdir(parents=True,exist_ok=True)
-    diff="".join(difflib.unified_diff(originals[file].splitlines(True),results[file].splitlines(True),
-                                     fromfile="a/"+file,tofile="b/"+file)
+    diff="".join("".join(difflib.unified_diff(originals[file].splitlines(True),results[file].splitlines(True),
+                                     fromfile="a/"+file,tofile="b/"+file))
                  for file in (COMPILER,PIECE,FINALIZER))
     patch_path.write_text(diff)
     if args.apply:
